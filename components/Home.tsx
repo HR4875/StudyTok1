@@ -18,8 +18,8 @@ interface Props {
 }
 
 const MODES: { id: RenderMode; label: string; hint: string }[] = [
-  { id: "text", label: "📝 텍스트 숏츠", hint: "도식·표·그래프 카드 · 빠르고 저렴해요" },
-  { id: "motion", label: "🎬 모션그래픽", hint: "개념마다 움직임까지 설계 · 더 오래 걸려요" },
+  { id: "text", label: "📝 텍스트 숏츠", hint: "그림·표·그래프 카드 · 빠르고 저렴해요" },
+  { id: "motion", label: "🎬 모션그래픽", hint: "같은 카드를 움직이는 영상으로 · 추가 비용 없음" },
 ];
 
 export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, onFiles, onLibrary, onSample, apiReady }: Props) {
@@ -148,8 +148,8 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
         {err ? <p className="mt-3 text-center text-[13px] font-semibold text-[#E03E3E]">{err}</p> : null}
 
         <div className="mt-4 flex items-center justify-center gap-2">
-          <span className="w-[74px] text-right text-[13px] font-bold text-[var(--muted)]">만드는 방식</span>
-          <div className="flex rounded-full bg-white p-1 shadow-sm ring-1 ring-black/5" role="radiogroup" aria-label="만드는 방식">
+          <span className="w-[74px] text-right text-[13px] font-bold text-[var(--muted)]">보는 방식</span>
+          <div className="flex rounded-full bg-white p-1 shadow-sm ring-1 ring-black/5" role="radiogroup" aria-label="보는 방식">
             {MODES.map((m) => (
               <button
                 key={m.id}
@@ -168,7 +168,7 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
         </div>
         <p className="mt-1.5 text-center text-[12px] font-semibold text-[var(--muted)]">
           {MODES.find((m) => m.id === mode)?.hint}
-          {mode === "text" ? " · 기본" : ""}
+          {mode === "text" ? " · 기본" : ""} · 피드에서도 바꿀 수 있어요
         </p>
 
         <div className="mt-2.5 flex items-center justify-center gap-2">

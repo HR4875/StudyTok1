@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { addUsage, getHealth } from "@/lib/api";
-import { refreshDeck, regenerateCard, startJob, type JobHandle, type JobState } from "@/lib/generate";
-import { SAMPLE_DECK } from "@/lib/samples";
+import { regenerateCard, startJob, type JobHandle, type JobState } from "@/lib/generate";
+import { SAMPLE_DECKS } from "@/lib/sampleDecks";
 import type { Deck } from "@/lib/schema";
 import { unlockAudio } from "@/lib/sfx";
 import { deleteDeck, loadDecks, loadSettings, saveDeck, saveSettings, type Settings } from "@/lib/storage";
@@ -80,7 +80,7 @@ export default function App() {
 
   const open = (d: Deck) => {
     unlockAudio();
-    setOpenDeck(refreshDeck(d));
+    setOpenDeck(d);
     setScreen("feed");
   };
 
@@ -132,13 +132,13 @@ export default function App() {
             refreshDecks();
             setScreen("library");
           }}
-          onSample={() => open(SAMPLE_DECK)}
+          onSample={() => open(SAMPLE_DECKS[0])}
           apiReady={apiReady}
         />
       ) : screen === "library" ? (
         <Library
           decks={decks}
-          sample={SAMPLE_DECK}
+          samples={SAMPLE_DECKS}
           generatingId={generatingId}
           onOpen={(d) => open(job?.deck?.id === d.id && job.deck ? job.deck : d)}
           onDelete={(id) => {
@@ -159,7 +159,7 @@ export default function App() {
           onOpenEarly={() => job.deck && open(job.deck)}
           onChooseRange={(r) => handle.current?.chooseRange(r)}
           onRetry={() => begin(lastFiles.current)}
-          onSample={() => open(SAMPLE_DECK)}
+          onSample={() => open(SAMPLE_DECKS[0])}
         />
       ) : screen === "feed" && openDeck ? (
         <Feed
@@ -184,7 +184,7 @@ export default function App() {
           onMode={(m) => setSettings({ ...settings, mode: m })}
           onFiles={begin}
           onLibrary={() => setScreen("library")}
-          onSample={() => open(SAMPLE_DECK)}
+          onSample={() => open(SAMPLE_DECKS[0])}
           apiReady={apiReady}
         />
       )}

@@ -2,14 +2,20 @@
 
 import { Player, Thumbnail, type PlayerRef } from "@remotion/player";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getTimeline } from "@/lib/compileVisual";
 import type { Scene } from "@/lib/schema";
 import { playSfx } from "@/lib/sfx";
+import type { TextShort, VisualPlan } from "@/lib/visual";
 import { ConceptScene, getCompiled } from "@/motion/ConceptScene";
 import { bgCss } from "@/motion/palettes";
-import { FPS, W } from "@/motion/timeline";
+import { TemplateScene } from "@/motion/TemplateScene";
+import { FPS, W, type Cue } from "@/motion/timeline";
+
+/** 모션 카드에 넣을 것: AI가 직접 안무한 장면(scene) 또는 텍스트 숏츠 칸으로 만든 템플릿 모션 */
+export type MotionSrc = { kind: "scene"; scene: Scene } | { kind: "template"; short: TextShort; plan?: Partial<VisualPlan> | null };
 
 interface Props {
-  scene: Scene;
+  src: MotionSrc;
   mode: "active" | "near" | "far";
   compHeight: number;
   speed: number;
@@ -20,8 +26,36 @@ interface Props {
   onProgress?: (p: number) => void;
 }
 
-export default function SceneCard({ scene, mode, compHeight, speed, sound, captions, autoNext, onEnded, onProgress }: Props) {
-  const c = useMemo(() => getCompiled(scene), [scene]);
+function useMotion(src: MotionSrc, compHeight: number, captions: boolean) {
+  const scene = src.kind === "scene" ? src.scene : null;
+  const short = src.kind === "template" ? src.short : null;
+  const plan = src.kind === "template" ? (src.plan ?? null) : null;
+  return useMemo(() => {
+    if (scene) {
+      const c = getCompiled(scene);
+      return {
+        component: ConceptScene as unknown as React.FC<Record<string, unknown>>,
+        total: c.total,
+        cues: c.cues as Cue[],
+        palette: scene.palette,
+        term: scene.term,
+        inputProps: { scene, height: compHeight, showCaptions: captions } as Record<string, unknown>,
+      };
+    }
+    const tl = getTimeline(short!, plan);
+    return {
+      component: TemplateScene as unknown as React.FC<Record<string, unknown>>,
+      total: tl.total,
+      cues: tl.cues,
+      palette: short!.palette,
+      term: short!.term,
+      inputProps: { short, plan, height: compHeight, showCaptions: captions } as Record<string, unknown>,
+    };
+  }, [scene, short, plan, compHeight, captions]);
+}
+
+export default function SceneCard({ src, mode, compHeight, speed, sound, captions, autoNext, onEnded, onProgress }: Props) {
+  const m = useMotion(src, compHeight, captions);
   const ref = useRef<PlayerRef>(null);
   const [paused, setPaused] = useState(false);
   const last = useRef(-1);
@@ -33,7 +67,6 @@ export default function SceneCard({ scene, mode, compHeight, speed, sound, capti
   speedRef.current = speed;
   endedRef.current = onEnded;
   progressRef.current = onProgress;
-  const inputProps = useMemo(() => ({ scene, height: compHeight, showCaptions: captions }), [scene, compHeight, captions]);
 
   // frame-synced sound effects
   useEffect(() => {
@@ -45,7 +78,7 @@ export default function SceneCard({ scene, mode, compHeight, speed, sound, capti
       const fr = e.detail.frame;
       const prev = last.current;
       last.current = fr;
-      progressRef.current?.(fr / Math.max(1, c.total - 1));
+      progressRef.current?.(fr / Math.max(1, m.total - 1));
       if (!soundRef.current) return;
       let lo: number;
       if (fr >= prev && prev >= 0) {
@@ -55,7 +88,7 @@ export default function SceneCard({ scene, mode, compHeight, speed, sound, capti
         lo = -1; // looped back to the start
         if (fr > 12) return;
       } else lo = fr - 1;
-      for (const cue of c.cues) {
+      for (const cue of m.cues) {
         if (cue.f > lo && cue.f <= fr) playSfx(cue.kind, cue.dur ?? 1, speedRef.current);
       }
     };
@@ -72,7 +105,7 @@ export default function SceneCard({ scene, mode, compHeight, speed, sound, capti
       p.removeEventListener("pause", onPause);
       p.removeEventListener("play", onPlay);
     };
-  }, [mode, c]);
+  }, [mode, m]);
 
   // restart from the beginning whenever the card becomes active
   useEffect(() => {
@@ -85,34 +118,34 @@ export default function SceneCard({ scene, mode, compHeight, speed, sound, capti
 
   if (mode === "far") {
     return (
-      <div className="flex h-full w-full items-center justify-center" style={{ background: bgCss(scene.palette) }}>
-        <span className="font-jua text-[44px] text-white/90 drop-shadow">{scene.term}</span>
+      <div className="flex h-full w-full items-center justify-center" style={{ background: bgCss(m.palette) }}>
+        <span className="font-jua text-[44px] text-white/90 drop-shadow">{m.term}</span>
       </div>
     );
   }
   if (mode === "near") {
     return (
-      <div className="h-full w-full" style={{ background: bgCss(scene.palette) }}>
+      <div className="h-full w-full" style={{ background: bgCss(m.palette) }}>
         <Thumbnail
-          component={ConceptScene}
+          component={m.component}
           compositionWidth={W}
           compositionHeight={compHeight}
-          frameToDisplay={Math.min(c.total - 1, 18)}
-          durationInFrames={c.total}
+          frameToDisplay={Math.min(m.total - 1, 18)}
+          durationInFrames={m.total}
           fps={FPS}
-          inputProps={inputProps}
+          inputProps={m.inputProps}
           style={{ width: "100%", height: "100%" }}
         />
       </div>
     );
   }
   return (
-    <div className="relative h-full w-full" style={{ background: bgCss(scene.palette) }}>
+    <div className="relative h-full w-full" style={{ background: bgCss(m.palette) }}>
       <Player
         ref={ref}
-        component={ConceptScene}
-        inputProps={inputProps}
-        durationInFrames={c.total}
+        component={m.component}
+        inputProps={m.inputProps}
+        durationInFrames={m.total}
         compositionWidth={W}
         compositionHeight={compHeight}
         fps={FPS}
@@ -137,7 +170,7 @@ export default function SceneCard({ scene, mode, compHeight, speed, sound, capti
           if (!p) return;
           if (p.isPlaying()) p.pause();
           else {
-            if (p.getCurrentFrame() >= c.total - 1) p.seekTo(0);
+            if (p.getCurrentFrame() >= m.total - 1) p.seekTo(0);
             p.play();
           }
         }}

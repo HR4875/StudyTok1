@@ -1,4 +1,4 @@
-// 2단계 API: 개념 하나 → 검사를 통과한 장면 JSON (NDJSON 스트림)
+// (비교 실험용) AI가 모션 장면을 직접 짜는 방식: 개념 하나 → 검사를 통과한 장면 JSON (NDJSON 스트림). 앱 화면은 /api/card 를 쓴다
 import type { SceneResult } from "@/lib/schema";
 import { AiError } from "@/lib/server/claude";
 import { isMock, jsonError, ndjson, preflight, readJson } from "@/lib/server/http";

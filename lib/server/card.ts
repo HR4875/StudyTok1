@@ -1,21 +1,13 @@
-// 2단계(기본): 개념 하나 → 그림 틀 칸 채우기(CardFill). 텍스트 숏츠는 이 결과를 코드로 그린다.
-// 검사(validateVisual)에 걸리면 문제를 알려 주고 같은 틀로 한 번 더, 또 걸리면 대신 틀(수치 틀→단계·분류, 그 밖→비유)로 한 번 더.
-// 그래도 안 되면 AI 없이 기본 카드로 대신한다.
-import { fallbackScene, seededRand, shuffleQuiz } from "../fallback";
+// 2단계(기본): 개념 하나 → 그림 틀 칸 채우기 → 텍스트 숏츠(TextShort).
+// 다듬기·검사는 디자인 스레드의 buildShort(lib/assemble.ts)를 그대로 쓰고, 퀴즈가 망가졌는지만 여기서 한 번 더 본다.
+// 검사에 걸리면 문제를 알려 주고 같은 틀로 한 번 더, 또 걸리면 대신 틀(수치 틀→단계·분류, 그 밖→비유)로 한 번 더.
+// 그래도 안 되면 AI 없이 기본 카드로 대신한다. 모션 보기도 같은 TextShort로 그리므로 AI를 더 부르지 않는다.
+import { buildShort, type PlannedConcept } from "../assemble";
+import { fallbackScene } from "../fallback";
 import { LIMITS } from "../models";
 import type { CardResult, RenderMode, SceneRequest, StreamEvent, Usage } from "../schema";
 import { cleanStr } from "../text";
-import {
-  NUMERIC_FALLBACK,
-  cardFillSchema,
-  lintShort,
-  repairShort,
-  toTextShort,
-  validateVisual,
-  type CardFill,
-  type Visual,
-  type VisualTemplate,
-} from "../visual";
+import { NUMERIC_FALLBACK, cardFillSchema, type TextShort, type VisualTemplate } from "../visual";
 import { AiError, callJson, sumUsage, type Effort } from "./claude";
 import { firstEmoji } from "./checks";
 import { parsePlan } from "./plan";
@@ -35,35 +27,46 @@ function tidyEmoji<T>(node: T): T {
   return out as T;
 }
 
-export function checkFill(raw: unknown, template: VisualTemplate, concept: SceneRequest["concept"]): { fill: CardFill | null; errors: string[]; warnings: string[] } {
-  const parsed = cardFillSchema(template).safeParse(raw);
-  if (!parsed.success) return { fill: null, errors: parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".")}: ${i.message}`), warnings: [] };
-  const errors = validateVisual(template, parsed.data.visual);
-  const q = parsed.data.quiz;
-  const options = q.options.map((o) => cleanStr(o, 80));
-  if (!cleanStr(q.question)) errors.push("퀴즈 질문이 비었음");
-  if (options.length !== 4 || new Set(options).size !== 4 || options.some((o) => !o)) errors.push("퀴즈 보기는 서로 다른 4개여야 함");
-  if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) errors.push("퀴즈 answer는 0~3");
-  if (errors.length) return { fill: null, errors, warnings: [] };
+/** 검사 전에 글자를 다듬는다 (제어 문자·공백·길이). 원본은 건드리지 않는다 */
+function tidyRaw(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const r = { ...(raw as Record<string, unknown>) };
+  if (typeof r.hook === "string") r.hook = cleanStr(r.hook, 60);
+  if (r.visual && typeof r.visual === "object") r.visual = tidyEmoji(r.visual);
+  const q = r.quiz;
+  if (q && typeof q === "object" && !Array.isArray(q)) {
+    const qq = q as Record<string, unknown>;
+    r.quiz = {
+      ...qq,
+      question: cleanStr(qq.question, 160),
+      options: Array.isArray(qq.options) ? qq.options.map((o) => cleanStr(o, 80)) : qq.options,
+      explanation: cleanStr(qq.explanation, 200),
+    };
+  }
+  return r;
+}
 
-  const short = repairShort(
-    toTextShort(concept, {
-      ...parsed.data,
-      hook: cleanStr(parsed.data.hook, 60),
-      visual: tidyEmoji(parsed.data.visual) as Visual,
-      quiz: { ...q, question: cleanStr(q.question, 160), options, explanation: cleanStr(q.explanation, 200) },
-    }),
-  );
-  const warnings = lintShort(short);
-  const fill: CardFill = {
-    hook: short.hook,
-    highlight: short.highlight,
-    palette: short.palette,
-    visual: short.visual,
-    // 정답이 한 자리에 몰리지 않게, 같은 개념이면 같은 순서로 섞는다
-    quiz: shuffleQuiz(short.quiz, seededRand(`${concept.term}|${short.quiz.question}`)),
-  };
-  return { fill, errors: [], warnings };
+/** 퀴즈가 풀 수 있는 모양인지: buildShort는 경고만 하므로 여기서 막는다 */
+function quizErrors(s: TextShort): string[] {
+  const q = s.quiz;
+  const errors: string[] = [];
+  if (!q.question) errors.push("퀴즈 질문이 비었음");
+  if (q.options.length !== 4 || new Set(q.options).size !== 4 || q.options.some((o) => !o)) errors.push("퀴즈 보기는 서로 다른 4개여야 함");
+  if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) errors.push("퀴즈 answer는 0~3");
+  return errors;
+}
+
+/** AI가 채운 칸 → 텍스트 숏츠. 실패하면 다시 물어볼 때 붙일 문제 목록을 돌려준다 */
+export function checkCard(raw: unknown, concept: PlannedConcept): { short: TextShort | null; errors: string[]; warnings: string[] } {
+  const b = buildShort(concept, tidyRaw(raw));
+  if (!b.short) return { short: null, errors: b.errors, warnings: [] };
+  const errors = quizErrors(b.short);
+  if (errors.length) return { short: null, errors, warnings: [] };
+  return { short: b.short, errors: [], warnings: b.warnings };
+}
+
+export function plannedConcept(concept: SceneRequest["concept"]): PlannedConcept {
+  return { ...concept, plan: concept.plan ?? parsePlan(null, concept) };
 }
 
 export async function runCard(
@@ -73,9 +76,8 @@ export async function runCard(
   budgetMs: number,
 ): Promise<{ result: CardResult; usage: Usage }> {
   const until = Date.now() + budgetMs;
-  const plan = req.concept.plan ?? parsePlan(null, req.concept);
-  const concept = { ...req.concept, plan };
-  let template: VisualTemplate = plan.template;
+  const concept = plannedConcept(req.concept);
+  let template: VisualTemplate = concept.plan.template;
   let retryIssues: string[] | undefined;
   const issues: string[] = [];
   let usage: Usage | undefined;
@@ -87,22 +89,23 @@ export async function runCard(
       break;
     }
     if (attempt) send({ type: "status", message: retryIssues ? "검사에 걸린 칸을 고쳐 다시 채우는 중…" : "다른 그림 틀로 다시 만드는 중…" });
+    const planned: PlannedConcept = { ...concept, plan: { ...concept.plan, template } };
     try {
       const r = await callJson({
         model: req.model,
         effort: req.effort,
         system: CARD_SYSTEM,
-        user: [{ type: "text", text: cardUser({ ...req, concept }, template, GUIDES[template], { prevPalette: req.prevPalette, retryIssues }) }],
+        user: [{ type: "text", text: cardUser({ ...req, concept: planned }, template, GUIDES[template], { prevPalette: req.prevPalette, retryIssues }) }],
         schema: cardFillSchema(template),
         maxTokens: LIMITS.maxOutputTokens.text,
         deadlineMs: left,
         signal,
       });
       usage = sumUsage(usage, r.usage);
-      const chk = checkFill(r.raw, template, concept);
-      if (chk.fill) {
+      const chk = checkCard(r.raw, planned);
+      if (chk.short) {
         issues.push(...chk.warnings);
-        return { result: { template, fill: chk.fill, fallback: false, issues }, usage };
+        return { result: { template, short: chk.short, fallback: false, issues }, usage };
       }
       issues.push(...chk.errors.map((e) => `${template}: ${e}`));
       if (attempt === 0) retryIssues = chk.errors;
@@ -122,5 +125,5 @@ export async function runCard(
   }
 
   const scene = fallbackScene(req.concept, req.others ?? [], req.index);
-  return { result: { template, fill: null, fallback: true, issues, scene }, usage: usage ?? sumUsage() };
+  return { result: { template, short: null, fallback: true, issues, scene }, usage: usage ?? sumUsage() };
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
+import { thumbOf } from "@/lib/cards";
 import type { Deck } from "@/lib/schema";
 import { PALETTE_BG } from "@/motion/palettes";
 
 interface Props {
   decks: Deck[];
-  sample: Deck;
+  samples: Deck[];
   generatingId: string | null;
   onOpen: (deck: Deck) => void;
   onDelete: (id: string) => void;
@@ -17,9 +18,9 @@ function DeckRow({ deck, generating, onOpen, onDelete }: { deck: Deck; generatin
   const [confirm, setConfirm] = useState(false);
   const ready = deck.cards.filter((c) => c.status === "ready").length;
   const failed = deck.cards.filter((c) => c.status === "error").length;
-  const first = deck.cards.find((c) => c.scene)?.scene;
-  const pal = PALETTE_BG[first?.palette ?? "blue"];
-  const emoji = first?.actors.find((a) => a.emoji)?.emoji ?? "🎞️";
+  const thumb = thumbOf(deck.cards);
+  const pal = PALETTE_BG[thumb.palette] ?? PALETTE_BG.blue;
+  const emoji = thumb.emoji;
   const date = new Date(deck.createdAt);
   return (
     <div className="flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-[0_6px_20px_rgba(27,27,58,0.06)] ring-1 ring-black/5">
@@ -61,7 +62,7 @@ function DeckRow({ deck, generating, onOpen, onDelete }: { deck: Deck; generatin
   );
 }
 
-export default function Library({ decks, sample, generatingId, onOpen, onDelete, onBack }: Props) {
+export default function Library({ decks, samples, generatingId, onOpen, onDelete, onBack }: Props) {
   return (
     <div className="flex h-full flex-col bg-[var(--page)]">
       <header className="flex items-center gap-2 px-3 pb-2 pt-[max(14px,env(safe-area-inset-top))]">
@@ -85,7 +86,9 @@ export default function Library({ decks, sample, generatingId, onOpen, onDelete,
           ))
         )}
         <p className="px-1 pt-4 text-[12.5px] font-extrabold tracking-wide text-[var(--muted)]">예시</p>
-        <DeckRow deck={sample} generating={false} onOpen={() => onOpen(sample)} />
+        {samples.map((s) => (
+          <DeckRow key={s.id} deck={s} generating={false} onOpen={() => onOpen(s)} />
+        ))}
       </div>
     </div>
   );

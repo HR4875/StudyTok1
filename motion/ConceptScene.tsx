@@ -590,7 +590,7 @@ function splitTerm(term: string): { lines: string[]; size: number } {
   return { lines: best.lines, size: Math.max(70, Math.min(190, 960 / best.max)) };
 }
 
-function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number; termAt: number; oy: number }) {
+export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number; termAt: number; oy: number }) {
   if (fr < termAt) return null;
   const s = sp(fr, termAt, 9, 260, 0.9);
   const scale = interpolate(s, [0, 1], [2.4, 1]);

@@ -1,16 +1,18 @@
 "use client";
 // 생성 파이프라인 (브라우저 쪽 지휘):
-//   자료 읽기 → 쪽 범위 고르기(PDF는 항상) → 개념 뽑기(/api/outline) → 개념별 카드(/api/scene, 3장씩 동시) → 저장
-// 서버가 장면을 검사·재시도하고, 그래도 안 되면 기본 텍스트 카드로 대신한다.
+//   자료 읽기 → 쪽 범위 고르기(PDF는 항상) → 개념 뽑기 + 그림 판단(/api/outline)
+//   → 개념별 텍스트 숏츠(/api/card, 3장씩 동시) → 저장
+// 텍스트 숏츠와 모션은 같은 카드(TextShort)를 다르게 보여 줄 뿐이라, 어느 쪽을 골라도 AI 호출은 같다.
+// 서버가 카드를 검사·재시도하고, 그래도 안 되면 기본 카드로 대신한다.
 // 요청이 몰리거나 연결이 끊긴 카드는 여기서 잠시 뒤 다시 부르고, 끝내 안 되면 기본 카드로 채운다.
 import { ApiError, RETRYABLE, addUsage, postStream } from "./api";
+import { paletteOf, withPalette } from "./cards";
 import { isImage, isPdf } from "./extract";
 import { fallbackScene } from "./fallback";
 import { imageToJpeg } from "./images";
 import { LIMITS } from "./models";
 import { SCANNED_BELOW, hashBytes, openPdf, readPdfPages, renderPageJpeg, type PdfPage } from "./pdf";
-import { PALETTES, type Card, type CardResult, type Deck, type Outline, type OutlineRequest, type RenderMode, type Scene, type SceneRequest, type SceneResult, type Usage } from "./schema";
-import { sceneFromFill } from "./visualScene";
+import { PALETTES, type Card, type CardResult, type Deck, type Outline, type OutlineRequest, type RenderMode, type Scene, type SceneRequest, type Usage } from "./schema";
 import { findDeckByKey, newId, saveDeck } from "./storage";
 
 export type JobPhase = "reading" | "range" | "outline" | "scenes" | "done" | "error";
@@ -101,44 +103,37 @@ function sceneRequestFor(d: Deck, card: Card, model?: string): SceneRequest {
   };
 }
 
-/** 바로 앞·뒤 카드와 배경색이 겹치면 다른 색으로 돌린다 */
-function avoidSamePalette(d: Deck, card: Card, scene: Scene): Scene {
-  // 카드 객체는 상태가 바뀔 때마다 새로 만들어지므로 id로 찾는다
-  const i = d.cards.findIndex((c) => c.id === card.id);
-  if (i < 0) return scene;
-  const near = [d.cards[i - 1]?.scene?.palette, d.cards[i + 1]?.scene?.palette].filter(Boolean);
-  if (!near.includes(scene.palette)) return scene;
-  const start = PALETTES.indexOf(scene.palette);
-  for (let k = 1; k < PALETTES.length; k++) {
-    const p = PALETTES[(start + k) % PALETTES.length];
-    if (!near.includes(p)) return { ...scene, palette: p };
-  }
-  return scene;
-}
-
 /**
- * 카드 한 장 만들기. 텍스트 숏츠는 /api/card(그림 틀 칸 채우기 → 코드로 그림),
- * 모션은 /api/scene(AI가 장면을 직접 설계).
+ * 카드 한 장 만들기: /api/card 가 그림 틀 칸을 채워 텍스트 숏츠(short)를 돌려준다.
+ * 모션 보기는 같은 short로 브라우저에서 만든다(추가 AI 호출 없음). 끝내 실패하면 기본 카드(scene).
  */
 async function generateOne(d: Deck, card: Card, signal?: AbortSignal, model?: string): Promise<{ patch: Partial<Card>; usage?: Usage }> {
   const req = sceneRequestFor(d, card, model);
-  if ((d.mode ?? "text") === "motion") {
-    const res = await postStream<SceneResult>("/api/scene", req, { signal });
-    return { patch: { scene: res.data.scene, fallback: res.data.fallback, fill: undefined, template: card.concept.plan?.template }, usage: res.usage };
-  }
-  const prevPalette = d.cards[req.index - 1]?.scene?.palette;
+  const prev = d.cards[req.index - 1];
+  const prevPalette = prev ? paletteOf(prev) : undefined;
   const res = await postStream<CardResult>("/api/card", { ...req, prevPalette }, { signal });
   const r = res.data;
-  const fill = r.fill ?? undefined;
-  const scene = fill ? sceneFromFill(card.concept, fill) : r.scene!;
-  return { patch: { scene, fill, template: r.template, fallback: r.fallback }, usage: res.usage };
+  return { patch: { short: r.short, scene: r.short ? null : (r.scene ?? null), fallback: r.fallback }, usage: res.usage };
 }
 
+/**
+ * 바로 앞·뒤 카드와 배경색이 겹치면 다른 색으로 돌린다. 카드는 끝나는 순서가 제각각이라
+ * 끝난 시점의 덱을 보고 이 카드만 고친다(이미 보고 있는 다른 카드 색은 바꾸지 않는다).
+ */
 function withPaletteFix(d: Deck, card: Card, patch: Partial<Card>): Partial<Card> {
-  if (!patch.scene) return patch;
-  const scene = avoidSamePalette(d, card, patch.scene);
-  if (scene === patch.scene) return patch;
-  return { ...patch, scene, fill: patch.fill ? { ...patch.fill, palette: scene.palette } : patch.fill };
+  const own = paletteOf(patch);
+  if (!own) return patch;
+  // 카드 객체는 상태가 바뀔 때마다 새로 만들어지므로 id로 찾는다
+  const i = d.cards.findIndex((c) => c.id === card.id);
+  if (i < 0) return patch;
+  const near = [d.cards[i - 1], d.cards[i + 1]].map((c) => (c ? paletteOf(c) : undefined)).filter(Boolean);
+  if (!near.includes(own)) return patch;
+  const start = PALETTES.indexOf(own);
+  for (let k = 1; k < PALETTES.length; k++) {
+    const p = PALETTES[(start + k) % PALETTES.length];
+    if (!near.includes(p)) return withPalette(patch, p);
+  }
+  return patch;
 }
 
 export function startJob(files: File[], opts: JobOptions, onState: (s: JobState) => void): JobHandle {
@@ -206,8 +201,8 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
           // 끝내 안 되면 AI 없이 기본 텍스트 카드로 채운다
           const req = sceneRequestFor(d, card);
           const scene: Scene = fallbackScene(card.concept, req.others ?? [], req.index);
-          const patch = deck ? withPaletteFix(deck, card, { scene }) : { scene };
-          putCard(id, { ...patch, status: "ready", fallback: true, fill: undefined, error: undefined });
+          const patch = deck ? withPaletteFix(deck, card, { scene, short: null }) : { scene, short: null };
+          putCard(id, { ...patch, status: "ready", fallback: true, error: undefined });
           return;
         }
       }
@@ -296,7 +291,8 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
       if (!pages.length && !images.length) throw new ApiError("고른 쪽에 읽을 내용이 없어요. 다른 범위를 골라 주세요.", "EMPTY");
 
       /* ---------- 같은 자료로 만든 덱이 있으면 다시 만들지 않는다 ---------- */
-      const key = `${keyBase}:${opts.count}:${opts.mode}:${opts.model ?? ""}`;
+      // 텍스트·모션은 같은 카드를 다르게 보여 줄 뿐이라 열쇠에 넣지 않는다
+      const key = `${keyBase}:${opts.count}:${opts.model ?? ""}`;
       const cached = findDeckByKey(key);
       if (cached) {
         set({
@@ -357,7 +353,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
       saveDeck(deck);
       set({
         phase: "scenes",
-        message: opts.mode === "motion" ? "개념별 모션 만드는 중…" : "개념별 카드 만드는 중…",
+        message: "개념별 카드 만드는 중…",
         found: outline.concepts.map((c) => c.term),
         total: deck.cards.length,
         ready: 0,
@@ -423,10 +419,4 @@ export async function regenerateCard(deck: Deck, cardId: string): Promise<{ patc
       throw e;
     }
   }
-}
-
-/** 그림 틀로 만든 카드는 열 때마다 지금 변환기로 다시 그린다 (변환기가 좋아지면 예전 덱도 같이 좋아진다) */
-export function refreshDeck(d: Deck): Deck {
-  if (!d.cards.some((c) => c.fill)) return d;
-  return { ...d, cards: d.cards.map((c) => (c.fill && c.status === "ready" ? { ...c, scene: sceneFromFill(c.concept, c.fill) } : c)) };
 }

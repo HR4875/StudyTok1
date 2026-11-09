@@ -109,3 +109,68 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-floaty, .animate-bob, .animate-shimmer { animation: none; }
 }
+
+/* ---- 텍스트 숏츠 등장 효과 (UX/UI 디자인 스레드 renderer/src/styles/ts-anim.css) ---- */
+/* ------------------------------------------------------------------ */
+/*  그림 틀 등장 효과 (텍스트 숏츠 · 템플릿 모션 공통)                   */
+/*  요소마다 --d(시작 시각, 초)를 인라인으로 준다.                       */
+/*  .ts-anim 아래에서만 움직이고, 없으면 완성된 그림 그대로 보인다.        */
+/*  모션(Remotion)은 컨테이너에 .ts-seek + --t(현재 시각)를 줘서          */
+/*  같은 효과를 프레임 단위로 멈춰 세운다(영상 내보내기에도 그대로).       */
+/* ------------------------------------------------------------------ */
+@keyframes ts-pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes ts-draw { 0% { stroke-dashoffset: 1; visibility: hidden; } 0.5% { visibility: visible; } 100% { stroke-dashoffset: 0; visibility: visible; } }
+@keyframes ts-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes ts-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ts-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ts-wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ts-slam { 0% { transform: scale(1.9); opacity: 0; } 55% { transform: scale(0.96); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes ts-hl { from { clip-path: inset(-20px 100% -20px -20px); } to { clip-path: inset(-20px -20px -20px -20px); } }
+@keyframes ts-left { from { opacity: 0; transform: translateX(-70px) rotate(-6deg); } to { opacity: 1; transform: none; } }
+@keyframes ts-right { from { opacity: 0; transform: translateX(70px) rotate(6deg); } to { opacity: 1; transform: none; } }
+@keyframes ts-drop { 0% { opacity: 0; transform: translateY(-46px) scale(0.7); } 60% { opacity: 1; transform: translateY(4px) scale(1.04); } 100% { opacity: 1; transform: none; } }
+@keyframes ts-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+@keyframes ts-em { 0% { transform: scale(1); } 30% { transform: scale(1.2); } 60% { transform: scale(0.97); } 100% { transform: scale(1); } }
+@keyframes ts-dim { from { opacity: 1; } to { opacity: 0.36; } }
+@keyframes ts-ring { 0% { opacity: 0; transform: scale(0.85); } 6% { opacity: 1; } 100% { opacity: 0; transform: scale(1.9); } }
+@keyframes ts-orbit { 0% { transform: rotate(0deg); opacity: 0; } 8% { opacity: 1; } 90% { opacity: 1; } 100% { transform: rotate(360deg); opacity: 0; } }
+
+.ts-ringfx, .ts-orbit { opacity: 0; pointer-events: none; }
+svg .ts-pop { transform-box: fill-box; transform-origin: center; }
+
+.ts-anim .ts-pop, .ts-anim .ts-draw, .ts-anim .ts-grow, .ts-anim .ts-fade, .ts-anim .ts-rise, .ts-anim .ts-wipe,
+.ts-anim .ts-slam, .ts-anim .ts-hl, .ts-anim .ts-left, .ts-anim .ts-right, .ts-anim .ts-drop, .ts-anim .ts-pulse, .ts-anim .ts-orbit {
+  animation-delay: calc(var(--d, 0s) - var(--t, 0s));
+  animation-fill-mode: both;
+  animation-duration: var(--dur, 0.5s);
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.ts-anim .ts-pop { animation-name: ts-pop; }
+.ts-anim .ts-draw { animation-name: ts-draw; stroke-dasharray: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); animation-duration: var(--dur, 0.45s); }
+.ts-anim .ts-grow { animation-name: ts-grow; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.1); }
+.ts-anim .ts-fade { animation-name: ts-fade; animation-timing-function: ease-out; }
+.ts-anim .ts-rise { animation-name: ts-rise; animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
+.ts-anim .ts-wipe { animation-name: ts-wipe; animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); }
+.ts-anim .ts-slam { animation-name: ts-slam; animation-duration: var(--dur, 0.42s); animation-timing-function: cubic-bezier(0.3, 0.7, 0.3, 1); }
+.ts-anim .ts-hl { animation-name: ts-hl; animation-duration: var(--dur, 0.4s); animation-timing-function: ease-out; }
+.ts-anim .ts-left { animation-name: ts-left; animation-duration: var(--dur, 0.55s); }
+.ts-anim .ts-right { animation-name: ts-right; animation-duration: var(--dur, 0.55s); }
+.ts-anim .ts-drop { animation-name: ts-drop; animation-duration: var(--dur, 0.55s); }
+.ts-anim .ts-pulse { animation-name: ts-pulse; animation-duration: 1.3s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+.ts-anim .ts-orbit { animation-name: ts-orbit; animation-duration: var(--dur, 1.6s); animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
+/* 강조(--e): 핵심 하나는 커졌다 돌아오고, 나머지는 흐려진다(모션에서만 흐림) */
+.ts-anim .ts-em { animation: ts-em 0.7s ease-out both; animation-delay: calc(var(--e, 999s) - var(--t, 0s)); }
+.ts-anim .ts-dim { animation: ts-dim 0.45s ease both; animation-delay: calc(var(--e, 999s) - var(--t, 0s)); }
+.ts-anim .ts-ringfx { animation: ts-ring 0.95s ease-out both; animation-delay: calc(var(--e, 999s) - var(--t, 0s)); }
+.ts-seek .ts-pop, .ts-seek .ts-draw, .ts-seek .ts-grow, .ts-seek .ts-fade, .ts-seek .ts-rise, .ts-seek .ts-wipe, .ts-seek .ts-slam, .ts-seek .ts-hl,
+.ts-seek .ts-left, .ts-seek .ts-right, .ts-seek .ts-drop, .ts-seek .ts-pulse, .ts-seek .ts-orbit, .ts-seek .ts-em, .ts-seek .ts-dim, .ts-seek .ts-ringfx {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ts-anim:not(.ts-seek) .ts-pop, .ts-anim:not(.ts-seek) .ts-draw, .ts-anim:not(.ts-seek) .ts-grow, .ts-anim:not(.ts-seek) .ts-fade,
+  .ts-anim:not(.ts-seek) .ts-rise, .ts-anim:not(.ts-seek) .ts-wipe, .ts-anim:not(.ts-seek) .ts-slam, .ts-anim:not(.ts-seek) .ts-hl,
+  .ts-anim:not(.ts-seek) .ts-left, .ts-anim:not(.ts-seek) .ts-right, .ts-anim:not(.ts-seek) .ts-drop, .ts-anim:not(.ts-seek) .ts-pulse,
+  .ts-anim:not(.ts-seek) .ts-em, .ts-anim:not(.ts-seek) .ts-ringfx, .ts-anim:not(.ts-seek) .ts-orbit {
+    animation: none;
+  }
+}

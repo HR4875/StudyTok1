@@ -1,4 +1,4 @@
-// 2단계 API(기본): 개념 하나 → 그림 틀 칸 채우기(CardFill) (NDJSON 스트림)
+// 2단계 API(기본): 개념 하나 → 그림 틀 칸 채우기 → 텍스트 숏츠(TextShort) (NDJSON 스트림). 모션 보기도 이 결과로 그린다
 import type { CardResult } from "@/lib/schema";
 import { runCard } from "@/lib/server/card";
 import { AiError } from "@/lib/server/claude";

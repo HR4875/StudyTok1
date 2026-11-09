@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CardFill, VisualPlan, VisualTemplate } from "./visual";
+import type { TextShort, VisualPlan, VisualTemplate } from "./visual";
 
 /* ------------------------------------------------------------------ */
 /*  StudyTok Motion DSL                                                 */
@@ -150,7 +150,10 @@ export type Outline = z.infer<typeof OutlineSchema>;
 /*  App-level types (stored in the browser)                            */
 /* ------------------------------------------------------------------ */
 
-/** text = 싼 기본값(정적 도식 + 짧은 강조), motion = 개념마다 움직임까지 설계 */
+/**
+ * 보는 방식. 둘 다 같은 카드(TextShort)에서 나오므로 생성 비용은 같다.
+ * text = 텍스트 숏츠(기본), motion = 같은 칸으로 만든 템플릿 모션(추가 AI 호출 없음)
+ */
 export const RENDER_MODES = ["text", "motion"] as const;
 export type RenderMode = (typeof RENDER_MODES)[number];
 
@@ -169,14 +172,14 @@ export type CardStatus = "pending" | "ready" | "error";
 export interface Card {
   id: string;
   concept: Concept;
+  /** 텍스트 숏츠(기본). 모션 보기도 같은 칸으로 compileVisual이 만든다 */
+  short?: TextShort | null;
+  /** short가 없을 때 보여 줄 장면: 기본 카드(대체) 또는 예전 예시 덱의 자유 모션 */
   scene: Scene | null;
   status: CardStatus;
   error?: string;
-  /** AI 장면이 검사를 통과하지 못해 기본 텍스트 카드로 대신했을 때 */
+  /** AI 카드가 검사를 통과하지 못해 기본 카드로 대신했을 때 */
   fallback?: boolean;
-  /** 텍스트 숏츠: 그림 틀 칸 채우기 결과 (scene은 여기서 코드로 만든다) */
-  fill?: CardFill;
-  template?: VisualTemplate;
 }
 
 export interface Deck {
@@ -223,10 +226,11 @@ export interface SceneResult {
   issues: string[];
 }
 
-/** /api/card 결과: 그림 틀 하나를 채운 카드. fill이 null이면 기본 카드(scene)로 대신한 것 */
+/** /api/card 결과: 그림 틀 하나를 채운 텍스트 숏츠. short가 null이면 기본 카드(scene)로 대신한 것 */
 export interface CardResult {
+  /** 마지막으로 쓴 그림 틀 (재시도 중 바뀔 수 있다) */
   template: VisualTemplate;
-  fill: CardFill | null;
+  short: TextShort | null;
   fallback: boolean;
   issues: string[];
   scene?: Scene;

@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isShowable, paletteOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
 import type { Settings } from "@/lib/storage";
 import { playSfx, setSoundEnabled, unlockAudio } from "@/lib/sfx";
 import { bgCss } from "@/motion/palettes";
 import { W } from "@/motion/timeline";
 import QuizCard from "./QuizCard";
-import SceneCard from "./SceneCard";
+import SceneCard, { type MotionSrc } from "./SceneCard";
+import TextShortCard from "./TextShortCard";
 import { Sheet, Toast, useToast } from "./ui";
 
 type Item =
@@ -51,7 +53,7 @@ function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId:
   const items: Item[] = [];
   let window: Card[] = [];
   cards.forEach((card, i) => {
-    if (card.status === "ready" && card.scene) {
+    if (isShowable(card)) {
       items.push({ kind: "card", key: `c-${card.id}`, card });
       window.push(card);
     } else items.push({ kind: "pending", key: `p-${card.id}`, card });
@@ -63,7 +65,7 @@ function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId:
   });
   for (const ex of extras) {
     const card = deck.cards.find((c) => c.id === ex.cardId);
-    if (!card?.scene) continue;
+    if (!card || !quizOf(card)) continue;
     const at = items.findIndex((it) => it.key === ex.afterKey);
     const item: Item = { kind: "quiz", key: `r-${ex.cardId}-${ex.n}`, card, retry: true };
     if (at >= 0) items.splice(at + 1, 0, item);
@@ -157,7 +159,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
 
   const answer = (item: Extract<Item, { kind: "quiz" }>, i: number, at: number) => {
     unlockAudio();
-    const quiz = item.card.scene!.quiz;
+    const quiz = quizOf(item.card)!;
     setAnswers((a) => ({ ...a, [item.key]: i }));
     const ok = i === quiz.answer;
     playSfx(ok ? "correct" : "wrong");
@@ -178,8 +180,38 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
 
   const quizItems = items.filter((i) => i.kind === "quiz");
   const answered = quizItems.filter((i) => answers[i.key] !== undefined);
-  const correctCount = answered.filter((i) => i.kind === "quiz" && answers[i.key] === i.card.scene!.quiz.answer).length;
-  const wrongCards = deck.cards.filter((c) => deck.wrong?.includes(c.id) && c.scene);
+  const correctCount = answered.filter((i) => i.kind === "quiz" && answers[i.key] === quizOf(i.card)?.answer).length;
+  const wrongCards = deck.cards.filter((c) => deck.wrong?.includes(c.id) && quizOf(c));
+  const view = settings.mode;
+  const hasShorts = deck.cards.some((c) => c.short);
+
+  /** 카드 한 장 그리기: 텍스트 숏츠(기본) · 같은 카드로 만든 템플릿 모션 · (short가 없으면) 장면 */
+  const renderCard = (card: Card, mode: "active" | "near" | "far", i: number) => {
+    const live = mode === "active";
+    const onProgress = (p: number) => {
+      if (progressBar.current && live) progressBar.current.style.width = `${Math.round(p * 1000) / 10}%`;
+    };
+    const onEnded = () => {
+      if (settings.autoNext && live) setTimeout(() => scrollTo(i + 1), 350);
+    };
+    if (card.short && view === "text") {
+      return <TextShortCard short={card.short} mode={mode} sound={live && settings.sound} speed={settings.speed} onProgress={onProgress} onEnded={onEnded} />;
+    }
+    const src: MotionSrc = card.short ? { kind: "template", short: card.short, plan: card.concept.plan } : { kind: "scene", scene: card.scene! };
+    return (
+      <SceneCard
+        src={src}
+        mode={mode}
+        compHeight={compHeight}
+        speed={mode === "far" ? 1 : settings.speed}
+        sound={live && settings.sound}
+        captions={mode !== "far" && settings.captions}
+        autoNext={live && settings.autoNext}
+        onEnded={onEnded}
+        onProgress={onProgress}
+      />
+    );
+  };
   const readyCount = deck.cards.filter((c) => c.status === "ready").length;
 
   const chip = (active: boolean) =>
@@ -196,34 +228,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           return (
             <section key={it.key} className="relative h-full w-full overflow-hidden" aria-label={it.kind === "card" ? it.card.concept.term : it.kind}>
               {it.kind === "card" ? (
-                dist <= 1 ? (
-                  <SceneCard
-                    scene={it.card.scene!}
-                    mode={dist === 0 ? "active" : "near"}
-                    compHeight={compHeight}
-                    speed={settings.speed}
-                    sound={settings.sound}
-                    captions={settings.captions}
-                    autoNext={settings.autoNext}
-                    onEnded={() => {
-                      if (settings.autoNext && dist === 0) setTimeout(() => scrollTo(i + 1), 350);
-                    }}
-                    onProgress={(p) => {
-                      if (progressBar.current && dist === 0) progressBar.current.style.width = `${Math.round(p * 1000) / 10}%`;
-                    }}
-                  />
-                ) : (
-                  <SceneCard
-                    scene={it.card.scene!}
-                    mode="far"
-                    compHeight={compHeight}
-                    speed={1}
-                    sound={false}
-                    captions={false}
-                    autoNext={false}
-                    onEnded={() => {}}
-                  />
-                )
+                renderCard(it.card, dist === 0 ? "active" : dist === 1 ? "near" : "far", i)
               ) : it.kind === "pending" ? (
                 <div className="flex h-full w-full flex-col items-center justify-center px-8 text-center text-white" style={{ background: bgCss("navy") }}>
                   {it.card.status === "error" || !generating ? (
@@ -245,15 +250,15 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                     <>
                       <div className="h-12 w-12 animate-spin rounded-full border-[5px] border-white/30 border-t-[var(--yellow)]" />
                       <p className="mt-5 font-jua text-[26px]">{it.card.concept.term}</p>
-                      <p className="mt-2 text-[14px] font-semibold text-white/80">{deck.mode === "motion" ? "모션을 만드는 중이에요…" : "카드를 만드는 중이에요…"}</p>
+                      <p className="mt-2 text-[14px] font-semibold text-white/80">카드를 만드는 중이에요…</p>
                     </>
                   )}
                 </div>
               ) : it.kind === "quiz" ? (
                 <QuizCard
-                  quiz={it.card.scene!.quiz}
+                  quiz={quizOf(it.card)!}
                   term={it.card.concept.term}
-                  palette={it.card.scene!.palette}
+                  palette={paletteOf(it.card) ?? "blue"}
                   retry={it.retry}
                   selected={answers[it.key] ?? null}
                   streak={streak}
@@ -297,7 +302,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
         })}
         {items.length === 0 ? (
           <section className="flex h-full w-full items-center justify-center text-white" style={{ background: bgCss("navy") }}>
-            <p className="font-jua text-[22px]">모션을 준비하는 중…</p>
+            <p className="font-jua text-[22px]">카드를 준비하는 중…</p>
           </section>
         ) : null}
       </div>
@@ -325,6 +330,16 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           className="no-scrollbar pointer-events-auto mt-1.5 flex gap-1.5 overflow-x-auto pb-1 pl-3 pr-10"
           style={{ maskImage: "linear-gradient(90deg,#000 calc(100% - 36px),transparent)", WebkitMaskImage: "linear-gradient(90deg,#000 calc(100% - 36px),transparent)" }}
         >
+          {hasShorts ? (
+            <button
+              type="button"
+              className={chip(view === "motion")}
+              onClick={() => set({ mode: view === "motion" ? "text" : "motion" }, view === "motion" ? "텍스트 숏츠로 보기" : "같은 카드를 모션으로 보기 · 추가 비용 없음")}
+              aria-pressed={view === "motion"}
+            >
+              {view === "motion" ? "🎬 모션" : "📝 텍스트"}
+            </button>
+          ) : null}
           <button type="button" className={chip(settings.quizEvery > 0)} onClick={() => setQuizMenu((v) => !v)} aria-expanded={quizMenu}>
             🧩 {settings.quizEvery > 0 ? `퀴즈 ${settings.quizEvery}장마다` : "퀴즈 끔"} ▾
           </button>
@@ -444,7 +459,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             ) : null}
             {detail.fallback ? (
               <p className="rounded-[14px] bg-[#FFF7ED] px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-[#C2410C]">
-                AI 장면이 검사를 통과하지 못해 기본 카드로 보여 주고 있어요. 아래 버튼으로 다시 만들 수 있어요.
+                AI 카드가 검사를 통과하지 못해 기본 카드로 보여 주고 있어요. 아래 버튼으로 다시 만들 수 있어요.
               </p>
             ) : null}
             <p className="text-[12px] font-semibold text-[var(--muted)]">
@@ -459,11 +474,11 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                 onClick={() => {
                   onRetryCard(detail.id);
                   setDetail(null);
-                  setToast(deck.mode === "motion" ? "이 카드 모션을 새로 만들어요" : "이 카드를 새로 만들어요");
+                  setToast("이 카드를 새로 만들어요");
                 }}
                 className="w-full rounded-full bg-[#F3F4F6] py-3 text-[14px] font-extrabold text-[var(--ink)]"
               >
-                🎲 {deck.mode === "motion" ? "이 카드 모션 다시 만들기" : "이 카드 다시 만들기"}
+                🎲 이 카드 다시 만들기
               </button>
             ) : null}
           </div>
@@ -476,12 +491,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           <p className="py-6 text-center text-[14px] font-semibold text-[var(--muted)]">아직 틀린 문제가 없어요. 좋아요! 👍</p>
         ) : (
           <div className="space-y-3 pb-2">
-            {wrongCards.map((c) => (
+            {wrongCards.map((c) => {
+              const q = quizOf(c)!;
+              return (
               <div key={c.id} className="rounded-[18px] border-2 border-[#F1F2F6] p-4">
                 <p className="text-[12.5px] font-extrabold text-[var(--blue)]">{c.concept.term}</p>
-                <p className="mt-1 text-[14.5px] font-bold leading-snug text-[var(--ink)]">{c.scene!.quiz.question}</p>
-                <p className="mt-2 text-[14px] font-extrabold text-[#15803D]">✓ {c.scene!.quiz.options[c.scene!.quiz.answer]}</p>
-                {c.scene!.quiz.explanation ? <p className="mt-1 text-[13px] font-medium leading-relaxed text-[#4B5563]">{c.scene!.quiz.explanation}</p> : null}
+                <p className="mt-1 text-[14.5px] font-bold leading-snug text-[var(--ink)]">{q.question}</p>
+                <p className="mt-2 text-[14px] font-extrabold text-[#15803D]">✓ {q.options[q.answer]}</p>
+                {q.explanation ? <p className="mt-1 text-[13px] font-medium leading-relaxed text-[#4B5563]">{q.explanation}</p> : null}
                 <button
                   type="button"
                   onClick={() => {
@@ -494,7 +511,8 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   카드 다시 보기 →
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Sheet>

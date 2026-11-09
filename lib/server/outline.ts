@@ -4,7 +4,8 @@ import { LIMITS } from "../models";
 import type { Concept, Outline, OutlineRequest, StreamEvent, Usage } from "../schema";
 import { AiError, callJson, sumUsage, type Effort } from "./claude";
 import { checkConcepts, mergeConcepts } from "./checks";
-import { applyPlanRules, DirectorSchema } from "./plan";
+import { checkOutline } from "../assemble";
+import { DirectorSchema } from "./plan";
 import { OUTLINE_SYSTEM, outlineUser } from "./prompts";
 
 type Img = OutlineRequest["images"][number];
@@ -122,7 +123,8 @@ export async function runOutline(
 
   const done = results.filter((r): r is { outline: Outline; usage: Usage } => !!r);
   if (!done.length) throw errors[0] ?? new AiError("개념을 찾지 못했어요", "NO_CONCEPTS", 422);
-  const { concepts, notes } = applyPlanRules(merged());
+  // 그림 판단 규칙(숫자 없는 비율 → 분류, 같은 틀 3연속 → 옆 틀)은 디자인 스레드의 checkOutline 그대로
+  const { concepts, notes } = checkOutline({ concepts: merged() }, req.count);
   if (notes.length) console.info("[outline] plan rules:", notes.join(" / "));
   if (!concepts.length) throw new AiError("자료에서 카드로 만들 개념을 찾지 못했어요. 다른 쪽 범위로 해 볼까요?", "NO_CONCEPTS", 422);
 

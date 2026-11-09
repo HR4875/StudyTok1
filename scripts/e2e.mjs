@@ -66,6 +66,18 @@ try {
     await page.waitForTimeout(600);
     await shot("7-detail");
   }
+  // 보기 바꾸기 (텍스트 ↔ 모션): 같은 카드라 다시 만들지 않는다
+  const close = page.getByRole("button", { name: "닫기" });
+  if (await close.count()) await close.first().click({ position: { x: 20, y: 20 } });
+  await page.waitForTimeout(600);
+  const toggle = page.getByRole("button", { name: mode === "motion" ? "🎬 모션" : "📝 텍스트" });
+  if (await toggle.count()) {
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(400);
+    await toggle.first().click();
+    await page.waitForTimeout(2600);
+    await shot("8-toggled");
+  } else problems.push("보기 바꾸기 버튼이 없음");
   const decks = await page.evaluate(() => JSON.parse(localStorage.getItem("studytok.decks.v1") || "[]"));
   const d = decks[0];
   console.log(
@@ -74,7 +86,7 @@ try {
       title: d?.title,
       mode: d?.mode,
       range: d?.range,
-      cards: d?.cards.map((c) => `${c.concept.term}:${c.status}${c.fallback ? "(기본)" : ""}:${c.template ?? "-"}:${c.scene?.palette ?? "-"}`),
+      cards: d?.cards.map((c) => `${c.concept.term}:${c.status}${c.fallback ? "(기본)" : ""}:${c.short ? c.short.visual.type : c.scene ? "scene" : "-"}:${(c.short ?? c.scene)?.palette ?? "-"}`),
     }),
   );
 } catch (e) {

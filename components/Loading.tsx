@@ -138,7 +138,7 @@ export default function Loading({ job, onCancel, onOpenEarly, onChooseRange, onR
           <div className="mb-4 space-y-3 rounded-[24px] bg-white/12 p-4 ring-1 ring-white/20 backdrop-blur-sm">
             <Step state={st(0)} label="자료 읽기" />
             <Step state={st(1)} label="핵심 개념 찾기" detail={job.found.length ? `${job.found.length}개` : undefined} />
-            <Step state={st(2)} label={job.mode === "motion" ? "개념별 모션 만들기" : "개념별 카드 만들기"} detail={job.total ? `${job.ready} / ${job.total}` : undefined} />
+            <Step state={st(2)} label="개념별 카드 만들기" detail={job.total ? `${job.ready} / ${job.total}` : undefined} />
             {job.found.length ? (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {job.found.map((t, i) => {
@@ -169,7 +169,7 @@ export default function Loading({ job, onCancel, onOpenEarly, onChooseRange, onR
                 canOpen ? "border-white bg-[var(--yellow)] text-[var(--navy)] shadow-[0_5px_0_rgba(27,27,58,0.35)]" : "border-white/30 bg-white/10 text-white/50"
               }`}
             >
-              {canOpen ? `준비된 ${job.ready}개부터 보기 →` : job.mode === "motion" ? "모션이 준비되면 바로 볼 수 있어요" : "카드가 준비되면 바로 볼 수 있어요"}
+              {canOpen ? `준비된 ${job.ready}개부터 보기 →` : "카드가 준비되면 바로 볼 수 있어요"}
             </button>
           </div>
         </div>
