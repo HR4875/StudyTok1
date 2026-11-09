@@ -1,0 +1,26 @@
+{
+  "name": "studytok",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "compare": "node scripts/compare-models.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0",
+    "next": "15.5.29",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "4.10.38",
+    "react": "19.1.10",
+    "react-dom": "19.1.10"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "typescript": "5.9.3"
+  }
+}
