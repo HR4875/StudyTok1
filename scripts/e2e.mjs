@@ -32,13 +32,28 @@ try {
   await shot("1-home");
 
   await page.setInputFiles('input[type="file"]', pdf);
-  await page.getByText("이 범위로 만들기").waitFor({ timeout: 30000 });
+  const make = page.getByRole("button", { name: /쪽으로 만들기$/ });
+  await make.waitFor({ timeout: 30000 });
+  // 쪽 미리보기가 뒤에서 그려진다
+  await page.locator("img").first().waitFor({ timeout: 20000 });
+  await page.waitForTimeout(800);
   await shot("2-range");
-  await page.getByText("이 범위로 만들기").click();
+  // 두 번 눌러 범위 고르기: 2쪽 → 3쪽
+  await page.getByRole("button", { name: /^2쪽/ }).click();
+  await page.getByRole("button", { name: /^3쪽/ }).click();
+  const picked = await make.textContent();
+  if (picked !== "2–3쪽으로 만들기") problems.push(`범위 고르기: 버튼 문구가 '${picked}'`);
+  await shot("2b-range-picked");
+  // 추천(또는 전체) 범위로 되돌린 뒤 만든다
+  await page.locator("button[aria-pressed]").filter({ hasText: /^(추천|전체)/ }).first().click();
+  await make.click();
 
-  await page.getByText("핵심 개념 찾기").waitFor({ timeout: 30000 });
-  await page.waitForTimeout(1200);
+  await page.getByText("개념 찾고 그림 고르기").waitFor({ timeout: 30000 });
+  await page.waitForTimeout(700);
   await shot("3-loading");
+  await page.getByText(/개념 \d+개 찾았어요|카드 만드는 중/).first().waitFor({ timeout: 60000 });
+  await page.waitForTimeout(900);
+  await shot("3b-found");
 
   await page.getByText("📖 해설 보기").waitFor({ timeout: 120000 });
   await page.waitForTimeout(2600);

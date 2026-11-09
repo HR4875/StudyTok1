@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
   return ndjson(req, async (send, signal) => {
     if (isMock()) {
-      const outline = await mockOutline(body, (terms) => send({ type: "found", terms }));
+      const outline = await mockOutline(body, (terms, templates) => send({ type: "found", terms, templates }));
       send({ type: "done", data: outline });
       return;
     }

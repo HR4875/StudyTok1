@@ -15,7 +15,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const MKT = checkOutline(MKT_OUTLINE, 12);
 const mktIndex = (term: string) => MKT.concepts.findIndex((c) => c.term === term);
 
-export async function mockOutline(req: OutlineRequest & { count: number }, onFound: (terms: string[]) => void): Promise<Outline> {
+export async function mockOutline(req: OutlineRequest & { count: number }, onFound: (terms: string[], templates: string[]) => void): Promise<Outline> {
   const text = req.pages.map((p) => p.text).join("\n");
   const fromMkt = MKT.concepts.some((c) => text.includes(c.term.split("(")[0].trim()));
   const raw: Concept[] = fromMkt ? MKT.concepts.slice(0, req.count) : [];
@@ -45,9 +45,14 @@ export async function mockOutline(req: OutlineRequest & { count: number }, onFou
     raw.push({ ...c.concept, plan: parsePlan(null, c.concept) });
   }
   const { concepts } = checkOutline({ concepts: raw }, req.count);
+  // 실제 흐름처럼: 한동안 읽기만 하다가 개념이 하나씩 나온다
+  await wait(1500);
   for (let i = 1; i <= concepts.length; i++) {
-    await wait(200);
-    onFound(concepts.slice(0, i).map((c) => c.term));
+    await wait(250);
+    onFound(
+      concepts.slice(0, i).map((c) => c.term),
+      concepts.slice(0, i).map((c) => c.plan.template),
+    );
   }
   return {
     deckTitle: (fromMkt && MKT.deckTitle) || req.name.replace(/\.[^.]+$/, ""),

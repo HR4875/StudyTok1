@@ -34,7 +34,7 @@ export function shuffleQuiz(q: Quiz, seed: string): Quiz {
 }
 
 /** 이웃 카드끼리 배경색이 같으면 넘길 때 새 카드처럼 안 보인다 → 비슷한 결의 옆 색으로 */
-const NEXT: Record<Palette, Palette> = {
+export const NEXT_PALETTE: Record<Palette, Palette> = {
   blue: "teal",
   teal: "green",
   green: "teal",
@@ -49,7 +49,7 @@ export function spreadPalettes(ps: Palette[]): Palette[] {
   for (const p of ps) {
     const prev = out[out.length - 1];
     let q = p;
-    if (q === prev) q = NEXT[q];
+    if (q === prev) q = NEXT_PALETTE[q];
     if (q === prev) q = "blue";
     out.push(q);
   }

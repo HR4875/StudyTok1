@@ -67,8 +67,8 @@ export interface JsonCall {
   maxTokens: number;
   deadlineMs: number;
   signal?: AbortSignal;
-  /** 답 글자가 나오는 동안 (진행 표시용) */
-  onText?: (chars: number) => void;
+  /** 답 글자가 나오는 동안: 지금까지 받은 답 전체 (진행 표시용) */
+  onText?: (text: string) => void;
 }
 
 export interface JsonResult {
@@ -103,10 +103,10 @@ export async function callJson(c: JsonCall): Promise<JsonResult> {
       },
       { signal: ctrl.signal },
     );
-    let chars = 0;
+    let text = "";
     stream.on("text", (d) => {
-      chars += d.length;
-      c.onText?.(chars);
+      text += d;
+      c.onText?.(text);
     });
     return stream.finalMessage();
   };

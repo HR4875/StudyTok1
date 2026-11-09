@@ -1,7 +1,7 @@
 "use client";
 // 생성 파이프라인 (브라우저 쪽 지휘):
-//   자료 읽기 → 쪽 범위 고르기(PDF는 항상) → 개념 뽑기 + 그림 판단(/api/outline)
-//   → 개념별 텍스트 숏츠(/api/card, 3장씩 동시) → 저장
+//   자료 읽기 → 쪽 범위 고르기(PDF는 항상, 쪽 미리보기는 뒤에서 그린다) → 개념 뽑기 + 그림 판단(/api/outline)
+//   → 개념별 텍스트 숏츠(/api/card, 2장씩 동시) → 저장
 // 텍스트 숏츠와 모션은 같은 카드(TextShort)를 다르게 보여 줄 뿐이라, 어느 쪽을 골라도 AI 호출은 같다.
 // 서버가 카드를 검사·재시도하고, 그래도 안 되면 기본 카드로 대신한다.
 // 요청이 몰리거나 연결이 끊긴 카드는 여기서 잠시 뒤 다시 부르고, 끝내 안 되면 기본 카드로 채운다.
@@ -11,25 +11,44 @@ import { isImage, isPdf } from "./extract";
 import { fallbackScene } from "./fallback";
 import { imageToJpeg } from "./images";
 import { LIMITS } from "./models";
-import { SCANNED_BELOW, hashBytes, openPdf, readPdfPages, renderPageJpeg, type PdfPage } from "./pdf";
-import { PALETTES, type Card, type CardResult, type Deck, type Outline, type OutlineRequest, type RenderMode, type Scene, type SceneRequest, type Usage } from "./schema";
+import { NEXT_PALETTE } from "./normalize";
+import { SCANNED_BELOW, hashBytes, isScannedDoc, openPdf, pageThumb, readPdfPages, renderPageJpeg, type PdfPage } from "./pdf";
+import {
+  PALETTES,
+  type Card,
+  type CardResult,
+  type Deck,
+  type Outline,
+  type OutlineRequest,
+  type Palette,
+  type RenderMode,
+  type Scene,
+  type SceneRequest,
+  type Usage,
+} from "./schema";
 import { findDeckByKey, newId, saveDeck } from "./storage";
 
 export type JobPhase = "reading" | "range" | "outline" | "scenes" | "done" | "error";
 
 export interface RangeInfo {
+  /** 추천 범위 */
   from: number;
-  to: number; // 추천 끝 쪽
+  to: number;
   maxPage: number;
-  totalChars: number;
-  maxChars: number;
-  maxPages: number;
-  maxImages: number;
-  /** 쪽별 글자 수 (공백 제외). SCANNED_BELOW 미만이면 그림으로 보낸다 */
+  /** 쪽마다 글자 수 (공백 뺀) */
   chars: number[];
-  scannedBelow: number;
-  /** 전체를 한 번에 만들 수 없는 긴 자료인지 */
-  long: boolean;
+  totalChars: number;
+  /** 한 번에 보낼 수 있는 글자 수 */
+  maxChars: number;
+  /** 글자가 없는 PDF(스캔본): 쪽을 그림으로 보낸다 */
+  scanned: boolean;
+  /** 스캔본일 때 한 번에 보낼 수 있는 쪽 수 */
+  maxPages: number;
+  /** 글자 PDF에서 글자가 이보다 적은 쪽은 그림으로 읽는다 (한 번에 maxImages장까지) */
+  imageBelow: number;
+  maxImages: number;
+  /** 쪽 미리보기 (고르는 동안 뒤에서 하나씩 채워진다) */
+  thumbs: (string | null)[];
 }
 
 export interface JobState {
@@ -37,7 +56,9 @@ export interface JobState {
   message: string;
   progress: number;
   fileName: string;
+  /** 개념 뽑기에서 찾은 개념 이름과 개념마다 고른 그림 틀 (뽑는 중에도 채워진다) */
   found: string[];
+  templates: string[];
   ready: number;
   total: number;
   mode: RenderMode;
@@ -46,6 +67,11 @@ export interface JobState {
   usage?: Usage;
   error?: string;
   errorCode?: string;
+  /** 개념 뽑기에서 첫 개념이 나오기 전 */
+  thinking?: boolean;
+  /** 이 단계가 시작된 시각 (경과 시간 표시) */
+  phaseAt: number;
+  startedAt: number;
 }
 
 export interface JobHandle {
@@ -61,28 +87,20 @@ export interface JobOptions {
 }
 
 export const MAX_CHARS = LIMITS.maxChars;
-const CONCURRENCY = 3;
+/** 카드는 2장씩 동시에 만든다 (요청 한도에 덜 걸리고, 예상 시간도 이 기준) */
+export const CONCURRENCY = 2;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const stripExt = (s: string) => s.replace(/\.[^.]+$/, "");
 /** 다시 시도해도 소용없는 오류: 남은 카드도 멈춘다 */
 const FATAL = new Set(["NO_KEY", "BAD_KEY", "NO_CREDIT", "BAD_MODEL", "LIMIT"]);
 
-/** from 쪽부터 글자·그림·쪽 수 한도 안에서 어디까지 넣을 수 있는지 */
-export function fitRange(chars: number[], from: number, scannedBelow = SCANNED_BELOW) {
+/** from 쪽부터 한 번에 보낼 수 있는 끝 쪽: 글자 PDF는 글자 수 한도, 스캔본은 쪽 수 한도 */
+export function fitRange(chars: number[], from: number, scanned: boolean): number {
+  if (scanned) return Math.min(chars.length, from + LIMITS.maxImages - 1);
   let acc = 0;
-  let imgs = 0;
-  let to = from - 1;
-  for (let n = from; n <= chars.length; n++) {
-    const c = chars[n - 1];
-    const scanned = c < scannedBelow;
-    if (n - from + 1 > LIMITS.maxPages) break;
-    if (scanned && imgs + 1 > LIMITS.maxImages) break;
-    if (!scanned && acc + c > MAX_CHARS && to >= from) break;
-    if (scanned) imgs++;
-    else acc += c;
-    to = n;
-  }
-  return { to: Math.max(from, to), chars: acc, images: imgs };
+  let end = from - 1;
+  while (end < chars.length && acc + chars[end] <= MAX_CHARS) acc += chars[end++];
+  return Math.max(from, end);
 }
 
 function describe(e: unknown): { message: string; code: string } {
@@ -119,6 +137,7 @@ async function generateOne(d: Deck, card: Card, signal?: AbortSignal, model?: st
 /**
  * 바로 앞·뒤 카드와 배경색이 겹치면 다른 색으로 돌린다. 카드는 끝나는 순서가 제각각이라
  * 끝난 시점의 덱을 보고 이 카드만 고친다(이미 보고 있는 다른 카드 색은 바꾸지 않는다).
+ * 바꿀 색 순서는 디자인 쪽 규칙과 같다: 원래 색 → 짝 색(NEXT_PALETTE) → 그 짝 → 나머지.
  */
 function withPaletteFix(d: Deck, card: Card, patch: Partial<Card>): Partial<Card> {
   const own = paletteOf(patch);
@@ -127,13 +146,9 @@ function withPaletteFix(d: Deck, card: Card, patch: Partial<Card>): Partial<Card
   const i = d.cards.findIndex((c) => c.id === card.id);
   if (i < 0) return patch;
   const near = [d.cards[i - 1], d.cards[i + 1]].map((c) => (c ? paletteOf(c) : undefined)).filter(Boolean);
-  if (!near.includes(own)) return patch;
-  const start = PALETTES.indexOf(own);
-  for (let k = 1; k < PALETTES.length; k++) {
-    const p = PALETTES[(start + k) % PALETTES.length];
-    if (!near.includes(p)) return withPalette(patch, p);
-  }
-  return patch;
+  const order: Palette[] = [own, NEXT_PALETTE[own], NEXT_PALETTE[NEXT_PALETTE[own]], ...PALETTES];
+  const pick = order.find((p) => !near.includes(p)) ?? own;
+  return pick === own ? patch : withPalette(patch, pick);
 }
 
 export function startJob(files: File[], opts: JobOptions, onState: (s: JobState) => void): JobHandle {
@@ -144,9 +159,23 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
   const photos = files.length > 0 && files.every(isImage);
   const fallbackTitle = photos && files.length > 1 ? `${stripExt(name)} 외 ${files.length - 1}장` : stripExt(name);
 
-  let st: JobState = { phase: "reading", message: "자료 읽는 중…", progress: 0.04, fileName: name, found: [], ready: 0, total: 0, mode: opts.mode };
+  const now = Date.now();
+  let st: JobState = {
+    phase: "reading",
+    message: "자료 읽는 중…",
+    progress: 0.04,
+    fileName: name,
+    found: [],
+    templates: [],
+    ready: 0,
+    total: 0,
+    mode: opts.mode,
+    phaseAt: now,
+    startedAt: now,
+  };
   const set = (p: Partial<JobState>) => {
     if (cancelled) return;
+    if (p.phase && p.phase !== st.phase) p = { ...p, phaseAt: Date.now() };
     st = { ...st, ...p };
     onState(st);
   };
@@ -236,33 +265,48 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
           if (cancelled) return;
           const chars = all.map((p) => p.chars);
           const totalChars = chars.reduce((a, b) => a + b, 0);
-          const rec = fitRange(chars, 1);
+          const scanned = isScannedDoc(chars);
+          const thumbs: (string | null)[] = Array(all.length).fill(null);
           set({
             phase: "range",
             message: "",
             progress: 0.1,
             range: {
               from: 1,
-              to: rec.to,
+              to: fitRange(chars, 1, scanned),
               maxPage: all.length,
+              chars,
               totalChars,
               maxChars: MAX_CHARS,
-              maxPages: LIMITS.maxPages,
+              scanned,
+              maxPages: LIMITS.maxImages,
+              imageBelow: SCANNED_BELOW,
               maxImages: LIMITS.maxImages,
-              chars,
-              scannedBelow: SCANNED_BELOW,
-              long: rec.to < all.length,
+              thumbs,
             },
           });
+          // 쪽 미리보기는 고르는 동안 뒤에서 하나씩 그린다 (없어도 고를 수 있다)
+          void (async () => {
+            for (let n = 1; n <= Math.min(all.length, 150); n++) {
+              if (cancelled || st.phase !== "range") break;
+              try {
+                thumbs[n - 1] = await pageThumb(doc, n);
+                if (st.phase === "range" && st.range) set({ range: { ...st.range, thumbs: thumbs.slice() } });
+              } catch {
+                /* 미리보기는 없어도 된다 */
+              }
+            }
+          })();
           const r = await new Promise<{ from: number; to: number }>((res) => (resolveRange = res));
           if (cancelled) return;
           const from = Math.min(all.length, Math.max(1, Math.round(r.from)));
-          const to = Math.min(fitRange(chars, from).to, Math.max(from, Math.round(r.to)));
+          const to = Math.min(fitRange(chars, from, scanned), Math.max(from, Math.round(r.to)));
           range = { from, to };
-          set({ phase: "reading", message: "고른 쪽 준비 중…", progress: 0.12 });
+          set({ phase: "reading", message: scanned ? "쪽을 그림으로 바꾸는 중…" : "고른 쪽 준비 중…", progress: 0.12 });
           let budget = MAX_CHARS;
           for (const p of all.slice(from - 1, to)) {
-            if (p.chars < SCANNED_BELOW) {
+            // 스캔본은 모든 쪽, 글자 PDF는 글자가 거의 없는 쪽(그림 위주 슬라이드)만 그림으로 읽는다
+            if (scanned || p.chars < SCANNED_BELOW) {
               if (images.length >= LIMITS.maxImages) continue;
               set({ message: `그림으로 된 ${p.n}쪽 읽는 중…` });
               images.push({ n: p.n, media_type: "image/jpeg", data: await renderPageJpeg(doc, p.n) });
@@ -301,6 +345,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
           progress: 1,
           deck: cached,
           found: cached.cards.map((c) => c.concept.term),
+          templates: cached.cards.map((c) => c.concept.plan?.template ?? ""),
           ready: cached.cards.length,
           total: cached.cards.length,
         });
@@ -308,7 +353,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
       }
 
       /* ---------- 2. 개념 뽑기 ---------- */
-      set({ phase: "outline", message: "핵심 개념 찾는 중…", progress: 0.16 });
+      set({ phase: "outline", message: "핵심 개념 찾는 중…", progress: 0.16, thinking: true, found: [], templates: [] });
       const body: OutlineRequest = { name, pages, images, count: opts.count, mode: opts.mode, model: opts.model };
       // 요청 본문 4.5MB 제한: 넘치면 뒤쪽 그림부터 뺀다
       while (images.length && JSON.stringify(body).length > LIMITS.maxBodyBytes) images.pop();
@@ -318,7 +363,8 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
           const res = await postStream<Outline>("/api/outline", body, {
             signal: ctrl.signal,
             onStatus: (m) => m && set({ message: m }),
-            onFound: (terms) => set({ found: terms, progress: 0.16 + 0.2 * Math.min(1, terms.length / opts.count) }),
+            onFound: (terms, templates) =>
+              set({ thinking: false, found: terms, templates, progress: 0.16 + 0.2 * Math.min(1, terms.length / opts.count) }),
           });
           outline = res.data;
           usage = addUsage(usage, res.usage);
@@ -326,7 +372,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
           const err = describe(e);
           if (cancelled) return;
           if (RETRYABLE.has(err.code) && attempt < 1) {
-            set({ message: "잠시 뒤 다시 시도하는 중…" });
+            set({ message: "잠시 뒤 다시 시도하는 중…", thinking: true, found: [], templates: [] });
             await sleep(4000);
             continue;
           }
@@ -355,6 +401,8 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
         phase: "scenes",
         message: "개념별 카드 만드는 중…",
         found: outline.concepts.map((c) => c.term),
+        templates: outline.concepts.map((c) => c.plan?.template ?? ""),
+        thinking: false,
         total: deck.cards.length,
         ready: 0,
         deck,
@@ -384,7 +432,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
       if (cancelled) return;
       const err = describe(e);
       if (err.code === "CANCELLED") return;
-      set({ phase: "error", error: err.message, errorCode: err.code });
+      set({ phase: "error", error: err.message, errorCode: err.code, thinking: false });
     }
   })();
 

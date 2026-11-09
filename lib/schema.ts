@@ -144,7 +144,7 @@ export type Quiz = z.infer<typeof QuizSchema>;
 export type Scene = z.infer<typeof SceneSchema>;
 /** 개념 + (있으면) 개념별 그림 판단 plan. plan은 개념 뽑기 단계에서 같이 나온다 (lib/visual.ts) */
 export type Concept = z.infer<typeof ConceptSchema> & { plan?: VisualPlan };
-export type Outline = z.infer<typeof OutlineSchema>;
+export type Outline = Omit<z.infer<typeof OutlineSchema>, "concepts"> & { concepts: Concept[] };
 
 /* ------------------------------------------------------------------ */
 /*  App-level types (stored in the browser)                            */
@@ -240,6 +240,6 @@ export interface CardResult {
 export type StreamEvent<T> =
   | { type: "delta"; text: string }
   | { type: "status"; message: string }
-  | { type: "found"; terms: string[] }
+  | { type: "found"; terms: string[]; templates?: string[] }
   | { type: "done"; data: T; usage?: Usage }
   | { type: "error"; message: string; code?: string };

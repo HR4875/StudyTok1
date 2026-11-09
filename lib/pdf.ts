@@ -26,8 +26,11 @@ export interface PdfPage {
   chars: number; // 공백을 뺀 글자 수
 }
 
-/** 글자가 이보다 적은 쪽은 스캔본(그림)으로 보고 이미지로 보낸다 */
+/** 글자 PDF에서 글자가 이보다 적은 쪽(그림 위주 슬라이드 등)은 그림으로 보낸다 */
 export const SCANNED_BELOW = 40;
+
+/** 글자가 없는 PDF(스캔본)인지: 전체 글자 < max(40, 쪽수×8). 스캔본이면 모든 쪽을 그림으로 보낸다 */
+export const isScannedDoc = (chars: number[]) => chars.reduce((a, b) => a + b, 0) < Math.max(40, chars.length * 8);
 
 type TextItem = { str: string; transform: number[]; width: number; height: number; hasEOL: boolean };
 
@@ -73,23 +76,35 @@ export async function readPdfPages(doc: PdfDoc, onProgress?: (done: number, tota
   return out;
 }
 
-/** 쪽 하나를 JPEG(base64, 머리말 없이)로 그린다. 긴 변 maxSide px */
-export async function renderPageJpeg(doc: PdfDoc, n: number, maxSide = 1280, quality = 0.8): Promise<string> {
+/** 쪽 하나를 그려 JPEG data URL로. scaleOf는 1배 크기(가로, 세로)를 받아 배율을 돌려준다 */
+async function renderPage(doc: PdfDoc, n: number, scaleOf: (w: number, h: number) => number, quality: number): Promise<string> {
   const page = await doc.getPage(n);
   const base = page.getViewport({ scale: 1 });
-  const scale = Math.min(3, maxSide / Math.max(base.width, base.height));
-  const vp = page.getViewport({ scale });
+  const vp = page.getViewport({ scale: scaleOf(base.width, base.height) });
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(vp.width);
-  canvas.height = Math.round(vp.height);
+  canvas.width = Math.max(1, Math.round(vp.width));
+  canvas.height = Math.max(1, Math.round(vp.height));
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport: vp }).promise;
-  page.cleanup();
-  const url = canvas.toDataURL("image/jpeg", quality);
-  canvas.width = canvas.height = 0;
+  try {
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    return canvas.toDataURL("image/jpeg", quality);
+  } finally {
+    page.cleanup();
+    canvas.width = canvas.height = 0;
+  }
+}
+
+/** 쪽 하나를 JPEG(base64, 머리말 없이)로 그린다. 긴 변 maxSide px (AI에게 보내는 그림) */
+export async function renderPageJpeg(doc: PdfDoc, n: number, maxSide = 1280, quality = 0.8): Promise<string> {
+  const url = await renderPage(doc, n, (w, h) => Math.min(3, maxSide / Math.max(w, h)), quality);
   return url.slice(url.indexOf(",") + 1);
+}
+
+/** 쪽 범위 화면의 작은 미리보기 (JPEG data URL, 가로 width px) */
+export async function pageThumb(doc: PdfDoc, n: number, width = 200): Promise<string> {
+  return renderPage(doc, n, (w) => width / w, 0.72);
 }
 
 export async function hashBytes(data: ArrayBuffer): Promise<string> {

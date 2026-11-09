@@ -18,6 +18,20 @@ interface Chunk {
 
 const IMG_WEIGHT = 1500; // 그림 한 장 ≈ 글자 1500자 분량으로 친다
 
+/** 아직 다 오지 않은 답(JSON 조각)에서 지금까지 나온 개념 이름과 그림 틀을 꺼낸다 */
+export function peekOutline(partial: string): { terms: string[]; templates: string[] } {
+  const unquote = (v: string) => {
+    try {
+      return JSON.parse(`"${v}"`) as string;
+    } catch {
+      return v;
+    }
+  };
+  const terms = Array.from(partial.matchAll(/"term"\s*:\s*"((?:[^"\\]|\\.)*)"/g)).map((m) => unquote(m[1]).trim());
+  const templates = Array.from(partial.matchAll(/"template"\s*:\s*"([a-z]+)"/g)).map((m) => m[1]);
+  return { terms, templates };
+}
+
 function label(ch: Chunk, photos: boolean): string {
   const ns = [...ch.pages.map((p) => p.n), ...ch.images.map((i) => i.n)].sort((a, b) => a - b);
   if (!ns.length) return "";
@@ -90,13 +104,35 @@ export async function runOutline(
   send({ type: "status", message: chunks.length > 1 ? `자료를 ${chunks.length}조각으로 나눠 동시에 읽는 중…` : "핵심 개념 찾는 중…" });
 
   const results: ({ outline: Outline; usage: Usage } | null)[] = chunks.map(() => null);
+  const peeks: { terms: string[]; templates: string[] }[] = chunks.map(() => ({ terms: [], templates: [] }));
   const errors: AiError[] = [];
   let usage: Usage | undefined;
   const merged = () => mergeConcepts(results.map((r, i) => ({ concepts: r?.outline.concepts ?? [], quota: chunks[i].quota })), req.count);
-  const announce = () => send({ type: "found", terms: merged().map((c) => c.term) });
+  // 찾은 개념을 바로 보여 준다: 끝난 조각은 검사한 결과, 아직 쓰는 중인 조각은 지금까지 나온 이름과 그림 틀
+  let sent = "";
+  const announce = () => {
+    const terms: string[] = [];
+    const templates: string[] = [];
+    chunks.forEach((ch, i) => {
+      const r = results[i];
+      const list = r
+        ? r.outline.concepts.map((c) => ({ term: c.term, template: c.plan?.template ?? "" }))
+        : peeks[i].terms.map((term, j) => ({ term, template: peeks[i].templates[j] ?? "" }));
+      for (const it of list.slice(0, ch.quota)) {
+        if (!it.term || terms.length >= req.count || terms.includes(it.term)) continue;
+        terms.push(it.term);
+        templates.push(it.template);
+      }
+    });
+    const key = JSON.stringify([terms, templates]);
+    if (key === sent) return;
+    sent = key;
+    send({ type: "found", terms, templates });
+  };
 
   await Promise.all(
     chunks.map(async (ch, i) => {
+      let peekedAt = 0;
       try {
         const r = await callJson({
           model: req.model,
@@ -107,6 +143,15 @@ export async function runOutline(
           maxTokens: LIMITS.maxOutputTokens.outline,
           deadlineMs: Number(process.env.AI_DEADLINE_MS ?? 200_000),
           signal,
+          onText: (text) => {
+            const now = Date.now();
+            if (now - peekedAt < 150) return;
+            peekedAt = now;
+            const p = peekOutline(text);
+            if (p.terms.length === peeks[i].terms.length && p.templates.length === peeks[i].templates.length) return;
+            peeks[i] = p;
+            announce();
+          },
         });
         usage = sumUsage(usage, r.usage);
         const { outline } = checkConcepts(r.raw);

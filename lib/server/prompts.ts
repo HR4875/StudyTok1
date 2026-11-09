@@ -235,7 +235,7 @@ export function cardUser(
   req: SceneRequest,
   template: string,
   guide: TemplateGuide,
-  opts: { prevPalette?: string; retryIssues?: string[] } = {},
+  opts: { prevPalette?: string; retry?: { issues: string[]; previous: string } } = {},
 ): string {
   const c = req.concept;
   const concept = {
@@ -258,8 +258,17 @@ export function cardUser(
     `채우는 법: ${guide.fill}`,
     `예시(다른 과목): ${JSON.stringify(guide.example)}`,
   ];
-  if (opts.retryIssues?.length) {
-    lines.push("", "앞서 채운 칸에 이런 문제가 있었다. 고쳐서 처음부터 다시 채워:", ...opts.retryIssues.map((i) => `- ${i}`));
-  }
-  return lines.filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n");
+  const out = lines.filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n");
+  return opts.retry?.issues.length ? out + retryNote(opts.retry.issues, opts.retry.previous) : out;
+}
+
+/** 검사에 걸린 답을 한 번 고쳐 받을 때 붙이는 글 (디자인 스레드 시안 lib/prompts.ts의 retryNote와 같다) */
+export function retryNote(errors: string[], previous: string): string {
+  return [
+    "",
+    "---",
+    "[이전 답의 문제] 아래를 고쳐서 JSON 전체를 다시 써.",
+    ...errors.slice(0, 6).map((e) => `- ${e}`),
+    ...(previous ? ["", "[이전 답]", previous.slice(0, 4000)] : []),
+  ].join("\n");
 }

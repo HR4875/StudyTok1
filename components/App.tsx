@@ -150,6 +150,7 @@ export default function App() {
       ) : screen === "loading" && job ? (
         <Loading
           job={job}
+          count={settings.cardCount}
           onCancel={() => {
             handle.current?.cancel();
             setJob(null);

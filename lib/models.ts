@@ -57,9 +57,9 @@ export function estimateCost(id: string, u: { input: number; output: number; cac
 
 // 입력 상한 (비용·요청 크기·서버 함수 시간 제한 대비)
 export const LIMITS = {
-  maxPages: 30, // 한 번에 고를 수 있는 최대 쪽 수
+  maxPages: 300, // 글자 PDF 한 번에 넣는 쪽 수 상한 (보통 글자 수 한도가 먼저 걸린다)
   maxChars: 30000, // 한 번에 보내는 글자 수 (공백 제외)
-  maxImages: 8, // 스캔 쪽·사진 장수
+  maxImages: 8, // 한 번에 보내는 그림 수: 스캔본 쪽 · 그림 위주 쪽 · 사진
   outlineChunks: 4, // 개념 뽑기를 나눠서 동시에 부르는 최대 조각 수
   chunkChars: 8000,
   maxBodyBytes: 4_200_000, // Vercel 요청 본문 4.5MB 제한 아래

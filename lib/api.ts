@@ -32,7 +32,8 @@ export const RETRYABLE = new Set(["TIMEOUT", "BUSY", "NETWORK", "BAD_OUTPUT", "O
 interface StreamOpts {
   signal?: AbortSignal;
   onStatus?: (message: string) => void;
-  onFound?: (terms: string[]) => void;
+  /** 찾은 개념 이름과 개념마다 고른 그림 틀 (개념 뽑기 중에도 조금씩 온다) */
+  onFound?: (terms: string[], templates: string[]) => void;
   onDelta?: (chars: number) => void;
 }
 
@@ -79,7 +80,7 @@ export async function postStream<T>(url: string, body: unknown, opts: StreamOpts
       return;
     }
     if (ev.type === "status") opts.onStatus?.(ev.message);
-    else if (ev.type === "found") opts.onFound?.(ev.terms);
+    else if (ev.type === "found") opts.onFound?.(ev.terms, ev.templates ?? []);
     else if (ev.type === "delta") opts.onDelta?.(ev.text.length);
     else if (ev.type === "done") result = { data: ev.data, usage: ev.usage };
     else if (ev.type === "error") throw new ApiError(ev.message, ev.code ?? "ERROR");
