@@ -311,6 +311,11 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             </svg>
           </button>
           <span className="min-w-0 flex-1 truncate text-[15px] font-extrabold text-white drop-shadow">{deck.title}</span>
+          {deck.sample ? (
+            <span className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-extrabold text-[var(--ink)]" title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">
+              예시 · 가상 숫자
+            </span>
+          ) : null}
           <span className="mr-2 rounded-full bg-black/25 px-2.5 py-1 text-[12px] font-extrabold text-white ring-1 ring-white/20">
             {Math.max(1, lastConceptBefore)} / {deck.cards.length}
             {generating ? " · 만드는 중" : ""}
@@ -444,7 +449,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             ) : null}
             <p className="text-[12px] font-semibold text-[var(--muted)]">
               출처: {deck.source}
-              {detail.concept.pages ? ` · ${detail.concept.pages}` : ""} · AI가 만든 설명이라 원문과 함께 확인하세요.
+              {deck.sample
+                ? " · 설명을 위해 만든 예시라 화면 속 숫자는 가상이에요."
+                : `${detail.concept.pages ? ` · ${detail.concept.pages}` : ""} · AI가 만든 설명이라 원문과 함께 확인하세요.`}
             </p>
             {!deck.sample ? (
               <button
