@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CardFill, VisualPlan, VisualTemplate } from "./visual";
 
 /* ------------------------------------------------------------------ */
 /*  StudyTok Motion DSL                                                 */
@@ -141,7 +142,8 @@ export type Beat = z.infer<typeof BeatSchema>;
 export type Caption = z.infer<typeof CaptionSchema>;
 export type Quiz = z.infer<typeof QuizSchema>;
 export type Scene = z.infer<typeof SceneSchema>;
-export type Concept = z.infer<typeof ConceptSchema>;
+/** 개념 + (있으면) 개념별 그림 판단 plan. plan은 개념 뽑기 단계에서 같이 나온다 (lib/visual.ts) */
+export type Concept = z.infer<typeof ConceptSchema> & { plan?: VisualPlan };
 export type Outline = z.infer<typeof OutlineSchema>;
 
 /* ------------------------------------------------------------------ */
@@ -172,6 +174,9 @@ export interface Card {
   error?: string;
   /** AI 장면이 검사를 통과하지 못해 기본 텍스트 카드로 대신했을 때 */
   fallback?: boolean;
+  /** 텍스트 숏츠: 그림 틀 칸 채우기 결과 (scene은 여기서 코드로 만든다) */
+  fill?: CardFill;
+  template?: VisualTemplate;
 }
 
 export interface Deck {
@@ -216,6 +221,15 @@ export interface SceneResult {
   scene: Scene;
   fallback: boolean;
   issues: string[];
+}
+
+/** /api/card 결과: 그림 틀 하나를 채운 카드. fill이 null이면 기본 카드(scene)로 대신한 것 */
+export interface CardResult {
+  template: VisualTemplate;
+  fill: CardFill | null;
+  fallback: boolean;
+  issues: string[];
+  scene?: Scene;
 }
 
 /** NDJSON stream events from the API routes */

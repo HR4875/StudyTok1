@@ -1,9 +1,10 @@
 // 1단계: 개념 뽑기. 긴 자료는 쪽 순서대로 최대 4조각으로 나눠 동시에 부르고, 결과를 합친다.
 import type Anthropic from "@anthropic-ai/sdk";
 import { LIMITS } from "../models";
-import { OutlineSchema, type Concept, type Outline, type OutlineRequest, type StreamEvent, type Usage } from "../schema";
+import type { Concept, Outline, OutlineRequest, StreamEvent, Usage } from "../schema";
 import { AiError, callJson, sumUsage, type Effort } from "./claude";
 import { checkConcepts, mergeConcepts } from "./checks";
+import { applyPlanRules, DirectorSchema } from "./plan";
 import { OUTLINE_SYSTEM, outlineUser } from "./prompts";
 
 type Img = OutlineRequest["images"][number];
@@ -101,7 +102,7 @@ export async function runOutline(
           effort: req.effort,
           system: OUTLINE_SYSTEM,
           user: chunkContent(ch, req, photos),
-          schema: OutlineSchema,
+          schema: DirectorSchema,
           maxTokens: LIMITS.maxOutputTokens.outline,
           deadlineMs: Number(process.env.AI_DEADLINE_MS ?? 200_000),
           signal,
@@ -121,7 +122,8 @@ export async function runOutline(
 
   const done = results.filter((r): r is { outline: Outline; usage: Usage } => !!r);
   if (!done.length) throw errors[0] ?? new AiError("개념을 찾지 못했어요", "NO_CONCEPTS", 422);
-  const concepts: Concept[] = merged();
+  const { concepts, notes } = applyPlanRules(merged());
+  if (notes.length) console.info("[outline] plan rules:", notes.join(" / "));
   if (!concepts.length) throw new AiError("자료에서 카드로 만들 개념을 찾지 못했어요. 다른 쪽 범위로 해 볼까요?", "NO_CONCEPTS", 422);
 
   // 제목·과목은 가장 많이 나온 값, 없으면 첫 조각

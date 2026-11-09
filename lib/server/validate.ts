@@ -3,6 +3,7 @@ import { DEFAULT_MODEL, LIMITS, findModel } from "../models";
 import type { Concept, OutlineRequest, RenderMode, SceneRequest } from "../schema";
 import { cleanStr } from "../text";
 import { AiError, type Effort } from "./claude";
+import { parsePlan } from "./plan";
 
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -65,6 +66,7 @@ function parseConcept(v: unknown): Concept {
     pages: cleanStr(c.pages, 30),
   };
   if (!concept.term || !concept.definition) throw new AiError("개념 정보가 비었어요", "BAD_REQUEST", 400);
+  if (c.plan) concept.plan = parsePlan(c.plan, concept);
   return concept;
 }
 

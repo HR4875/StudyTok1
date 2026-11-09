@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { addUsage, getHealth } from "@/lib/api";
-import { regenerateCard, startJob, type JobHandle, type JobState } from "@/lib/generate";
+import { refreshDeck, regenerateCard, startJob, type JobHandle, type JobState } from "@/lib/generate";
 import { SAMPLE_DECK } from "@/lib/samples";
 import type { Deck } from "@/lib/schema";
 import { unlockAudio } from "@/lib/sfx";
@@ -80,7 +80,7 @@ export default function App() {
 
   const open = (d: Deck) => {
     unlockAudio();
-    setOpenDeck(d);
+    setOpenDeck(refreshDeck(d));
     setScreen("feed");
   };
 
@@ -102,11 +102,11 @@ export default function App() {
     const pending: Deck = { ...d, cards: d.cards.map((c) => (c.id === cardId ? { ...c, status: "pending" as const, error: undefined } : c)) };
     setOpenDeck(pending);
     try {
-      const { scene, fallback, usage } = await regenerateCard(d, cardId);
+      const { patch, usage } = await regenerateCard(d, cardId);
       const next: Deck = {
         ...pending,
         usage: addUsage(pending.usage, usage),
-        cards: pending.cards.map((c) => (c.id === cardId ? { ...c, scene, fallback, status: "ready" as const } : c)),
+        cards: pending.cards.map((c) => (c.id === cardId ? { ...c, ...patch, status: "ready" as const, error: undefined } : c)),
       };
       setOpenDeck((cur) => (cur?.id === next.id ? next : cur));
       saveDeck(next);

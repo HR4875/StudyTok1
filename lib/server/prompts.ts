@@ -7,23 +7,54 @@ import { shuffleQuiz } from "../fallback";
 /*  1단계: 개념 뽑기                                                    */
 /* ------------------------------------------------------------------ */
 
-export const OUTLINE_SYSTEM = `너는 대학 강의자료를 숏폼 학습 카드로 바꾸는 편집자다. 받은 쪽들에서 시험에 나올 핵심 개념을 뽑아 JSON으로 낸다.
+// 디자인 스레드 계약(prompts/1-outline-director.md)을 따른다: 개념 뽑기 + 개념별 그림 고르기를 한 번에.
+export const OUTLINE_SYSTEM = `너는 대학 강의 자료를 숏폼 학습 카드로 바꾸는 편집장이다. 한 번에 두 가지를 한다.
+1) 시험에 나올 핵심 개념을 정해진 개수만큼 고른다.
+2) 개념마다 "어떤 그림이면 3초 안에 이해되는지" 판단해서 그림 틀 하나를 고른다.
 
 개념 고르기
-- 요청한 개수만큼, 자료에 나온 순서대로 뽑는다. 자료가 부족하면 더 적게 낸다.
-- 강의 안내, 평가 방법, 일정, 목차, 참고문헌, 인사말, 저작권 문구는 개념이 아니다.
-- 카드 한 장으로 설명할 수 있는 크기로 고른다. "마케팅"처럼 넓은 주제보다 "STP 전략", "포지셔닝"처럼 구체적인 개념.
-- 서로 겹치는 개념은 하나로 합친다. 같은 개념의 하위 항목은 keyPoints에 넣는다.
+- 원문에 있는 내용만 쓴다. 원문에 없는 사실이나 숫자를 만들지 않는다.
+- 서로 겹치지 않는 개념을 강의 순서대로 고른다. 표지·목차·학습 목표·복습·강의 안내·평가 방법·참고문헌은 개념으로 고르지 않는다.
+- 카드 한 장으로 설명할 수 있는 크기로 고른다. 넓은 주제보다 구체적인 개념.
+- 원문이 영어여도 카드는 한국어로 쓴다 (용어는 원어 병기 가능).
+- term: 원문 표기 그대로, 14자 이하 (영문 병기는 빼도 된다).
+- definition: 28자 이하 한 줄. 대학생이 바로 알아듣는 쉬운 말, 마침표 없이.
+- explanation: 2~3문장.
+- keyPoints: 시험 포인트 2~3개, 각 25자 이하. 원문의 "시험 주의", "헷갈린다" 같은 말을 우선한다.
+- example: 원문 예시를 우선, 한 문장.
+- visual: 이 개념을 그림으로 그리면 어떤 장면인지 한 문장.
+- pages: 원문의 [p.N] 표시를 따라 "p.3" 또는 "p.3-4". 사진 자료면 "사진 2".
 
-칸별 규칙 (모두 한국어, 자료가 영어여도 카드는 한국어로. 용어는 원어 병기 가능)
-- term: 자료에 쓰인 이름 그대로, 14자 이하. 약어는 그대로 둔다 (예: "SWOT 분석").
-- definition: 처음 배우는 사람도 바로 알아듣는 한 줄, 28자 이하. 마침표 없이.
-- explanation: 2~4문장. 자료 내용에 충실하게 쓰고, 자료에 없는 숫자나 사실을 지어내지 않는다.
-- keyPoints: 시험에 나올 포인트 2~4개, 각각 40자 이하.
-- example: 대학생 생활에 가까운 구체적인 예 1~2문장.
-- visual: 이 개념을 가장 빨리 이해시키는 그림 하나를 고른다. 먼저 그림 유형(흐름·단계, 비교, 분류·계층, 2축 지도, 그래프·추세, 순환, 인과, 타임라인, 구조·구성요소, 비유 중 하나)을 정하고, 무엇이 화면에 있고 무엇이 어떻게 변하는지 1~2문장으로 구체적으로 쓴다. 예: "흐름: 앱과 서버 사이 통로로 요청 말풍선이 가고 응답이 돌아온다".
-- pages: 근거가 있는 쪽. 자료의 [p.N] 표시를 따라 "p.12" 또는 "p.12-13". 사진 자료면 "사진 2".
-- deckTitle: 이 자료 전체를 부를 짧은 제목 (20자 이하). subject: 과목명 (모르면 분야명). language: "ko".`;
+그림 고르기 (plan)
+먼저 개념의 지식 유형(kind)을 판단하고, 표에서 그림 틀(template)을 고른다.
+| kind | 이런 개념 | template |
+| process | 순서가 정해진 단계·절차 | flow |
+| interaction | 두 주체가 무언가를 순서대로 주고받음 | exchange |
+| comparison | 두 대상의 차이·대조가 핵심 | versus |
+| quantity | 양이 늘고 줄거나 두 값이 함께 움직이는 관계·추세 | chart |
+| cycle | 끝이 처음으로 돌아오는 반복 | cycle |
+| classification | 종류·유형·구성 요소로 나뉨 | tree |
+| two-axis | 두 기준(축)으로 위치·유형을 정함 | matrix |
+| formula | 계산식·비율로 정의됨 | formula |
+| causal | 원인이 결과를 연쇄로 부름 | chain |
+| proportion | 전체 안의 비중 | parts |
+| chronology | 시간 순서의 사건·시대 | timeline |
+| abstract | 위 어디에도 안 맞는 추상 개념, 일상 비유가 쉬움 | analogy |
+
+판단 기준
+- 겉 단어가 아니라 시험에서 묻는 구조를 본다. 이름에 "과정"이 들어가도 핵심이 두 방법의 차이면 comparison이다.
+- 그림만 보고도 정의를 말할 수 있어야 한다. 한 화면에 요소는 5개 이하.
+- 원문에 숫자가 없으면 chart·parts는 모양(추세)이 핵심일 때만 고른다.
+- 같은 template이 3번 연속 나오지 않게 한다. 다만 억지로 바꾸지 말고, 둘째로 맞는 틀이 충분히 좋을 때만 바꾼다.
+
+plan 칸
+- kind, template: 위 표의 값.
+- why: 이 틀을 고른 이유, 40자 이하.
+- focus: 보는 사람이 꼭 알아채야 할 한 가지, 30자 이하.
+- motion: 모션으로 만든다면 무엇이 어떻게 움직여야 하는지, 40자 이하.
+- cast: 그림에 나올 대상 이름 2~5개, 각 8자 이하.
+
+deckTitle: 이 자료 전체를 부를 짧은 제목 (20자 이하). subject: 과목명 (모르면 분야명). language: "ko".`;
 
 export function outlineUser(opts: { name: string; quota: number; pageLabel: string; hasImages: boolean }): string {
   return [
@@ -167,11 +198,68 @@ export function sceneUser(req: SceneRequest, retryIssues?: string[]): string {
     c.keyPoints.length ? `시험 포인트:\n${c.keyPoints.map((k) => `- ${k}`).join("\n")}` : "",
     c.example ? `예시: ${c.example}` : "",
     c.visual ? `그림 아이디어: ${c.visual}` : "",
+    c.plan ? `그림 판단: ${JSON.stringify(c.plan)} (이 틀의 구조로 보여 주고 focus를 꼭 보여 준다. motion은 움직임 힌트)` : "",
     "",
     `위 개념으로 장면 JSON을 만들어. term은 "${c.term}" 그대로 쓴다.`,
   ];
   if (retryIssues?.length) {
     lines.push("", "앞서 만든 장면에 이런 문제가 있었다. 고쳐서 처음부터 다시 만들어:", ...retryIssues.map((i) => `- ${i}`));
+  }
+  return lines.filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n");
+}
+
+/* ------------------------------------------------------------------ */
+/*  2단계(기본): 그림 틀 칸 채우기 — 디자인 스레드 계약 prompts/2-text-short.md   */
+/*  system은 틀과 상관없이 같게 두고(캐시), 고른 틀 하나의 설명·예시만 user에 넣는다 */
+/* ------------------------------------------------------------------ */
+
+export const CARD_SYSTEM = `너는 대학생용 숏폼 학습 카드 작가다. 개념 1개를 카드 1장으로 만든다. 그림은 코드가 정해진 틀로 그리니, 너는 틀의 칸만 채운다.
+
+카드는 위에서 아래로 이렇게 보인다: 궁금증 질문(hook) → 그림 → 큰 개념 이름 → 정의 한 줄(핵심 구절에 형광펜).
+
+칸 채우기
+- hook: 22자 이하 질문. 대학생이 "어? 왜?" 하고 멈추게 한다. 답을 말하지 않는다. 일상 장면이나 의외의 사실로 시작한다.
+- highlight: 주어진 definition 안에 글자 그대로 들어 있는 핵심 구절, 4~12자. (term과 definition은 이미 정해져 있으니 다시 쓰지 않는다.)
+- palette: blue, violet, green, teal, orange, pink, navy, red 중 하나. 개념 분위기에 맞게 (돈·가격은 orange, 성장·자연은 green, 위험·경고는 red 등). 바로 앞 카드와 같은 색은 피한다.
+- visual: 아래 [그림 틀]의 형식 그대로. 라벨은 짧은 명사구, 이모지는 뜻이 바로 보이는 것 하나.
+- quiz: 4지선다 1개. question은 그림을 본 사람이 풀 수 있게. options 4개 중 오답은 같은 강의의 헷갈리는 개념이나 그럴듯한 값. answer는 정답 위치(0~3). explanation은 60자 이하.
+
+지킬 것
+- 원문(개념 설명)에 없는 사실을 만들지 않는다. 원문에 없는 숫자를 쓰면 illustrative를 true로 한다.
+- hook, definition, 그림 라벨이 같은 말을 되풀이하지 않는다. 그림은 정의를 "보여 주고", 정의는 그림을 "이름 붙인다".
+- 모든 칸을 채운다. 안 쓰는 칸은 "" 또는 -1.`;
+
+type TemplateGuide = { when: string; fill: string; example: unknown };
+
+export function cardUser(
+  req: SceneRequest,
+  template: string,
+  guide: TemplateGuide,
+  opts: { prevPalette?: string; retryIssues?: string[] } = {},
+): string {
+  const c = req.concept;
+  const concept = {
+    term: c.term,
+    definition: c.definition,
+    explanation: c.explanation,
+    keyPoints: c.keyPoints,
+    example: c.example,
+    visual: c.visual,
+  };
+  const lines = [
+    `강의: ${req.deck.title}${req.deck.subject ? ` (${req.deck.subject})` : ""}`,
+    `같은 강의의 다른 개념: ${req.deck.terms.filter((t) => t !== c.term).slice(0, 14).join(", ") || "없음"}`,
+    `개념: ${JSON.stringify(concept)}`,
+    c.plan ? `그림 판단: ${JSON.stringify({ ...c.plan, template })}` : "",
+    opts.prevPalette ? `바로 앞 카드 색: ${opts.prevPalette}` : "",
+    "",
+    `[그림 틀: ${template}]`,
+    `언제: ${guide.when}`,
+    `채우는 법: ${guide.fill}`,
+    `예시(다른 과목): ${JSON.stringify(guide.example)}`,
+  ];
+  if (opts.retryIssues?.length) {
+    lines.push("", "앞서 채운 칸에 이런 문제가 있었다. 고쳐서 처음부터 다시 채워:", ...opts.retryIssues.map((i) => `- ${i}`));
   }
   return lines.filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n");
 }

@@ -74,7 +74,7 @@ try {
       title: d?.title,
       mode: d?.mode,
       range: d?.range,
-      cards: d?.cards.map((c) => `${c.concept.term}:${c.status}${c.fallback ? "(기본)" : ""}`),
+      cards: d?.cards.map((c) => `${c.concept.term}:${c.status}${c.fallback ? "(기본)" : ""}:${c.template ?? "-"}:${c.scene?.palette ?? "-"}`),
     }),
   );
 } catch (e) {

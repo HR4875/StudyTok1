@@ -74,3 +74,19 @@ export function fallbackScene(concept: Concept, others: { term: string; definiti
     quiz,
   };
 }
+
+/** 같은 글자면 같은 순서가 나오는 난수 (퀴즈 보기 섞기를 재현 가능하게) */
+export function seededRand(seed: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  let x = h >>> 0 || 1;
+  return () => {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    return ((x >>> 0) % 100000) / 100000;
+  };
+}

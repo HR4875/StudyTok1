@@ -17,6 +17,7 @@ import {
   type Scene,
 } from "../schema";
 import { shuffleQuiz } from "../fallback";
+import { parsePlan } from "./plan";
 import { cleanStr, clip, visualLength } from "../text";
 
 export { visualLength };
@@ -253,17 +254,19 @@ export function checkConcepts(raw: unknown): { outline: Outline; issues: string[
       issues.push("이름이나 정의가 빈 개념을 뺌");
       continue;
     }
+    const keyPoints = arr(c.keyPoints)
+      .map((k) => str(k, 120))
+      .filter(Boolean)
+      .slice(0, 5);
     concepts.push({
       term,
       definition,
       explanation: str(c.explanation, 900),
-      keyPoints: arr(c.keyPoints)
-        .map((k) => str(k, 120))
-        .filter(Boolean)
-        .slice(0, 5),
+      keyPoints,
       example: str(c.example, 400),
       visual: str(c.visual, 400),
       pages: str(c.pages, 30),
+      plan: parsePlan(c.plan, { term, keyPoints }),
     });
   }
   return {
