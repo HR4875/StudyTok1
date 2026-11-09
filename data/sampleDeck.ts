@@ -1,7 +1,11 @@
-import type { Deck } from "@/lib/types";
+import type { Card, Deck } from "@/lib/types";
 
 // 시연용 기본 덱. AI API 장애나 한도 초과 때도 시연이 되도록 미리 만들어 정적 데이터로 둔다.
 // 주제: 경제학원론 '수요와 공급' 기초. 그래프 숫자는 설명용 가상 예시다.
+const base = { subtitle: null, tagline: null, chip: null, points: [], visual: null, quiz: null, motion: null, pages: null };
+const card = (c: Partial<Card> & Pick<Card, "id" | "kind" | "emoji" | "title" | "body">): Card => ({ ...base, ...c });
+const it = (label: string, note: string | null = null, value: number | null = null) => ({ label, value, note });
+
 export const sampleDeck: Deck = {
   title: "수요와 공급, 60초 컷",
   source: "샘플",
@@ -9,241 +13,137 @@ export const sampleDeck: Deck = {
   model: "sample",
   isSample: true,
   cards: [
-    {
+    card({
       id: "s1",
       kind: "hook",
-      emoji: "🍗",
-      title: "시험 기간, 왜 야식 배달비가 오를까?",
-      body: "같은 치킨인데 밤 11시엔 배달팁이 더 붙어요. 답은 경제학 첫 장, 수요와 공급에 있어요.",
-      points: [],
-      visual: null,
-      quiz: null,
-      motion: {
-        beats: [
-          { text: "같은 치킨", effect: "pop" },
-          { text: "다른 배달비?", effect: "zoom" },
-          { text: "범인은 수요와 공급", effect: "highlight" },
-        ],
-        narration: "같은 치킨인데 왜 밤에는 배달비가 더 비쌀까요? 범인은 수요와 공급이에요.",
-      },
-      pages: null,
-    },
-    {
+      emoji: "🛵",
+      title: "밤 11시, 배달비가 왜 올라?",
+      body: "같은 치킨인데 시험 기간 밤엔 배달팁이 더 붙어요.",
+      visual: { type: "compare", title: null, items: [it("저녁 7시", "배달팁 기본"), it("밤 11시", "배달팁 추가")] },
+      motion: { beats: [{ text: "같은 치킨인데?", effect: "pop" }], narration: "같은 치킨인데 왜 밤에는 배달비가 더 비쌀까요?" },
+    }),
+    card({
       id: "s2",
       kind: "concept",
       emoji: "📉",
       title: "수요의 법칙",
-      body: "다른 조건이 같다면, 가격이 오르면 사려는 양(수요량)은 줄고 가격이 내리면 늘어나요.",
-      points: ["가격 ↑ → 수요량 ↓", "가격 ↓ → 수요량 ↑", "그래서 수요곡선은 오른쪽 아래로 기울어요"],
+      subtitle: "Law of Demand",
+      tagline: "가격 ↑ 이면 [[사려는 양 ↓]]",
+      body: "다른 조건이 같다면 가격이 오를수록 수요량은 줄어요.",
+      chip: { label: "예시", text: "치킨값 오르면 주문이 줄어요" },
       visual: {
         type: "bar",
-        title: "치킨 가격별 주문량 (가상 예시)",
-        items: [
-          { label: "1만 5천원", value: 120, note: null },
-          { label: "2만원", value: 80, note: null },
-          { label: "2만 5천원", value: 45, note: null },
-        ],
+        title: "가격별 주문량 (가상 예시)",
+        items: [it("1.5만원", null, 120), it("2만원", null, 80), it("2.5만원", null, 45)],
       },
-      quiz: null,
-      motion: {
-        beats: [
-          { text: "가격 ↑", effect: "slide" },
-          { text: "수요량 ↓", effect: "pop" },
-          { text: "곡선은 ↘", effect: "type" },
-        ],
-        narration: "가격이 오르면 사려는 양은 줄어요. 이게 수요의 법칙이에요.",
-      },
-      pages: null,
-    },
-    {
+      motion: { beats: [{ text: "비싸면 덜 사!", effect: "pop" }], narration: "가격이 오르면 사려는 양은 줄어요. 이게 수요의 법칙이에요." },
+    }),
+    card({
       id: "s3",
       kind: "concept",
       emoji: "📈",
       title: "공급의 법칙",
-      body: "가격이 오르면 팔려는 양(공급량)은 늘어나요. 비싸게 팔 수 있으면 더 만들고 싶으니까요.",
-      points: ["가격 ↑ → 공급량 ↑", "공급곡선은 오른쪽 위로 기울어요"],
-      visual: {
-        type: "compare",
-        title: null,
-        items: [
-          { label: "수요곡선", value: null, note: "오른쪽 아래로 ↘ 사는 사람 시점" },
-          { label: "공급곡선", value: null, note: "오른쪽 위로 ↗ 파는 사람 시점" },
-        ],
-      },
-      quiz: null,
-      motion: {
-        beats: [
-          { text: "비싸게 팔 수 있다면?", effect: "type" },
-          { text: "더 만든다!", effect: "pop" },
-        ],
-        narration: "비싸게 팔 수 있으면 더 많이 만들고 싶겠죠. 그래서 공급곡선은 위로 올라가요.",
-      },
-      pages: null,
-    },
-    {
+      subtitle: "Law of Supply",
+      tagline: "가격 ↑ 이면 [[팔려는 양 ↑]]",
+      body: "비싸게 팔 수 있으면 더 만들고 싶어지니까요.",
+      chip: { label: "vs 수요", text: "사는 쪽은 ↘, 파는 쪽은 ↗" },
+      visual: { type: "compare", title: null, items: [it("수요곡선", "오른쪽 아래 ↘"), it("공급곡선", "오른쪽 위 ↗")] },
+      motion: { beats: [{ text: "더 만들자!", effect: "pop" }], narration: "비싸게 팔 수 있으면 더 많이 만들겠죠. 그래서 공급곡선은 올라가요." },
+    }),
+    card({
       id: "s4",
       kind: "quiz",
       emoji: "🧠",
       title: "수요의 법칙",
       body: "",
-      points: [],
-      visual: null,
       quiz: {
-        question: "다른 조건이 같을 때 아메리카노 가격이 오르면, 수요량은?",
-        choices: ["늘어난다", "줄어든다", "변하지 않는다", "공급량과 같아진다"],
+        question: "가격이 오르면 수요량이 늘어나는 것이 수요의 법칙이다.",
+        choices: ["O", "X"],
         answer: 1,
-        explanation:
-          "가격이 오르면 사려는 양이 줄어드는 게 수요의 법칙이에요. '수요'가 아니라 곡선 위에서 움직이는 '수요량'이 줄어든다는 점이 포인트예요.",
+        explanation: "반대예요. 가격이 오르면 사려는 양(수요량)은 줄어들어요. 그래서 수요곡선은 오른쪽 아래로 기울어요.",
       },
-      motion: null,
-      pages: null,
-    },
-    {
+    }),
+    card({
       id: "s5",
       kind: "concept",
       emoji: "⚖️",
-      title: "균형: 두 곡선이 만나는 점",
-      body: "사려는 양과 팔려는 양이 딱 같아지는 가격이 균형가격이에요. 시장은 이 점으로 끌려가요.",
-      points: ["균형가격 = 수요량과 공급량이 같은 가격", "그때의 거래량 = 균형거래량"],
+      title: "균형",
+      subtitle: "Equilibrium",
+      tagline: "사려는 양 = [[팔려는 양]]",
+      body: "두 양이 딱 같아지는 가격이 균형가격, 그때 거래량이 균형거래량이에요.",
+      chip: { label: "한 줄", text: "시장은 결국 이 점으로 끌려가요" },
       visual: {
         type: "flow",
-        title: "가격이 균형으로 돌아오는 과정",
-        items: [
-          { label: "가격이 높다", value: null, note: "팔려는 양 > 사려는 양" },
-          { label: "초과공급", value: null, note: "재고가 쌓임" },
-          { label: "가격 인하", value: null, note: "판매자 경쟁" },
-          { label: "균형", value: null, note: "수요량 = 공급량" },
-        ],
+        title: null,
+        items: [it("가격 높음", "팔 사람 많음"), it("초과공급", "재고 쌓임"), it("가격 인하", "경쟁"), it("균형", "딱 맞음")],
       },
-      quiz: null,
-      motion: {
-        beats: [
-          { text: "사려는 양", effect: "slide" },
-          { text: "= 팔려는 양", effect: "slide" },
-          { text: "균형!", effect: "zoom" },
-        ],
-        narration: "사려는 양과 팔려는 양이 같아지는 곳, 그게 균형이에요.",
-      },
-      pages: null,
-    },
-    {
+      motion: { beats: [{ text: "재고가 쌓여!", effect: "pop" }, { text: "값을 내리자", effect: "slide" }], narration: "사려는 양과 팔려는 양이 같아지는 곳, 그게 균형이에요." },
+    }),
+    card({
       id: "s6",
       kind: "concept",
       emoji: "🔀",
-      title: "‘수요량’ 변화 vs ‘수요’ 변화",
-      body: "가격 때문에 바뀌면 곡선 위 이동(수요량 변화), 가격 말고 다른 이유로 바뀌면 곡선 자체가 이동(수요 변화)해요.",
-      points: ["소득, 취향, 대체재 가격 → 곡선 이동", "시험기간 야식 수요 ↑ → 수요곡선 오른쪽 이동"],
+      title: "수요의 변화",
+      subtitle: "Shift in Demand",
+      tagline: "가격 말고 다른 이유면 [[곡선이 이동]]",
+      body: "가격 때문이면 곡선 위 이동, 소득·유행 같은 이유면 곡선 자체가 움직여요.",
+      chip: { label: "vs 수요량 변화", text: "가격 탓이면 곡선 위 이동" },
       visual: {
         type: "keywords",
-        title: "수요곡선을 움직이는 것들",
-        items: [
-          { label: "소득", value: null, note: null },
-          { label: "취향·유행", value: null, note: null },
-          { label: "대체재 가격", value: null, note: null },
-          { label: "보완재 가격", value: null, note: null },
-          { label: "미래 예상", value: null, note: null },
-        ],
+        title: "곡선을 움직이는 것",
+        items: [it("소득"), it("유행"), it("대체재 값"), it("보완재 값"), it("미래 예상")],
       },
-      quiz: null,
-      motion: {
-        beats: [
-          { text: "가격 → 곡선 위 이동", effect: "slide" },
-          { text: "그 외 → 곡선 이동", effect: "highlight" },
-        ],
-        narration: "가격이 원인이면 곡선 위에서 움직이고, 다른 이유면 곡선 자체가 움직여요.",
-      },
-      pages: null,
-    },
-    {
+      motion: { beats: [{ text: "시험 기간이다!", effect: "zoom" }], narration: "가격이 아닌 다른 이유로 바뀌면, 곡선 자체가 움직여요." },
+    }),
+    card({
       id: "s7",
       kind: "quiz",
       emoji: "🧠",
-      title: "수요 변화",
+      title: "수요의 변화",
       body: "",
-      points: [],
-      visual: null,
       quiz: {
         question: "시험 기간이라 밤 야식 주문이 확 늘었다. 그래프에서는?",
-        choices: ["수요곡선 위에서 아래로 이동", "수요곡선이 오른쪽으로 이동", "공급곡선이 왼쪽으로 이동", "아무 변화 없음"],
+        choices: ["수요곡선 위에서 이동", "수요곡선이 오른쪽 이동", "공급곡선이 왼쪽 이동", "아무 변화 없음"],
         answer: 1,
-        explanation:
-          "가격이 아니라 '시험 기간'이라는 다른 조건 때문에 늘었으니 수요곡선 자체가 오른쪽으로 이동해요. 그 결과 균형가격(배달비)이 올라가요.",
+        explanation: "가격이 아니라 '시험 기간'이라는 다른 이유로 늘었으니 수요곡선 자체가 오른쪽으로 이동해요.",
       },
-      motion: null,
-      pages: null,
-    },
-    {
+    }),
+    card({
       id: "s8",
       kind: "concept",
       emoji: "🛵",
-      title: "그래서 야식 배달비가 오른다",
-      body: "밤에는 주문(수요)은 늘고 일하는 라이더(공급)는 줄어요. 두 곡선이 동시에 움직이니 가격이 오를 수밖에요.",
-      points: ["수요곡선 → 오른쪽", "공급곡선 → 왼쪽", "균형가격 ↑↑"],
+      title: "야식 배달비",
+      tagline: "수요 ↑ 공급 ↓ = [[가격 ↑↑]]",
+      body: "밤엔 주문은 늘고 라이더는 줄어요. 두 곡선이 함께 움직이니 값이 오를 수밖에요.",
+      chip: { label: "예시", text: "비 오는 날 배달비도 같은 원리" },
       visual: {
         type: "cycle",
-        title: "밤 11시의 배달 시장",
-        items: [
-          { label: "주문 폭증", value: null, note: null },
-          { label: "라이더 부족", value: null, note: null },
-          { label: "배달비 ↑", value: null, note: null },
-          { label: "라이더 유입", value: null, note: null },
-        ],
+        title: null,
+        items: [it("주문 폭증"), it("라이더 부족"), it("배달비 ↑"), it("라이더 유입")],
       },
-      quiz: null,
-      motion: {
-        beats: [
-          { text: "주문 ↑", effect: "pop" },
-          { text: "라이더 ↓", effect: "pop" },
-          { text: "배달비 ↑↑", effect: "zoom" },
-        ],
-        narration: "주문은 늘고 라이더는 줄어요. 그래서 밤에는 배달비가 오르는 거예요.",
-      },
-      pages: null,
-    },
-    {
+      motion: { beats: [{ text: "주문 폭주!", effect: "pop" }, { text: "라이더 없어요", effect: "slide" }], narration: "주문은 늘고 라이더는 줄어요. 그래서 밤에는 배달비가 올라요." },
+    }),
+    card({
       id: "s9",
       kind: "quiz",
       emoji: "🧠",
-      title: "균형",
+      title: "초과공급",
       body: "",
-      points: [],
-      visual: null,
       quiz: {
-        question: "가격이 균형가격보다 높으면 시장에는 무엇이 생길까?",
+        question: "가격이 균형가격보다 높으면 시장에 생기는 것은?",
         choices: ["초과수요", "초과공급", "균형거래량 증가", "수요곡선 이동"],
         answer: 1,
-        explanation:
-          "가격이 높으면 팔려는 양이 사려는 양보다 많아 '초과공급'이 생겨요. 남는 물건 때문에 가격이 내려가며 균형으로 돌아가요.",
+        explanation: "가격이 높으면 팔려는 양이 사려는 양보다 많아 초과공급이 생겨요. 남는 물건 때문에 가격이 내려가요.",
       },
-      motion: null,
-      pages: null,
-    },
-    {
+    }),
+    card({
       id: "s10",
       kind: "summary",
       emoji: "📌",
-      title: "오늘의 3줄 요약",
-      body: "이 세 줄만 기억하면 시험 첫 문제는 잡아요.",
-      points: [
-        "가격 ↑ → 수요량 ↓, 공급량 ↑",
-        "균형 = 수요량과 공급량이 같은 점",
-        "가격 외 요인은 곡선 자체를 움직인다",
-      ],
-      visual: {
-        type: "formula",
-        title: null,
-        items: [{ label: "Qd(P*) = Qs(P*)", value: null, note: "P*: 균형가격, Qd: 수요량, Qs: 공급량" }],
-      },
-      quiz: null,
-      motion: {
-        beats: [
-          { text: "법칙 2개", effect: "pop" },
-          { text: "균형 1개", effect: "pop" },
-          { text: "끝!", effect: "zoom" },
-        ],
-        narration: "수요와 공급의 법칙, 그리고 균형. 오늘은 이것만 기억하세요.",
-      },
-      pages: null,
-    },
+      title: "오늘의 핵심",
+      body: "이것만 기억하면 시험 첫 문제는 잡아요.",
+      points: ["수요의 법칙", "공급의 법칙", "균형", "수요의 변화"],
+      visual: { type: "formula", title: null, items: [it("Qd(P*) = Qs(P*)", "P*: 균형가격")] },
+    }),
   ],
 };

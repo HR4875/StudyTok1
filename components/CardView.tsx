@@ -1,108 +1,135 @@
 "use client";
+import type { ReactNode } from "react";
 import type { Card, RenderMode } from "@/lib/types";
 import Visual from "./Visual";
 
 interface Props {
   card: Card;
   mode: RenderMode;
-  active: boolean;
   chosen: number | undefined;
   onAnswer: (choice: number) => void;
+  sourceLabel?: string;
 }
 
-const KIND_LABEL: Record<string, string> = {
-  hook: "궁금증",
-  concept: "개념",
-  quiz: "퀴즈",
-  summary: "요약",
-};
+// "고객 머릿속 [[한 자리]] 차지하기" → 형광펜 강조
+export function Marked({ text }: { text: string }) {
+  const parts: ReactNode[] = [];
+  const re = /\[\[(.+?)\]\]/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(
+      <span className="mk" key={m.index}>
+        {m[1]}
+      </span>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
 
-export default function CardView({ card, mode, active, chosen, onAnswer }: Props) {
-  const motion = mode === "motion" && card.motion;
-  const isExplain = Boolean(card.explainFor);
+const TAG: Record<string, string> = { hook: "오늘의 질문", concept: "개념", summary: "정리" };
+
+export function isQuiz(c: Card) {
+  return c.kind === "quiz" && Boolean(c.quiz);
+}
+
+export default function CardView({ card, mode, chosen, onAnswer, sourceLabel }: Props) {
+  const source = [sourceLabel, card.pages].filter(Boolean).join(" · ");
+  if (isQuiz(card)) return <QuizCard card={card} chosen={chosen} onAnswer={onAnswer} source={source} />;
+
+  const explain = Boolean(card.explainFor);
+  const long = card.title.length > 7 || card.kind === "hook" || explain;
+  const tag = explain ? `해설 · ${card.skipped ? "건너뛴 문제" : "방금 틀린 문제"}` : TAG[card.kind] ?? "개념";
 
   return (
-    <article
-      className={`card card-${card.kind} ${isExplain ? "card-explain" : ""} ${motion ? "is-motion" : ""} ${
-        active ? "is-active" : ""
-      }`}
-    >
-      {motion && <div className="bg-blobs" aria-hidden><i /><i /><i /></div>}
-      <div className="card-inner">
-        <div className="card-tag">
-          <span>{isExplain ? "오답 해설" : KIND_LABEL[card.kind]}</span>
-          {card.pages && <span className="pages">{card.pages}</span>}
+    <article className={`card grad ${explain ? "explain" : ""} k-${card.kind}`}>
+      <span className="tag">{tag}</span>
+      <Visual v={card.visual} emoji={card.emoji} beats={mode === "motion" ? card.motion?.beats : undefined} />
+      <h2 className={`name ${long ? "mid" : ""} ${card.title.length > 12 ? "long" : ""}`}>
+        {card.title}
+        {card.subtitle && <small>{card.subtitle}</small>}
+      </h2>
+      {card.tagline && (
+        <p className="tagline">
+          <Marked text={card.tagline} />
+        </p>
+      )}
+      {card.body && <p className="desc">{card.body}</p>}
+      {card.kind === "summary" && card.points.length > 0 && (
+        <div className="kw-row">
+          {card.points.map((p, i) => (
+            <span key={i}>{p}</span>
+          ))}
         </div>
-
-        {card.kind === "quiz" && card.quiz ? (
-          <QuizBody card={card} chosen={chosen} onAnswer={onAnswer} />
-        ) : (
-          <>
-            <div className="emoji">{card.emoji}</div>
-            <h2 className="title">{card.title}</h2>
-
-            {motion && card.motion ? (
-              <div className="beats" key={active ? "on" : "off"}>
-                {card.motion.beats.map((b, i) => (
-                  <span key={i} className={`beat fx-${b.effect}`} style={{ ["--d" as string]: `${0.3 + i * 0.7}s` }}>
-                    {b.text}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            {card.body && (
-              <p className="body" style={motion ? { ["--d" as string]: `${0.4 + (card.motion?.beats.length ?? 0) * 0.7}s` } : undefined}>
-                {card.body}
-              </p>
-            )}
-
-            {card.points.length > 0 && (
-              <ul className="points">
-                {card.points.map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
-              </ul>
-            )}
-
-            {card.visual && <Visual v={card.visual} animate={Boolean(motion) && active} key={active ? "a" : "b"} />}
-          </>
-        )}
-      </div>
+      )}
+      {card.chip && (
+        <div className="chip">
+          <b>{card.chip.label}</b>
+          <span>{card.chip.text}</span>
+        </div>
+      )}
+      <div className="hint">↑ 올려서 다음</div>
+      {source && <div className="source">{source}</div>}
     </article>
   );
 }
 
-function QuizBody({ card, chosen, onAnswer }: { card: Card; chosen: number | undefined; onAnswer: (c: number) => void }) {
+function QuizCard({
+  card,
+  chosen,
+  onAnswer,
+  source,
+}: {
+  card: Card;
+  chosen: number | undefined;
+  onAnswer: (c: number) => void;
+  source: string;
+}) {
   const q = card.quiz!;
+  const ox = q.choices.length === 2 && q.choices[0] === "O" && q.choices[1] === "X";
   const answered = chosen !== undefined;
   const correct = answered && chosen === q.answer;
   return (
-    <div className={`quiz ${answered ? (correct ? "is-correct" : "is-wrong") : ""}`}>
-      <div className="emoji">🧠</div>
-      <h2 className="title">{q.question}</h2>
-      <div className="choices">
+    <article className="card plain">
+      <span className="ask">{ox ? "맞으면 O, 틀리면 X" : "알맞은 답을 고르세요"}</span>
+      <p className="q">{q.question}</p>
+      <div className={`opts ${ox ? "ox" : ""}`}>
         {q.choices.map((c, i) => {
           let state = "";
           if (answered) {
             if (i === q.answer) state = "right";
-            else if (i === chosen) state = "picked-wrong";
-            else state = "dim";
+            else if (i === chosen) state = "wrong";
           }
           return (
-            <button key={i} className={`choice ${state}`} disabled={answered} onClick={() => onAnswer(i)}>
-              <span className="choice-no">{String.fromCharCode(65 + i)}</span>
-              {c}
+            <button key={i} className={`opt ${state}`} disabled={answered} onClick={() => onAnswer(i)}>
+              {ox ? (
+                <>
+                  {c}
+                  <span className="mark">{state === "right" ? "정답" : state === "wrong" ? "오답" : ""}</span>
+                </>
+              ) : (
+                <>
+                  <span className="k">{i + 1}</span>
+                  <span className="t">{c}</span>
+                </>
+              )}
             </button>
           );
         })}
       </div>
-      {answered && (
-        <p className="quiz-result">
-          {correct ? "정답! 🎉 " + q.explanation : "아쉬워요. 아래로 넘기면 해설 카드가 있어요 👇"}
-        </p>
+      <div className="spacer" />
+      {answered ? (
+        <div className="toast">
+          <b className={correct ? "ok" : "no"}>{correct ? "정답!" : `정답은 ${ox ? q.choices[q.answer] : `${q.answer + 1}번`}!`}</b>
+          <p>{correct ? q.explanation : "올려서 해설 카드를 확인해요."}</p>
+        </div>
+      ) : (
+        <div className="hint">모르겠으면 넘겨도 돼요. 해설이 따라와요 ↑</div>
       )}
-      {!answered && <p className="quiz-hint">모르겠으면 그냥 넘겨도 돼요</p>}
-    </div>
+      {source && <div className="source">{source}</div>}
+    </article>
   );
 }

@@ -91,8 +91,8 @@ export default function Lab() {
                   </p>
                   <div className="lab-cards">
                     {r.res.cards.map((c) => (
-                      <div className="lab-card" key={c.id}>
-                        <CardView card={c} mode={mode} active chosen={undefined} onAnswer={() => {}} />
+                      <div className={`lab-card live ${mode === "motion" ? "motion" : ""}`} key={c.id}>
+                        <CardView card={c} mode={mode} chosen={undefined} onAnswer={() => {}} />
                       </div>
                     ))}
                   </div>

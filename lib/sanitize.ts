@@ -52,6 +52,14 @@ function motion(v: unknown): Motion | null {
   return { beats, narration: str(o.narration, 160) };
 }
 
+function chip(v: unknown) {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const label = str(o.label, 16);
+  const text = str(o.text, 60);
+  return label && text ? { label, text } : null;
+}
+
 export function sanitizeCards(raw: unknown[], mode: RenderMode, chunkIndex: number): Card[] {
   if (!Array.isArray(raw)) return [];
   const out: Card[] = [];
@@ -64,9 +72,12 @@ export function sanitizeCards(raw: unknown[], mode: RenderMode, chunkIndex: numb
       id: `c${chunkIndex}-${i}-${Math.random().toString(36).slice(2, 7)}`,
       kind,
       emoji: str(o.emoji, 8) || "📘",
-      title: str(o.title, 60),
-      body: str(o.body, 300),
-      points: strArr(o.points, 3),
+      title: str(o.title, 40),
+      subtitle: typeof o.subtitle === "string" && o.subtitle ? o.subtitle.slice(0, 40) : null,
+      tagline: kind !== "quiz" && typeof o.tagline === "string" && o.tagline ? o.tagline.slice(0, 60) : null,
+      body: str(o.body, 200),
+      chip: kind !== "quiz" ? chip(o.chip) : null,
+      points: strArr(o.points, 5, 40),
       visual: kind === "quiz" ? null : visual(o.visual),
       quiz: kind === "quiz" ? q : null,
       motion: mode === "motion" && kind !== "quiz" ? motion(o.motion) : null,

@@ -91,3 +91,34 @@ export async function hashFile(data: ArrayBuffer): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+// 범위 고르기 화면의 미리보기: 한 문서를 열어 두고 쪽 그림과 글자 수를 뽑는다
+let openDoc: { data: ArrayBuffer; doc: Promise<import("pdfjs-dist").PDFDocumentProxy> } | null = null;
+
+async function docFor(data: ArrayBuffer) {
+  if (!openDoc || openDoc.data !== data) {
+    const pdfjs = await getPdfJs();
+    if (openDoc) void openDoc.doc.then((d) => d.destroy()).catch(() => {});
+    openDoc = { data, doc: pdfjs.getDocument({ data: new Uint8Array(data.slice(0)) }).promise };
+  }
+  return openDoc.doc;
+}
+
+export async function renderThumb(data: ArrayBuffer, pageNo: number, canvas: HTMLCanvasElement) {
+  const doc = await docFor(data);
+  const page = await doc.getPage(pageNo);
+  const vp = page.getViewport({ scale: 360 / page.getViewport({ scale: 1 }).width });
+  canvas.width = vp.width;
+  canvas.height = vp.height;
+  await page.render({ canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
+}
+
+export async function rangeText(data: ArrayBuffer, from: number, to: number): Promise<string> {
+  const doc = await docFor(data);
+  let text = "";
+  for (let p = from; p <= to; p++) {
+    const tc = await (await doc.getPage(p)).getTextContent();
+    text += tc.items.map((i) => ("str" in i ? i.str : "")).join(" ") + "\n";
+  }
+  return text;
+}

@@ -86,6 +86,7 @@ export default function Home() {
 
   if (deck && deck.cards.length > 0) {
     return (
+      <div className="app">
       <Feed
         key={deck.source + deck.mode}
         deck={deck}
@@ -98,8 +99,9 @@ export default function Home() {
           setUsage([]);
         }}
       />
+      </div>
     );
   }
 
-  return <Setup busy={generating} error={error ?? (generating ? status : null)} onStart={start} onSample={openSample} />;
+  return <Setup busy={generating} status={status} error={error} onStart={start} onSample={openSample} />;
 }

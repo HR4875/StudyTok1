@@ -27,18 +27,37 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType = "
   o.stop(a.currentTime + start + dur + 0.02);
 }
 
+function noise(dur: number, vol: number, hp: number) {
+  const a = audio();
+  if (!a) return;
+  const buf = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  const src = a.createBufferSource();
+  const f = a.createBiquadFilter();
+  const g = a.createGain();
+  f.type = "highpass";
+  f.frequency.value = hp;
+  g.gain.value = vol;
+  src.buffer = buf;
+  src.connect(f).connect(g).connect(a.destination);
+  src.start();
+}
+
+const SCALE = [523, 587, 659, 698, 784, 880, 988, 1047];
+
 export const sfx = {
-  correct() {
-    tone(660, 0, 0.12, "triangle");
-    tone(880, 0.1, 0.12, "triangle");
-    tone(1320, 0.2, 0.22, "triangle");
+  // 콤보가 오를수록 음이 올라간다
+  correct(combo = 1) {
+    const f = SCALE[Math.min(Math.max(combo, 1) - 1, SCALE.length - 1)];
+    tone(f, 0, 0.12, "triangle");
+    tone(f * 1.5, 0.07, 0.18, "triangle");
   },
   wrong() {
-    tone(220, 0, 0.18, "sawtooth", 0.08);
-    tone(160, 0.15, 0.25, "sawtooth", 0.08);
+    tone(196, 0, 0.22, "sine", 0.2);
   },
-  pop() {
-    tone(520, 0, 0.06, "square", 0.05);
+  swipe() {
+    noise(0.12, 0.05, 2500);
   },
   finish() {
     [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.12, 0.25, "triangle"));

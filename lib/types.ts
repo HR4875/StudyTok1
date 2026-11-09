@@ -39,19 +39,28 @@ export interface Motion {
   narration: string; // Web Speech API 로 읽는 대사
 }
 
+export interface Chip {
+  label: string; // 예: "예시", "vs 타겟팅", "한 줄"
+  text: string;
+}
+
 export interface Card {
   id: string;
   kind: CardKind;
   emoji: string;
-  title: string;
-  body: string;
+  title: string; // 화면 가운데 아래에 크게 쓰는 핵심 개념 이름
+  subtitle: string | null; // 원어·영문 표기 (작게)
+  tagline: string | null; // 한 줄 핵심. [[ ]] 로 감싼 말은 형광펜 강조
+  body: string; // 작은 설명
+  chip: Chip | null; // 예시·비교 한 줄
   points: string[];
   visual: Visual | null;
   quiz: Quiz | null;
   motion: Motion | null;
   pages: string | null; // 출처 페이지 표시 (예: "p.3")
   // 화면에서만 쓰는 필드
-  explainFor?: string; // 오답 해설 카드가 가리키는 퀴즈 카드 id
+  explainFor?: string; // 해설 카드가 가리키는 퀴즈 카드 id
+  skipped?: boolean; // 퀴즈를 풀지 않고 넘겨서 붙은 해설
 }
 
 export type RenderMode = "text" | "motion";
