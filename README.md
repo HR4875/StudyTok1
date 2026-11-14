@@ -93,7 +93,7 @@
 ## 9. 기술 구성
 
 - **프론트엔드**: Next.js 15 (App Router) + React 19 + TypeScript, CSS만으로 모션 처리
-- **디자인 (UI v0.3)**: 개념 카드는 파랑·보라 그라데이션 위에 [코드로 그린 스티커 도식 → 큰 개념 이름 → 형광펜 한 줄 → 작은 설명], 퀴즈 카드는 흰 바탕. 폰트는 Pretendard(본문, npm 패키지로 직접 포함)와 Black Han Sans(큰 제목, Google Fonts)
+- **디자인 (UI v0.3)**: 개념 카드는 파랑·보라 그라데이션 위에 [코드로 그린 스티커 도식 → 큰 개념 이름 → 형광펜 한 줄 → 작은 설명], 퀴즈 카드는 흰 바탕. 폰트는 Pretendard(본문, npm 패키지로 직접 포함)와 Wanted Sans(큰 제목, ExtraBold, npm 패키지로 직접 포함). 글자 그림자는 쓰지 않음
 - **PDF 처리**: 브라우저에서 pdf.js 로 글자 추출. 글자가 거의 없는 스캔 페이지만 pdf-lib 로 그 쪽만 잘라 AI에 보냄
 - **AI**: Anthropic Claude API (`/api/generate` 서버 함수). 구조화 출력(JSON 스키마)으로 카드 형식 고정, 거절 시 서버측 대체 모델(fallback) 사용
 - **소리·음성**: Web Audio 효과음 합성, Web Speech API 내레이션 (추가 비용 없음)
