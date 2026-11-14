@@ -201,12 +201,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .card.plain .tag { background: var(--chip); color: var(--brand); }
 .name {
   font-family: var(--f-display); font-weight: 400; font-size: clamp(56px, 19vw, 84px); line-height: 1; margin: 6px 0 0;
-  text-align: center; text-shadow: 0 6px 0 var(--stroke); text-wrap: balance;
+  text-align: center; text-wrap: balance;
 }
-.name.mid { font-size: clamp(36px, 11vw, 48px); line-height: 1.15; text-shadow: 0 4px 0 var(--stroke); }
+.name.mid { font-size: clamp(36px, 11vw, 48px); line-height: 1.15; }
 .name.long { font-size: clamp(30px, 9vw, 40px); }
 .name small {
-  display: block; font-family: var(--f-body); font-weight: 700; font-size: 14px; letter-spacing: 0.12em; text-shadow: none;
+  display: block; font-family: var(--f-body); font-weight: 700; font-size: 14px; letter-spacing: 0.12em;
   opacity: 0.75; margin-top: 10px; text-transform: uppercase;
 }
 .tagline { font-family: var(--f-display); font-weight: 400; font-size: 24px; line-height: 1.5; margin: 6px 0 0; text-align: center; text-wrap: balance; }
