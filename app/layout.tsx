@@ -1,11 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Black_Han_Sans } from "next/font/google";
 // 본문 폰트: Pretendard (npm 패키지로 직접 넣음. 한국어 글리프를 쓰는 만큼만 나눠 받는 dynamic subset)
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+// 제목 폰트: Wanted Sans Variable (npm 패키지, OFL. 글자 범위별로 나눠 필요한 조각만 받는 split 버전)
+import "wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css";
 import "./globals.css";
-
-// 큰 개념 이름·제목용 디스플레이 폰트 (Google Fonts, 빌드 때 내려받아 같이 배포)
-const display = Black_Han_Sans({ weight: "400", subsets: ["latin"], display: "swap", variable: "--font-display", preload: false });
 
 export const metadata: Metadata = {
   title: "StudyTok · 숏폼으로 공부하기",
@@ -21,7 +19,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className={display.variable}>
+    <html lang="ko">
       <body>{children}</body>
     </html>
   );
