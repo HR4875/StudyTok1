@@ -5,7 +5,6 @@ import { isShowable, paletteOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
 import type { Settings } from "@/lib/storage";
 import { playSfx, setSoundEnabled, unlockAudio } from "@/lib/sfx";
-import { bgCss } from "@/motion/palettes";
 import { W } from "@/motion/timeline";
 import QuizCard from "./QuizCard";
 import SceneCard, { type MotionSrc } from "./SceneCard";
@@ -214,13 +213,22 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   };
   const readyCount = deck.cards.filter((c) => c.status === "ready").length;
 
+  /** 모션 카드(색 바탕) 위에서만 흰 글씨 상단 바, 나머지(종이 바탕)는 잉크 글씨 */
+  const dark = current?.kind === "card" && (view === "motion" || !current.card.short);
   const chip = (active: boolean) =>
-    `shrink-0 rounded-full px-3 py-[7px] text-[12.5px] font-extrabold backdrop-blur-md transition-colors ${
-      active ? "bg-white text-[var(--navy)]" : "bg-black/25 text-white ring-1 ring-white/25"
+    `shrink-0 rounded-full border-2 px-3 py-[5px] text-[12.5px] font-bold transition-colors ${
+      dark
+        ? active
+          ? "border-white bg-white text-[var(--ink)]"
+          : "border-white/60 bg-black/15 text-white"
+        : active
+          ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+          : "border-[var(--ink)] bg-white text-[var(--ink)]"
     }`;
+  const fg = dark ? "#fff" : "var(--ink)";
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-black">
+    <div className="relative h-full w-full overflow-hidden bg-[var(--paper)]">
       {/* feed */}
       <div ref={scroller} onScroll={onScroll} className="snap-feed no-scrollbar h-full w-full overflow-y-scroll">
         {items.map((it, i) => {
@@ -230,27 +238,26 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               {it.kind === "card" ? (
                 renderCard(it.card, dist === 0 ? "active" : dist === 1 ? "near" : "far", i)
               ) : it.kind === "pending" ? (
-                <div className="flex h-full w-full flex-col items-center justify-center px-8 text-center text-white" style={{ background: bgCss("navy") }}>
+                <div className="flex h-full w-full flex-col items-center justify-center bg-[var(--paper)] px-8 text-center text-[var(--ink)]">
                   {it.card.status === "error" || !generating ? (
                     <>
-                      <div className="text-[44px]">🛠️</div>
-                      <p className="mt-3 font-jua text-[24px]">{it.card.concept.term}</p>
-                      <p className="mt-2 text-[13.5px] font-semibold text-white/80">
+                      <p className="font-display text-[28px]">{it.card.concept.term}</p>
+                      <p className="mt-2 text-[13.5px] font-semibold text-[var(--muted)]">
                         {it.card.status === "error" ? (it.card.error ?? "이 카드는 만들지 못했어요") : "만들다 멈춘 카드예요"}
                       </p>
                       <button
                         type="button"
                         onClick={() => onRetryCard(it.card.id)}
-                        className="mt-5 rounded-full border-[3px] border-white bg-[var(--yellow)] px-6 py-2.5 font-jua text-[18px] text-[var(--navy)]"
+                        className="font-display mt-5 rounded-[16px] bg-[var(--ocean)] px-7 py-3 text-[18px] text-white"
                       >
                         다시 만들기
                       </button>
                     </>
                   ) : (
                     <>
-                      <div className="h-12 w-12 animate-spin rounded-full border-[5px] border-white/30 border-t-[var(--yellow)]" />
-                      <p className="mt-5 font-jua text-[26px]">{it.card.concept.term}</p>
-                      <p className="mt-2 text-[14px] font-semibold text-white/80">카드를 만드는 중이에요…</p>
+                      <div className="h-12 w-12 animate-spin rounded-full border-[5px] border-[var(--ans)] border-t-[var(--ocean)]" />
+                      <p className="font-display mt-5 text-[28px]">{it.card.concept.term}</p>
+                      <p className="mt-2 text-[14px] font-semibold text-[var(--muted)]">카드를 만드는 중이에요…</p>
                     </>
                   )}
                 </div>
@@ -266,32 +273,32 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   onNext={() => scrollTo(i + 1)}
                 />
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center px-7 text-center text-white" style={{ background: bgCss("blue") }}>
-                  <div className="text-[56px]">🏁</div>
-                  <h2 className="mt-2 font-jua text-[32px]">완주했어요!</h2>
-                  <p className="mt-2 text-[14.5px] font-semibold text-white/85">{deck.title}</p>
+                <div className="flex h-full w-full flex-col justify-center bg-[var(--paper)] px-6 text-[var(--ink)]">
+                  <span className="self-start rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white">FINISH</span>
+                  <h2 className="font-display mt-3 text-[40px] leading-tight">완주했어요!</h2>
+                  <p className="mt-1 text-[14.5px] font-semibold text-[var(--muted)]">{deck.title}</p>
                   <div className="mt-6 grid w-full grid-cols-3 gap-2">
                     {[
                       { k: "개념", v: `${readyCount}개` },
                       { k: "퀴즈 정답", v: answered.length ? `${correctCount}/${answered.length}` : "-" },
                       { k: "오답노트", v: `${wrongCards.length}개` },
                     ].map((s) => (
-                      <div key={s.k} className="rounded-[18px] bg-white/15 px-2 py-3 ring-1 ring-white/20">
-                        <div className="font-jua text-[24px]">{s.v}</div>
-                        <div className="text-[12px] font-bold text-white/80">{s.k}</div>
+                      <div key={s.k} className="rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white px-2 py-3 text-center">
+                        <div className="font-display text-[24px]">{s.v}</div>
+                        <div className="text-[12px] font-bold text-[var(--muted)]">{s.k}</div>
                       </div>
                     ))}
                   </div>
                   <div className="mt-6 flex w-full flex-col gap-2.5">
-                    <button type="button" onClick={() => scrollTo(0)} className="rounded-full border-[3px] border-white bg-[var(--navy)] py-3 font-jua text-[19px] text-[var(--yellow)]">
+                    <button type="button" onClick={() => scrollTo(0)} className="font-display rounded-[18px] bg-[var(--ocean)] py-4 text-[19px] text-white">
                       처음부터 다시 보기
                     </button>
                     {wrongCards.length ? (
-                      <button type="button" onClick={() => setNotes(true)} className="rounded-full bg-white py-3 text-[15px] font-extrabold text-[var(--navy)]">
-                        📒 오답노트 복습
+                      <button type="button" onClick={() => setNotes(true)} className="font-display rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white py-3.5 text-[18px] text-[var(--ink)]">
+                        오답노트 복습
                       </button>
                     ) : null}
-                    <button type="button" onClick={onBack} className="py-2 text-[14px] font-bold text-white/85">
+                    <button type="button" onClick={onBack} className="py-2 text-[14px] font-bold text-[var(--muted)]">
                       홈으로
                     </button>
                   </div>
@@ -301,27 +308,34 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           );
         })}
         {items.length === 0 ? (
-          <section className="flex h-full w-full items-center justify-center text-white" style={{ background: bgCss("navy") }}>
-            <p className="font-jua text-[22px]">카드를 준비하는 중…</p>
+          <section className="flex h-full w-full items-center justify-center bg-[var(--paper)] text-[var(--ink)]">
+            <p className="font-display text-[22px]">카드를 준비하는 중…</p>
           </section>
         ) : null}
       </div>
 
       {/* top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/35 via-black/10 to-transparent pb-6 pt-[max(10px,env(safe-area-inset-top))]">
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 pb-3 pt-[max(10px,env(safe-area-inset-top))] ${dark ? "bg-gradient-to-b from-black/30 to-transparent" : "bg-[var(--paper)]"}`}
+      >
         <div className="pointer-events-auto flex items-center gap-1 px-2">
-          <button type="button" onClick={onBack} aria-label="홈으로" className="flex h-10 w-10 items-center justify-center rounded-full active:bg-white/10">
+          <button type="button" onClick={onBack} aria-label="홈으로" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full active:bg-black/5">
             <svg width="22" height="22" viewBox="0 0 22 22">
-              <path d="M14 4 L7 11 L14 18" stroke="#fff" strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 4 L7 11 L14 18" stroke={fg} strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-extrabold text-white drop-shadow">{deck.title}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block max-w-full truncate rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white" style={{ width: "fit-content" }}>
+              {deck.subject ? `${deck.subject} : ` : ""}
+              {deck.title}
+            </span>
+          </span>
           {deck.sample ? (
-            <span className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-extrabold text-[var(--ink)]" title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">
+            <span className="shrink-0 rounded-full border-2 border-[var(--ink)] bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--ink)]" title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">
               예시 · 가상 숫자
             </span>
           ) : null}
-          <span className="mr-2 rounded-full bg-black/25 px-2.5 py-1 text-[12px] font-extrabold text-white ring-1 ring-white/20">
+          <span className="mr-2 shrink-0 px-1 text-[14px] font-semibold tabular-nums" style={{ color: fg }}>
             {Math.max(1, lastConceptBefore)} / {deck.cards.length}
             {generating ? " · 만드는 중" : ""}
           </span>
@@ -337,11 +351,11 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               onClick={() => set({ mode: view === "motion" ? "text" : "motion" }, view === "motion" ? "텍스트 숏츠로 보기" : "같은 카드를 모션으로 보기 · 추가 비용 없음")}
               aria-pressed={view === "motion"}
             >
-              {view === "motion" ? "🎬 모션" : "📝 텍스트"}
+              {view === "motion" ? "모션" : "텍스트"}
             </button>
           ) : null}
           <button type="button" className={chip(settings.quizEvery > 0)} onClick={() => setQuizMenu((v) => !v)} aria-expanded={quizMenu}>
-            🧩 {settings.quizEvery > 0 ? `퀴즈 ${settings.quizEvery}장마다` : "퀴즈 끔"} ▾
+            {settings.quizEvery > 0 ? `퀴즈 ${settings.quizEvery}장마다` : "퀴즈 끔"} ▾
           </button>
           <button
             type="button"
@@ -351,7 +365,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               set({ speed: next }, `재생 속도 ${next}배`);
             }}
           >
-            ⏩ {settings.speed}x
+            {settings.speed}x
           </button>
           <button
             type="button"
@@ -362,16 +376,16 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             }}
             aria-pressed={settings.sound}
           >
-            {settings.sound ? "🔊 소리" : "🔇 소리"}
+            {settings.sound ? "소리 켬" : "소리 끔"}
           </button>
           <button type="button" className={chip(settings.autoNext)} onClick={() => set({ autoNext: !settings.autoNext }, settings.autoNext ? "한 카드 반복 재생" : "다 보면 자동으로 다음 카드")}>
-            {settings.autoNext ? "⏭ 자동 넘김" : "🔁 반복"}
+            {settings.autoNext ? "자동 넘김" : "반복"}
           </button>
           <button type="button" className={chip(settings.captions)} onClick={() => set({ captions: !settings.captions }, settings.captions ? "자막 끔" : "자막 켬")} aria-pressed={settings.captions}>
-            💬 자막
+            자막
           </button>
           <button type="button" className={chip(settings.shuffle)} onClick={() => set({ shuffle: !settings.shuffle }, settings.shuffle ? "원래 순서" : "순서 섞기")} aria-pressed={settings.shuffle}>
-            🔀 섞기
+            섞기
           </button>
           <button
             type="button"
@@ -379,14 +393,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             onClick={() => set({ retryWrong: !settings.retryWrong }, settings.retryWrong ? "틀린 문제 다시 안 내기" : "틀린 문제는 3장 뒤 다시")}
             aria-pressed={settings.retryWrong}
           >
-            ♻️ 오답 재출제
+            오답 재출제
           </button>
           <button type="button" className={chip(false)} onClick={() => setNotes(true)}>
-            📒 오답노트 {wrongCards.length ? wrongCards.length : ""}
+            오답노트 {wrongCards.length ? wrongCards.length : ""}
           </button>
         </div>
         {quizMenu ? (
-          <div className="pointer-events-auto absolute left-3 top-[calc(100%-14px)] z-30 w-[230px] rounded-[20px] bg-white p-2 shadow-xl ring-1 ring-black/5">
+          <div className="pointer-events-auto absolute left-3 top-[calc(100%-4px)] z-30 w-[230px] rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white p-2">
             <p className="px-2 pb-1 pt-1 text-[12px] font-extrabold text-[var(--muted)]">퀴즈를 몇 장마다 낼까요?</p>
             {QUIZ_OPTIONS.map((n) => (
               <button
@@ -397,7 +411,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   setQuizMenu(false);
                 }}
                 className={`flex w-full items-center justify-between rounded-[14px] px-3 py-2.5 text-[14.5px] font-bold ${
-                  settings.quizEvery === n ? "bg-[#EEF2FF] text-[var(--blue)]" : "text-[var(--ink)]"
+                  settings.quizEvery === n ? "bg-[var(--ans)] text-[var(--ocean)]" : "text-[var(--ink)]"
                 }`}
               >
                 {n === 0 ? "퀴즈 없이 보기" : n === 1 ? "매 장마다" : `${n}장마다`}
@@ -410,22 +424,32 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
 
       {/* bottom bar */}
       {current?.kind === "card" ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/30 to-transparent px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-8">
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-8 ${dark ? "bg-gradient-to-t from-black/30 to-transparent" : ""}`}
+        >
           <div className="pointer-events-auto flex items-center gap-2">
             <button
               type="button"
               onClick={() => setDetail(current.card)}
-              className="flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[13px] font-extrabold text-[var(--navy)] shadow-lg"
+              className="flex items-center gap-1.5 rounded-full border-2 border-[var(--ink)] bg-white px-3.5 py-1.5 text-[13px] font-bold text-[var(--ink)]"
             >
-              📖 해설 보기
+              해설 보기
             </button>
             {current.card.concept.pages ? (
-              <span className="rounded-full bg-black/25 px-2.5 py-1.5 text-[12px] font-bold text-white ring-1 ring-white/20">{current.card.concept.pages}</span>
+              <span className="text-[12.5px] font-semibold" style={{ color: fg }}>{current.card.concept.pages}</span>
             ) : null}
-            {index === 0 ? <span className="animate-bob ml-auto text-[12.5px] font-extrabold text-white drop-shadow">↑ 올려서 다음</span> : null}
+            <span className="ml-auto text-[13px] font-medium" style={{ color: dark ? "#fff" : "var(--muted)" }}>
+              {index === 0 ? <span className="animate-bob inline-block">↑ 넘기기</span> : "↑ 넘기기"}
+              {settings.quizEvery > 0
+                ? (() => {
+                    const left = settings.quizEvery - (lastConceptBefore % settings.quizEvery || settings.quizEvery);
+                    return left ? ` · 퀴즈까지 ${left}장` : " · 다음은 퀴즈";
+                  })()
+                : ""}
+            </span>
           </div>
-          <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-white/25">
-            <div ref={progressBar} className="h-full w-0 rounded-full bg-white" />
+          <div className={`mt-3 h-[3px] w-full overflow-hidden rounded-full ${dark ? "bg-white/25" : "bg-[var(--line)]"}`}>
+            <div ref={progressBar} className={`h-full w-0 rounded-full ${dark ? "bg-white" : "bg-[var(--ocean)]"}`} />
           </div>
         </div>
       ) : null}
@@ -436,15 +460,15 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       <Sheet open={!!detail} onClose={() => setDetail(null)} title={detail?.concept.term}>
         {detail ? (
           <div className="space-y-4 pb-2">
-            <p className="rounded-[16px] bg-[#FFF8DB] px-4 py-3 text-[15px] font-bold leading-relaxed text-[var(--navy)]">{detail.concept.definition}</p>
-            <p className="text-[14.5px] font-medium leading-[1.7] text-[#374151]">{detail.concept.explanation}</p>
+            <p className="rounded-[14px] border-[2.5px] border-[var(--ink)] bg-white px-4 py-3 text-[15px] font-bold leading-relaxed text-[var(--ink)]">{detail.concept.definition}</p>
+            <p className="text-[14.5px] font-medium leading-[1.7] text-[var(--ink)]">{detail.concept.explanation}</p>
             {detail.concept.keyPoints.length ? (
               <div>
                 <p className="mb-1.5 text-[12.5px] font-extrabold text-[var(--muted)]">시험 포인트</p>
                 <ul className="space-y-1.5">
                   {detail.concept.keyPoints.map((k, i) => (
                     <li key={i} className="flex gap-2 text-[14px] font-semibold leading-relaxed text-[var(--ink)]">
-                      <span className="mt-[3px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--navy)] text-[11px] font-extrabold text-[var(--yellow)]">{i + 1}</span>
+                      <span className="mt-[3px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[11px] font-extrabold text-white">{i + 1}</span>
                       {k}
                     </li>
                   ))}
@@ -452,13 +476,13 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               </div>
             ) : null}
             {detail.concept.example ? (
-              <div className="rounded-[16px] bg-[#F3F5FB] px-4 py-3">
+              <div className="rounded-[14px] bg-[var(--paper)] px-4 py-3">
                 <p className="text-[12.5px] font-extrabold text-[var(--muted)]">예시</p>
-                <p className="mt-1 text-[14px] font-semibold leading-relaxed text-[#374151]">{detail.concept.example}</p>
+                <p className="mt-1 text-[14px] font-semibold leading-relaxed text-[var(--ink)]">{detail.concept.example}</p>
               </div>
             ) : null}
             {detail.fallback ? (
-              <p className="rounded-[14px] bg-[#FFF7ED] px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-[#C2410C]">
+              <p className="rounded-[14px] bg-[var(--paper)] px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-[var(--ink)]">
                 AI 카드가 검사를 통과하지 못해 기본 카드로 보여 주고 있어요. 아래 버튼으로 다시 만들 수 있어요.
               </p>
             ) : null}
@@ -476,9 +500,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   setDetail(null);
                   setToast("이 카드를 새로 만들어요");
                 }}
-                className="w-full rounded-full bg-[#F3F4F6] py-3 text-[14px] font-extrabold text-[var(--ink)]"
+                className="w-full rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white py-3 text-[14px] font-bold text-[var(--ink)]"
               >
-                🎲 이 카드 다시 만들기
+                이 카드 다시 만들기
               </button>
             ) : null}
           </div>
@@ -486,19 +510,19 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       </Sheet>
 
       {/* wrong-answer notes */}
-      <Sheet open={notes} onClose={() => setNotes(false)} title={`📒 오답노트 ${wrongCards.length}개`}>
+      <Sheet open={notes} onClose={() => setNotes(false)} title={`오답노트 ${wrongCards.length}개`}>
         {wrongCards.length === 0 ? (
-          <p className="py-6 text-center text-[14px] font-semibold text-[var(--muted)]">아직 틀린 문제가 없어요. 좋아요! 👍</p>
+          <p className="py-6 text-center text-[14px] font-semibold text-[var(--muted)]">아직 틀린 문제가 없어요.</p>
         ) : (
           <div className="space-y-3 pb-2">
             {wrongCards.map((c) => {
               const q = quizOf(c)!;
               return (
-              <div key={c.id} className="rounded-[18px] border-2 border-[#F1F2F6] p-4">
-                <p className="text-[12.5px] font-extrabold text-[var(--blue)]">{c.concept.term}</p>
+              <div key={c.id} className="rounded-[16px] border-[2.5px] border-[var(--ink)] p-4">
+                <p className="text-[12.5px] font-extrabold text-[var(--ocean)]">{c.concept.term}</p>
                 <p className="mt-1 text-[14.5px] font-bold leading-snug text-[var(--ink)]">{q.question}</p>
-                <p className="mt-2 text-[14px] font-extrabold text-[#15803D]">✓ {q.options[q.answer]}</p>
-                {q.explanation ? <p className="mt-1 text-[13px] font-medium leading-relaxed text-[#4B5563]">{q.explanation}</p> : null}
+                <p className="mt-2 text-[14px] font-extrabold text-[var(--ans-line)]">✓ {q.options[q.answer]}</p>
+                {q.explanation ? <p className="mt-1 text-[13px] font-medium leading-relaxed text-[var(--muted)]">{q.explanation}</p> : null}
                 <button
                   type="button"
                   onClick={() => {

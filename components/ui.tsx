@@ -6,7 +6,7 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[var(--bg)] sm:p-4">
       <div
-        className="relative h-full w-full overflow-hidden bg-[var(--page)] sm:h-[min(900px,calc(100dvh-32px))] sm:w-auto sm:rounded-[46px] sm:border-[10px] sm:border-[#0f1020] sm:shadow-[0_30px_80px_rgba(15,16,32,0.35)]"
+        className="relative h-full w-full overflow-hidden bg-[var(--page)] sm:h-[min(900px,calc(100dvh-32px))] sm:w-auto sm:rounded-[46px] sm:border-[10px] sm:border-[#232325] sm:shadow-[0_30px_80px_rgba(35,35,37,0.25)]"
         style={{ aspectRatio: "auto" }}
       >
         <div className="phone-aspect relative h-full w-full sm:aspect-[9/19.5]">{children}</div>
@@ -38,7 +38,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         }`}
       >
         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-gray-200" />
-        {title ? <h2 className="mb-3 text-[19px] font-extrabold tracking-tight text-[var(--ink)]">{title}</h2> : null}
+        {title ? <h2 className="font-display mb-3 text-[21px] text-[var(--ink)]">{title}</h2> : null}
         {children}
       </div>
     </div>
@@ -48,7 +48,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 export function Toast({ text }: { text: string | null }) {
   return (
     <div
-      className={`pointer-events-none absolute left-1/2 top-[110px] z-40 -translate-x-1/2 rounded-full bg-black/75 px-4 py-2 text-[13px] font-semibold text-white transition-all duration-200 ${
+      className={`pointer-events-none absolute left-1/2 top-[110px] z-40 -translate-x-1/2 rounded-full bg-[var(--ink)] px-4 py-2 text-[13px] font-semibold text-white transition-all duration-200 ${
         text ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
       }`}
     >
@@ -70,11 +70,11 @@ export function useToast() {
 export function Logo({ size = 34 }: { size?: number }) {
   return (
     <div
-      className="flex items-center justify-center rounded-[30%] border-[3px] border-[var(--navy)] shadow-[0_3px_0_var(--navy)]"
-      style={{ width: size, height: size, background: "linear-gradient(160deg,#4B6BFB,#6C4CF1)" }}
+      className="flex items-center justify-center rounded-[30%] bg-[var(--ocean)]"
+      style={{ width: size, height: size }}
     >
       <svg width={size * 0.5} height={size * 0.5} viewBox="0 0 20 20" aria-hidden>
-        <path d="M6 4.5 L15.5 10 L6 15.5 Z" fill="#FFD43B" stroke="#1B1B3A" strokeWidth="1.6" strokeLinejoin="round" />
+        <path d="M6 4.5 L15.5 10 L6 15.5 Z" fill="#fff" />
       </svg>
     </div>
   );

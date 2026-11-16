@@ -18,12 +18,20 @@ import { textWidth } from "./timeline";
 type CSS = React.CSSProperties;
 
 export const EMOJI_FONT = "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
-export const JUA_FONT = "'Jua','Pretendard Variable',Pretendard,sans-serif";
+export const JUA_FONT = "var(--v-font, 'Jua','Pretendard Variable',Pretendard,sans-serif)";
 const PRE = "'Pretendard Variable',Pretendard,sans-serif";
 /** 그림 설계 폭(px). 화면에 맞춰 바깥에서 줄이거나 키운다. */
 export const DW = 340;
-const SERIES = [YELLOW, "#5B8CFF", "#2BD576", "#FF5A6A", "#A78BFA"];
-const SOFT = { yellow: "#FFE27A", blue: "#CFE0FF" };
+const SERIES = [YELLOW, "#1286F0", "#C9E2FF", "#232325", "#B9B6AD"];
+const SOFT = { yellow: "#FFE27A", blue: "#C9E2FF" };
+
+/* 바탕에 따라 바뀌는 글자색: 기본은 색 바탕 위 흰 글씨(모션),
+   텍스트 숏츠의 흰 스티커 칸 안에서는 .v-paper 가 변수로 잉크 글씨·그림자 없음으로 바꾼다. */
+const FG = "var(--v-fg, #fff)";
+const HI = `var(--v-hi, ${YELLOW})`;
+const fgA = (a: number) => `rgba(var(--v-rgb, 255,255,255), ${a})`;
+const TS = "var(--v-ts, 0 2px 0 rgba(27,27,58,0.45))";
+const OS = (w: number, d: number) => `var(--v-ts, ${outlineShadow(w, d)})`;
 
 export interface DrawTiming {
   /** 단계 step의 k번째 요소가 등장하는 시각(초). 모션에서는 영상 시작 기준 */
@@ -49,15 +57,15 @@ const ev = (t: number | null): CSS => (t == null ? {} : ({ ["--e" as string]: `$
 
 const lbl: CSS = {
   font: `800 14.5px/1.2 ${PRE}`,
-  color: "#fff",
+  color: FG,
   textAlign: "center",
   letterSpacing: -0.3,
-  textShadow: "0 2px 0 rgba(27,27,58,0.45)",
+  textShadow: TS,
   wordBreak: "keep-all",
 };
 const subStyle: CSS = {
   font: `700 11.5px/1.3 ${PRE}`,
-  color: "rgba(255,255,255,0.88)",
+  color: fgA(0.88),
   textAlign: "center",
   wordBreak: "keep-all",
 };
@@ -114,7 +122,7 @@ function Sticker({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        font: isNum ? `400 ${size * 0.5}px/1 ${JUA_FONT}` : `${size * 0.48}px/1 ${EMOJI_FONT}`,
+        font: isNum ? `var(--v-w, 400) ${size * 0.5}px/1 ${JUA_FONT}` : `${size * 0.48}px/1 ${EMOJI_FONT}`,
         color: NAVY,
         flexShrink: 0,
         position: "relative",
@@ -170,7 +178,7 @@ function Chip({ children, tone = "white", d, cls = "ts-pop", style }: { children
         color: fg,
         border: `2.5px solid ${tone === "navy" ? "#fff" : NAVY}`,
         boxShadow: `0 3px 0 ${tone === "navy" ? "rgba(27,27,58,0.45)" : NAVY}`,
-        font: `400 14px/1.15 ${JUA_FONT}`,
+        font: `var(--v-w, 400) 14px/1.15 ${JUA_FONT}`,
         whiteSpace: "nowrap",
         ...dv(d),
         ...style,
@@ -188,7 +196,7 @@ function dimmer(tm: DrawTiming, hasFocus: boolean, isFocus: boolean) {
 
 const ExampleTag = ({ show, d, right = false }: { show: boolean; d: number; right?: boolean }) =>
   show ? (
-    <span className="ts-fade" style={{ position: "absolute", ...(right ? { right: 0, bottom: 0 } : { left: 0, bottom: -4 }), font: `700 10.5px/1 ${PRE}`, color: "rgba(255,255,255,0.74)", ...dv(d) }}>
+    <span className="ts-fade" style={{ position: "absolute", ...(right ? { right: 0, bottom: 0 } : { left: 0, bottom: -4 }), font: `700 10.5px/1 ${PRE}`, color: fgA(0.74), ...dv(d) }}>
       모양만 보여 주는 예시 값
     </span>
   ) : null;
@@ -262,8 +270,8 @@ function drawFlow(v: Extract<Visual, { type: "flow" }>, tm: DrawTiming, subs: bo
                 <Sticker size={size} emoji={s.emoji || `${i + 1}`} focus={f} d={tm.at(i, 1)} tm={tm} />
                 <div className="ts-left" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0, ...dv(tm.at(i, 2), 0.45 * tm.slow) }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ font: `400 ${tm.motion ? 15 : 13}px/1 ${JUA_FONT}`, color: NAVY, background: f ? YELLOW : "#fff", borderRadius: 9, padding: "3px 6px 2px" }}>{i + 1}</span>
-                    <span style={{ ...lbl, fontSize: labelSize, textAlign: "left", color: f ? YELLOW : "#fff", whiteSpace: "nowrap" }}>{s.label}</span>
+                    <span style={{ font: `var(--v-w, 400) ${tm.motion ? 15 : 13}px/1 ${JUA_FONT}`, color: NAVY, background: f ? YELLOW : "#fff", borderRadius: 9, padding: "3px 6px 2px" }}>{i + 1}</span>
+                    <span style={{ ...lbl, fontSize: labelSize, textAlign: "left", color: f ? HI : FG, whiteSpace: "nowrap" }}>{s.label}</span>
                   </div>
                   {subs && s.sub ? <span style={{ ...subStyle, textAlign: "left", fontSize: 12.5, marginTop: 3 }}>{s.sub}</span> : null}
                 </div>
@@ -350,7 +358,7 @@ function drawVersus(v: Extract<Visual, { type: "versus" }>, tm: DrawTiming, subs
           {[v.a, v.b].map((s, i) => (
             <div key={i} style={{ width: 140, display: "flex", flexDirection: "column", alignItems: "center", order: i ? 3 : 1 }}>
               <Sticker size={72} emoji={s.emoji || (i ? "B" : "A")} fill={i ? SOFT.blue : SOFT.yellow} d={tm.at(i)} tm={tm} cls={i ? "ts-right" : "ts-left"} />
-              <div className="ts-pop" style={{ font: `400 21px/1.1 ${JUA_FONT}`, color: "#fff", marginTop: 9, textShadow: outlineShadow(2, 3), textAlign: "center", wordBreak: "keep-all", ...dv(tm.at(i, 1)) }}>
+              <div className="ts-pop" style={{ font: `var(--v-w, 400) 21px/1.1 ${JUA_FONT}`, color: FG, marginTop: 9, textShadow: OS(2, 3), textAlign: "center", wordBreak: "keep-all", ...dv(tm.at(i, 1)) }}>
                 {s.label}
               </div>
               {subs && s.sub ? (
@@ -371,7 +379,7 @@ function drawVersus(v: Extract<Visual, { type: "versus" }>, tm: DrawTiming, subs
               background: YELLOW,
               border: `3px solid ${NAVY}`,
               boxShadow: `0 4px 0 ${NAVY}`,
-              font: `400 17px/38px ${JUA_FONT}`,
+              font: `var(--v-w, 400) 17px/38px ${JUA_FONT}`,
               color: NAVY,
               textAlign: "center",
               flexShrink: 0,
@@ -391,7 +399,7 @@ function drawVersus(v: Extract<Visual, { type: "versus" }>, tm: DrawTiming, subs
                 width: 70,
                 flexShrink: 0,
                 textAlign: "center",
-                font: `400 12.5px/1.15 ${JUA_FONT}`,
+                font: `var(--v-w, 400) 12.5px/1.15 ${JUA_FONT}`,
                 color: YELLOW,
                 background: NAVY,
                 borderRadius: 10,
@@ -530,7 +538,7 @@ function drawChart(v: Extract<Visual, { type: "chart" }>, tm: DrawTiming, noteAt
           <span
             key={i}
             className="ts-pop"
-            style={{ ...lbl, position: "absolute", left: X(i) - slot / 2, width: slot, top: yBot + 8, fontSize: cats.length > 4 ? 11.5 : 13, color: i === focus ? YELLOW : "#fff", ...dv(tm.at(1 + i)) }}
+            style={{ ...lbl, position: "absolute", left: X(i) - slot / 2, width: slot, top: yBot + 8, fontSize: cats.length > 4 ? 11.5 : 13, color: i === focus ? HI : FG, ...dv(tm.at(1 + i)) }}
           >
             {c}
           </span>
@@ -626,9 +634,9 @@ function drawCycle(v: Extract<Visual, { type: "cycle" }>, tm: DrawTiming, subs: 
               width: 140,
               top: cy - 16,
               textAlign: "center",
-              font: `400 19px/1.15 ${JUA_FONT}`,
-              color: "#fff",
-              textShadow: outlineShadow(2, 3),
+              font: `var(--v-w, 400) 19px/1.15 ${JUA_FONT}`,
+              color: FG,
+              textShadow: OS(2, 3),
               wordBreak: "keep-all",
               ...dv(tm.at(n, 2)),
             }}
@@ -696,7 +704,7 @@ function drawTree(v: Extract<Visual, { type: "tree" }>, tm: DrawTiming, subs: bo
         {kids.map((k, i) => (
           <div key={i} style={{ position: "absolute", left: colW * i, width: colW, top: kidTop, display: "flex", flexDirection: "column", alignItems: "center", paddingInline: 2 }}>
             <Sticker size={size} emoji={k.emoji || `${i + 1}`} d={tm.at(2 + i)} tm={tm} cls="ts-drop" />
-            <div className="ts-pop" style={{ font: `400 18px/1.1 ${JUA_FONT}`, color: "#fff", textShadow: outlineShadow(1.6, 2.6), marginTop: 9, textAlign: "center", wordBreak: "keep-all", ...dv(tm.at(2 + i, 1)) }}>
+            <div className="ts-pop" style={{ font: `var(--v-w, 400) 18px/1.1 ${JUA_FONT}`, color: FG, textShadow: OS(1.6, 2.6), marginTop: 9, textAlign: "center", wordBreak: "keep-all", ...dv(tm.at(2 + i, 1)) }}>
               {k.label}
             </div>
             {subs && k.sub ? (
@@ -715,10 +723,10 @@ function drawTree(v: Extract<Visual, { type: "tree" }>, tm: DrawTiming, subs: bo
 /*  7. 2축 지도 matrix · 0 = 판·축, 1+i = 대상 i, 1+m = 빈 자리          */
 /* ------------------------------------------------------------------ */
 
-const axisTag: CSS = { position: "absolute", font: `800 11px/1 ${PRE}`, color: "rgba(255,255,255,0.9)", whiteSpace: "nowrap" };
+const axisTag: CSS = { position: "absolute", font: `800 11px/1 ${PRE}`, color: fgA(0.9), whiteSpace: "nowrap" };
 const axisName: CSS = {
   position: "absolute",
-  font: `400 12.5px/1 ${JUA_FONT}`,
+  font: `var(--v-w, 400) 12.5px/1 ${JUA_FONT}`,
   color: NAVY,
   background: "rgba(255,255,255,0.94)",
   borderRadius: 8,
@@ -819,8 +827,8 @@ function drawMatrix(v: Extract<Visual, { type: "matrix" }>, tm: DrawTiming): Dra
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  font: v.gap.emoji ? `26px/1 ${EMOJI_FONT}` : `400 30px/1 ${JUA_FONT}`,
-                  color: YELLOW,
+                  font: v.gap.emoji ? `26px/1 ${EMOJI_FONT}` : `var(--v-w, 400) 30px/1 ${JUA_FONT}`,
+                  color: HI,
                   ...dv(tm.at(gapStep) + 0.5),
                 }}
               >
@@ -836,9 +844,9 @@ function drawMatrix(v: Extract<Visual, { type: "matrix" }>, tm: DrawTiming): Dra
                 right: -44,
                 top: 78,
                 textAlign: "center",
-                font: `400 14px/1.1 ${JUA_FONT}`,
-                color: YELLOW,
-                textShadow: outlineShadow(1.4, 2.4),
+                font: `var(--v-w, 400) 14px/1.1 ${JUA_FONT}`,
+                color: HI,
+                textShadow: OS(1.4, 2.4),
                 wordBreak: "keep-all",
                 ...dv(tm.at(gapStep, 1)),
               }}
@@ -915,7 +923,7 @@ function drawFormula(v: Extract<Visual, { type: "formula" }>, tm: DrawTiming): D
     </span>
   );
   const eq = (
-    <span className="ts-pop" style={{ font: `400 36px/1 ${JUA_FONT}`, color: "#fff", textShadow: outlineShadow(2, 3), ...dv(tm.at(0, 1)) }}>
+    <span className="ts-pop" style={{ font: `var(--v-w, 400) 36px/1 ${JUA_FONT}`, color: FG, textShadow: OS(2, 3), ...dv(tm.at(0, 1)) }}>
       =
     </span>
   );
@@ -929,7 +937,7 @@ function drawFormula(v: Extract<Visual, { type: "formula" }>, tm: DrawTiming): D
             {eq}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
               {termPill(terms[0], 0)}
-              <div className="ts-wipe" style={{ width: 150, height: 5, borderRadius: 4, background: "#fff", boxShadow: `0 3px 0 rgba(27,27,58,0.45)`, ...dv(tm.at(2), 0.35) }} />
+              <div className="ts-wipe" style={{ width: 150, height: 5, borderRadius: 4, background: FG, boxShadow: TS, ...dv(tm.at(2), 0.35) }} />
               {termPill(terms[1], 1)}
             </div>
           </div>
@@ -943,7 +951,7 @@ function drawFormula(v: Extract<Visual, { type: "formula" }>, tm: DrawTiming): D
               {terms.map((t, i) => (
                 <React.Fragment key={i}>
                   {i > 0 ? (
-                    <span className="ts-pop" style={{ font: `400 28px/38px ${JUA_FONT}`, color: YELLOW, textShadow: outlineShadow(1.6, 2.6), ...dv(tm.at(1 + i)) }}>
+                    <span className="ts-pop" style={{ font: `var(--v-w, 400) 28px/38px ${JUA_FONT}`, color: HI, textShadow: OS(1.6, 2.6), ...dv(tm.at(1 + i)) }}>
                       {v.op}
                     </span>
                   ) : null}
@@ -1007,9 +1015,9 @@ function drawChain(v: Extract<Visual, { type: "chain" }>, tm: DrawTiming, subs: 
                     ...dv(tm.at(i, 1)),
                   }}
                 >
-                  <span style={{ font: l.emoji ? `26px/1 ${EMOJI_FONT}` : `400 22px/1 ${JUA_FONT}`, color: NAVY }}>{l.emoji || i + 1}</span>
+                  <span style={{ font: l.emoji ? `26px/1 ${EMOJI_FONT}` : `var(--v-w, 400) 22px/1 ${JUA_FONT}`, color: NAVY }}>{l.emoji || i + 1}</span>
                   <span style={{ display: "flex", flexDirection: "column" }}>
-                    <span style={{ font: `400 18px/1.1 ${JUA_FONT}`, color: NAVY, wordBreak: "keep-all" }}>{l.label}</span>
+                    <span style={{ font: `var(--v-w, 400) 18px/1.1 ${JUA_FONT}`, color: NAVY, wordBreak: "keep-all" }}>{l.label}</span>
                     {showSub && l.sub ? <span style={{ font: `700 11.5px/1.25 ${PRE}`, color: "#4B5068", marginTop: 2 }}>{l.sub}</span> : null}
                   </span>
                 </div>
@@ -1072,7 +1080,7 @@ function drawParts(v: Extract<Visual, { type: "parts" }>, tm: DrawTiming): Drawn
           ))}
           <circle className="ts-pop" style={{ ...dv(tm.at(0)), transformBox: "view-box", transformOrigin: `${cx}px ${cy}px` } as CSS} cx={cx} cy={cy} r={34} fill="#fff" stroke={NAVY} strokeWidth={3} />
         </svg>
-        <span className="ts-pop" style={{ position: "absolute", left: cx - 30, width: 60, top: cy - 9, textAlign: "center", font: `400 14px/1.1 ${JUA_FONT}`, color: NAVY, wordBreak: "keep-all", ...dv(tm.at(0, 1)) }}>
+        <span className="ts-pop" style={{ position: "absolute", left: cx - 30, width: 60, top: cy - 9, textAlign: "center", font: `var(--v-w, 400) 14px/1.1 ${JUA_FONT}`, color: NAVY, wordBreak: "keep-all", ...dv(tm.at(0, 1)) }}>
           {v.whole}
         </span>
         <div style={{ position: "absolute", left: 192, top: 104 - parts.length * 17, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1084,8 +1092,8 @@ function drawParts(v: Extract<Visual, { type: "parts" }>, tm: DrawTiming): Drawn
                   <div className="ts-left" style={{ display: "flex", alignItems: "center", gap: 7, ...dv(tm.at(1 + i, 1), 0.4) }}>
                     <span style={{ width: 14, height: 14, borderRadius: 4, background: SERIES[i % SERIES.length], border: `2.5px solid ${NAVY}` }} />
                     {p.emoji ? <span style={{ font: `14px/1 ${EMOJI_FONT}` }}>{p.emoji}</span> : null}
-                    <span style={{ ...lbl, fontSize: 14, color: f ? YELLOW : "#fff" }}>{p.label}</span>
-                    <span style={{ font: `400 16px/1 ${JUA_FONT}`, color: f ? YELLOW : "#fff", textShadow: "0 2px 0 rgba(27,27,58,0.45)" }}>{p.value}%</span>
+                    <span style={{ ...lbl, fontSize: 14, color: f ? HI : FG }}>{p.label}</span>
+                    <span style={{ font: `var(--v-w, 400) 16px/1 ${JUA_FONT}`, color: f ? HI : FG, textShadow: TS }}>{p.value}%</span>
                   </div>
                 </div>
               </div>
@@ -1143,11 +1151,11 @@ function drawTimeline(v: Extract<Visual, { type: "timeline" }>, tm: DrawTiming):
                 ...ev(tm.em),
               }}
             >
-              <div className="ts-pop" style={{ ...lbl, fontSize: 13, color: f ? YELLOW : "#fff", margin: up ? "0 0 5px" : "5px 0 0", ...dv(tm.at(1 + i, 2)) }}>
+              <div className="ts-pop" style={{ ...lbl, fontSize: 13, color: f ? HI : FG, margin: up ? "0 0 5px" : "5px 0 0", ...dv(tm.at(1 + i, 2)) }}>
                 {e.label}
               </div>
               <Sticker size={42} emoji={e.emoji || `${i + 1}`} focus={f} d={tm.at(1 + i, 1)} tm={tm} />
-              <div className="ts-pop" style={{ font: `400 15px/1 ${JUA_FONT}`, color: f ? YELLOW : "#fff", textShadow: "0 2px 0 rgba(27,27,58,0.5)", margin: up ? "6px 0 0" : "0 0 6px", ...dv(tm.at(1 + i, 1)) }}>
+              <div className="ts-pop" style={{ font: `var(--v-w, 400) 15px/1 ${JUA_FONT}`, color: f ? HI : FG, textShadow: TS, margin: up ? "6px 0 0" : "0 0 6px", ...dv(tm.at(1 + i, 1)) }}>
                 {e.when}
               </div>
             </div>
@@ -1171,13 +1179,13 @@ function drawAnalogy(v: Extract<Visual, { type: "analogy" }>, tm: DrawTiming, su
           {[v.thing, v.like].map((s, i) => (
             <React.Fragment key={i}>
               {i === 1 ? (
-                <span className="ts-slam" style={{ font: `400 46px/1 ${JUA_FONT}`, color: YELLOW, textShadow: outlineShadow(2.2, 3.4), ...dv(tm.at(1)) }}>
+                <span className="ts-slam" style={{ font: `var(--v-w, 400) 46px/1 ${JUA_FONT}`, color: HI, textShadow: OS(2.2, 3.4), ...dv(tm.at(1)) }}>
                   ≈
                 </span>
               ) : null}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 118 }}>
                 <Sticker size={98} emoji={s.emoji || "💡"} fill={i ? SOFT.yellow : "#fff"} d={tm.at(i, 1)} tm={tm} cls={i ? "ts-right" : "ts-pop"} />
-                <div className="ts-pop" style={{ font: `400 19px/1.1 ${JUA_FONT}`, color: "#fff", textShadow: outlineShadow(1.8, 3), marginTop: 10, textAlign: "center", wordBreak: "keep-all", ...dv(tm.at(i, 2)) }}>
+                <div className="ts-pop" style={{ font: `var(--v-w, 400) 19px/1.1 ${JUA_FONT}`, color: FG, textShadow: OS(1.8, 3), marginTop: 10, textAlign: "center", wordBreak: "keep-all", ...dv(tm.at(i, 2)) }}>
                   {s.label}
                 </div>
                 {subs && s.sub ? (

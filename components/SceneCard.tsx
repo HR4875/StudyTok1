@@ -119,7 +119,7 @@ export default function SceneCard({ src, mode, compHeight, speed, sound, caption
   if (mode === "far") {
     return (
       <div className="flex h-full w-full items-center justify-center" style={{ background: bgCss(m.palette) }}>
-        <span className="font-jua text-[44px] text-white/90 drop-shadow">{m.term}</span>
+        <span className="font-display text-[44px] text-white/90 drop-shadow">{m.term}</span>
       </div>
     );
   }
