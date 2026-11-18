@@ -1,0 +1,245 @@
+import { z } from "zod";
+import type { TextShort, VisualPlan, VisualTemplate } from "./visual";
+
+/* ------------------------------------------------------------------ */
+/*  StudyTok Motion DSL                                                 */
+/*  Claude writes a scene in this format; src/motion renders it.        */
+/*  Every field is required (structured outputs friendly); unused       */
+/*  fields are filled with "" or 0.                                     */
+/* ------------------------------------------------------------------ */
+
+export const PALETTES = ["blue", "violet", "green", "teal", "orange", "pink", "navy", "red"] as const;
+export const ACTOR_TYPES = ["card", "circle", "emoji", "pill", "text", "number", "bar", "zone"] as const;
+export const ACTIONS = [
+  "enter",
+  "exit",
+  "move",
+  "send",
+  "link",
+  "pulse",
+  "glow",
+  "shake",
+  "swap",
+  "count",
+  "grow",
+  "mark",
+  "dim",
+  "burst",
+] as const;
+export const COLORS = ["white", "yellow", "blue", "green", "red", "purple", "orange", "navy"] as const;
+export const SIZES = ["s", "m", "l"] as const;
+export const STYLES = [
+  "",
+  // enter
+  "pop",
+  "left",
+  "right",
+  "up",
+  "down",
+  "fade",
+  "drop",
+  // send
+  "bubble",
+  "answer",
+  "token",
+  "pill",
+  // link
+  "arrow",
+  "line",
+  "flow",
+  "both",
+  // mark
+  "check",
+  "cross",
+  // dim
+  "on",
+  "off",
+] as const;
+
+export const ActorSchema = z.object({
+  id: z.string().describe("short unique id, e.g. 'app', 'server'"),
+  type: z.enum(ACTOR_TYPES),
+  emoji: z.string().describe("one emoji for card/circle/emoji types, else ''"),
+  label: z.string().describe("short label (≤ 10 chars). For pill/text it is the text itself; for number it is the unit suffix"),
+  x: z.number().describe("center x on the stage, 0 (left) – 100 (right)"),
+  y: z.number().describe("center y on the stage, 0 (top) – 100 (bottom). For bar: the baseline (bottom)"),
+  w: z.number().describe("zone width in stage units (zone only, else 0)"),
+  h: z.number().describe("zone height / bar max height in stage units (else 0)"),
+  size: z.enum(SIZES),
+  color: z.enum(COLORS),
+  value: z.number().describe("number: start value; bar: start fill 0–100; else 0"),
+  hidden: z.boolean().describe("true = invisible until an 'enter' beat"),
+});
+
+export const BeatSchema = z.object({
+  t: z.number().describe("start time in seconds from the start of the diagram phase"),
+  do: z.enum(ACTIONS),
+  a: z.string().describe("main actor id (for send/link: the source)"),
+  b: z.string().describe("second actor id (send/link target; enter: spawn-from actor) or ''"),
+  x: z.number().describe("move target x (move only, else 0)"),
+  y: z.number().describe("move target y (move only, else 0)"),
+  text: z.string().describe("bubble text / link label / new label for swap, else ''"),
+  emoji: z.string().describe("token emoji for send, new emoji for swap, else ''"),
+  value: z.number().describe("count/grow target value, else 0"),
+  style: z.enum(STYLES),
+  d: z.number().describe("duration in seconds (0 = default)"),
+  id: z.string().describe("link id so it can be removed later with exit, else ''"),
+});
+
+export const CaptionSchema = z.object({
+  t: z.number().describe("seconds from the start of the diagram phase"),
+  text: z.string(),
+});
+
+export const QuizSchema = z.object({
+  question: z.string(),
+  options: z.array(z.string()).describe("exactly 4 options"),
+  answer: z.number().int().describe("index 0–3 of the correct option"),
+  explanation: z.string(),
+});
+
+export const SceneSchema = z.object({
+  hook: z.string().describe("curiosity question shown first, ≤ 20 chars"),
+  term: z.string(),
+  definition: z.string().describe("plain one-line definition, ≤ 28 chars"),
+  highlight: z.string().describe("key phrase that appears verbatim inside definition"),
+  palette: z.enum(PALETTES),
+  actors: z.array(ActorSchema),
+  beats: z.array(BeatSchema),
+  captions: z.array(CaptionSchema),
+  quiz: QuizSchema,
+});
+
+/* ------------------------------------------------------------------ */
+/*  Outline (concept extraction)                                       */
+/* ------------------------------------------------------------------ */
+
+export const ConceptSchema = z.object({
+  term: z.string(),
+  definition: z.string(),
+  explanation: z.string(),
+  keyPoints: z.array(z.string()),
+  example: z.string(),
+  visual: z.string(),
+  pages: z.string(),
+});
+
+export const OutlineSchema = z.object({
+  deckTitle: z.string(),
+  subject: z.string(),
+  language: z.string(),
+  concepts: z.array(ConceptSchema),
+});
+
+export type Palette = (typeof PALETTES)[number];
+export type ActorType = (typeof ACTOR_TYPES)[number];
+export type Action = (typeof ACTIONS)[number];
+export type ActorColor = (typeof COLORS)[number];
+export type Size = (typeof SIZES)[number];
+export type Style = (typeof STYLES)[number];
+export type Actor = z.infer<typeof ActorSchema>;
+export type Beat = z.infer<typeof BeatSchema>;
+export type Caption = z.infer<typeof CaptionSchema>;
+export type Quiz = z.infer<typeof QuizSchema>;
+export type Scene = z.infer<typeof SceneSchema>;
+/** 개념 + (있으면) 개념별 그림 판단 plan. plan은 개념 뽑기 단계에서 같이 나온다 (lib/visual.ts) */
+export type Concept = z.infer<typeof ConceptSchema> & { plan?: VisualPlan };
+export type Outline = Omit<z.infer<typeof OutlineSchema>, "concepts"> & { concepts: Concept[] };
+
+/* ------------------------------------------------------------------ */
+/*  App-level types (stored in the browser)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 보는 방식. 둘 다 같은 카드(TextShort)에서 나오므로 생성 비용은 같다.
+ * text = 텍스트 숏츠(기본), motion = 같은 칸으로 만든 템플릿 모션(추가 AI 호출 없음)
+ */
+export const RENDER_MODES = ["text", "motion"] as const;
+export type RenderMode = (typeof RENDER_MODES)[number];
+
+/** AI 사용량 (덱·카드 단위로 누적) */
+export interface Usage {
+  calls: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  usd: number;
+}
+
+export type CardStatus = "pending" | "ready" | "error";
+
+export interface Card {
+  id: string;
+  concept: Concept;
+  /** 텍스트 숏츠(기본). 모션 보기도 같은 칸으로 compileVisual이 만든다 */
+  short?: TextShort | null;
+  /** short가 없을 때 보여 줄 장면: 기본 카드(대체) 또는 예전 예시 덱의 자유 모션 */
+  scene: Scene | null;
+  status: CardStatus;
+  error?: string;
+  /** AI 카드가 검사를 통과하지 못해 기본 카드로 대신했을 때 */
+  fallback?: boolean;
+}
+
+export interface Deck {
+  id: string;
+  title: string;
+  subject: string;
+  source: string;
+  createdAt: number;
+  cards: Card[];
+  sample?: boolean;
+  wrong?: string[]; // card ids answered wrong (오답노트)
+  mode?: RenderMode;
+  model?: string;
+  usage?: Usage;
+  /** 같은 파일·범위·개수·방식이면 다시 만들지 않고 이 덱을 연다 */
+  key?: string;
+  range?: { from: number; to: number };
+}
+
+/** Request bodies */
+export interface OutlineRequest {
+  name: string;
+  pages: { n: number; text: string }[];
+  images: { n: number; media_type: "image/jpeg" | "image/png" | "image/webp"; data: string }[];
+  count: number;
+  mode?: RenderMode;
+  model?: string;
+}
+
+export interface SceneRequest {
+  concept: Concept;
+  deck: { title: string; subject: string; terms: string[] };
+  index: number;
+  total: number;
+  mode?: RenderMode;
+  model?: string;
+  /** 같은 덱의 다른 개념 정의 (대체 퀴즈 보기로 씀) */
+  others?: { term: string; definition: string }[];
+}
+
+export interface SceneResult {
+  scene: Scene;
+  fallback: boolean;
+  issues: string[];
+}
+
+/** /api/card 결과: 그림 틀 하나를 채운 텍스트 숏츠. short가 null이면 기본 카드(scene)로 대신한 것 */
+export interface CardResult {
+  /** 마지막으로 쓴 그림 틀 (재시도 중 바뀔 수 있다) */
+  template: VisualTemplate;
+  short: TextShort | null;
+  fallback: boolean;
+  issues: string[];
+  scene?: Scene;
+}
+
+/** NDJSON stream events from the API routes */
+export type StreamEvent<T> =
+  | { type: "delta"; text: string }
+  | { type: "status"; message: string }
+  | { type: "found"; terms: string[]; templates?: string[] }
+  | { type: "done"; data: T; usage?: Usage }
+  | { type: "error"; message: string; code?: string };
