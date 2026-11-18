@@ -4,9 +4,11 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { visualSteps } from "@/lib/compileVisual";
 import { playSfx } from "@/lib/sfx";
 import type { TextShort } from "@/lib/visual";
-import { NAVY, PALETTE_BG, YELLOW, bgCss, outlineShadow } from "@/motion/palettes";
+import { NAVY, YELLOW } from "@/motion/palettes";
 import { textWidth } from "@/motion/timeline";
-import { DW, JUA_FONT, drawVisual, textTiming } from "@/motion/VisualDraw";
+import { DW, drawVisual, textTiming } from "@/motion/VisualDraw";
+
+const DISPLAY = "'Wanted Sans Variable','Wanted Sans','Pretendard Variable',Pretendard,sans-serif";
 
 /* ------------------------------------------------------------------ */
 /*  텍스트 숏츠 카드 (기본 옵션)                                         */
@@ -35,7 +37,7 @@ function FitBox({ h, children }: { h: number; children: React.ReactNode }) {
 }
 
 function termSize(term: string): { lines: string[]; size: number } {
-  const maxW = 330;
+  const maxW = 318;
   const one = textWidth(term, 1);
   const s1 = Math.min(66, maxW / Math.max(one, 0.01));
   if (s1 >= 44 || !/[\s(]/.test(term)) return { lines: [term], size: Math.max(30, s1) };
@@ -122,13 +124,12 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
 
   if (mode === "far") {
     return (
-      <div className="flex h-full w-full items-center justify-center" style={{ background: bgCss(short.palette) }}>
-        <span className="font-jua text-[44px] text-white/90 drop-shadow">{short.term}</span>
+      <div className="flex h-full w-full items-center px-6 bg-[var(--paper)]">
+        <span className="font-display text-[44px] text-[var(--ink)]">{short.term}</span>
       </div>
     );
   }
 
-  const pal = PALETTE_BG[short.palette] ?? PALETTE_BG.blue;
   const drawn = drawVisual(short.visual, timing.tm, { subs: true });
   const { lines, size } = termSize(short.term);
   const def = short.definition;
@@ -138,48 +139,34 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
   const defSize = defLen > 24 ? 17 : defLen > 18 ? 18.5 : 20;
   const dv = (t: number) => ({ ["--d" as string]: `${t.toFixed(2)}s` }) as React.CSSProperties;
 
+  /* 확정 UI(C안): 종이 바탕 → 개념 그림 스티커(흰 칸 + 망점 + 블루 테두리, 살짝 기울임)
+     → 큰 개념 이름(잉크) → 정의 한 줄 + 형광 노랑 핵심어. 글자 그림자 없음. */
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ background: bgCss(short.palette) }}>
-      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full" style={{ background: "radial-gradient(circle, rgba(255,255,255,0.20), rgba(255,255,255,0) 70%)" }} />
-      <div className="pointer-events-none absolute -right-28 bottom-24 h-80 w-80 rounded-full" style={{ background: `radial-gradient(circle, ${pal.glow}, rgba(0,0,0,0) 70%)` }} />
-
+    <div className="relative h-full w-full overflow-hidden bg-[var(--paper)]">
       <div key={run} className={`relative flex h-full flex-col ${active ? "ts-anim" : ""}`}>
-        <div className="shrink-0" style={{ height: "max(108px, calc(env(safe-area-inset-top) + 98px))" }} />
+        <div className="shrink-0" style={{ height: "max(100px, calc(env(safe-area-inset-top) + 90px))" }} />
         {short.hook ? (
-          <div className="flex shrink-0 justify-center px-5">
-            <div
-              className="ts-pop relative max-w-full rounded-[18px] bg-white px-4 py-2.5 text-center"
-              style={{ border: `2.5px solid ${NAVY}`, boxShadow: `0 4px 0 ${NAVY}`, font: `400 17px/1.3 ${JUA_FONT}`, color: NAVY, wordBreak: "keep-all", ...dv(0) }}
-            >
-              {short.hook}
-              <span
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  bottom: -10,
-                  width: 16,
-                  height: 16,
-                  background: "#fff",
-                  borderRight: `2.5px solid ${NAVY}`,
-                  borderBottom: `2.5px solid ${NAVY}`,
-                  transform: "translateX(-50%) rotate(45deg)",
-                }}
-              />
+          <p
+            className="ts-rise shrink-0 px-6 text-[15px] font-bold leading-snug text-[var(--muted)]"
+            style={{ wordBreak: "keep-all", ...dv(0) }}
+          >
+            {short.hook}
+          </p>
+        ) : null}
+        <div className="relative min-h-0 flex-1 px-5 pb-3 pt-3">
+          <div className="h-full w-full" style={{ transform: "rotate(-1.5deg)" }}>
+            <div className="ts-pop sticker-dots v-paper relative h-full w-full rounded-[22px] border-[5px] border-[var(--ans-line)] p-3" style={dv(0)}>
+              <FitBox h={drawn.h}>{drawn.node}</FitBox>
             </div>
           </div>
-        ) : null}
-        <div className="relative min-h-0 flex-1 px-4 pb-2 pt-5">
-          <FitBox h={drawn.h}>{drawn.node}</FitBox>
         </div>
-        <div className="shrink-0 px-4 text-center">
+        <div className="shrink-0 px-6 text-left">
           <div
             className="ts-slam"
             style={{
-              font: `400 ${size}px/${size * 1.04}px ${JUA_FONT}`,
-              color: "#fff",
-              letterSpacing: size > 50 ? -1.5 : -0.8,
-              textShadow: outlineShadow(Math.max(2, size / 22), Math.max(4, size / 12)),
+              font: `800 ${size}px/${size * 1.08}px ${DISPLAY}`,
+              color: NAVY,
+              letterSpacing: "-0.02em",
               ...dv(timing.term),
             }}
           >
@@ -190,8 +177,8 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
             ))}
           </div>
           <p
-            className="ts-rise mx-auto mt-3 max-w-[340px]"
-            style={{ font: `400 ${defSize}px/1.5 ${JUA_FONT}`, color: "#fff", textShadow: `0 2.5px 0 ${NAVY}`, wordBreak: "keep-all", textWrap: "balance", ...dv(timing.def) } as React.CSSProperties}
+            className="ts-rise mt-3 max-w-[360px]"
+            style={{ font: `700 ${defSize}px/1.55 'Pretendard Variable',Pretendard,sans-serif`, color: NAVY, wordBreak: "keep-all", textWrap: "pretty", ...dv(timing.def) } as React.CSSProperties}
           >
             {hi >= 0 ? (
               <>
@@ -200,13 +187,10 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
                   className="ts-hl"
                   style={{
                     color: NAVY,
-                    textShadow: "none",
                     background: YELLOW,
-                    border: `2.5px solid ${NAVY}`,
-                    borderRadius: 9,
-                    padding: "0 7px 1px",
-                    margin: "0 2px",
-                    boxShadow: `0 3px 0 ${NAVY}`,
+                    borderRadius: 6,
+                    padding: "1px 6px",
+                    margin: "0 1px",
                     boxDecorationBreak: "clone",
                     WebkitBoxDecorationBreak: "clone",
                     ...dv(timing.hl),
@@ -221,7 +205,7 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
             )}
           </p>
         </div>
-        <div className="shrink-0" style={{ height: "max(104px, calc(env(safe-area-inset-bottom) + 92px))" }} />
+        <div className="shrink-0" style={{ height: "max(96px, calc(env(safe-area-inset-bottom) + 86px))" }} />
       </div>
     </div>
   );

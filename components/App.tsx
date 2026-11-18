@@ -33,6 +33,7 @@ export default function App() {
     try {
       void document.fonts?.load("400 40px Jua", "가나다API");
       void document.fonts?.load("800 40px 'Pretendard Variable'", "가나다");
+      void document.fonts?.load("800 40px 'Wanted Sans Variable'", "가나다STUDY");
     } catch {}
     const unlock = () => unlockAudio();
     window.addEventListener("pointerdown", unlock, { once: true });

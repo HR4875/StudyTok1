@@ -33,7 +33,7 @@ function Step({ state, label, detail }: { state: "done" | "doing" | "todo"; labe
       >
         {state === "done" ? (
           <svg width="14" height="14" viewBox="0 0 14 14">
-            <path d="M2.5 7.5 L5.5 10.5 L11.5 3.5" stroke="#4B6BFB" strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2.5 7.5 L5.5 10.5 L11.5 3.5" stroke="#0A5FC2" strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ) : state === "doing" ? (
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-[2.5px] border-white border-t-transparent" />
@@ -52,7 +52,7 @@ function CardStack({ found }: { found: number }) {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="absolute left-1/2 top-1/2 flex h-[116px] w-[82px] items-center justify-center rounded-[18px] border-[3px] border-[var(--navy)] bg-white text-[34px] shadow-[0_6px_0_var(--navy)]"
+          className="absolute left-1/2 top-1/2 flex h-[116px] w-[82px] items-center justify-center rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[34px]"
           style={
             {
               marginLeft: -41 + (i - 1) * 42,
@@ -60,7 +60,7 @@ function CardStack({ found }: { found: number }) {
               "--r": `${(i - 1) * 9}deg`,
               animation: `card-stack 1.8s ease-in-out ${i * 0.18}s infinite`,
               zIndex: i === 1 ? 2 : 1,
-              background: i === 1 ? "#FFD43B" : "#fff",
+              background: i === 1 ? "#C9E2FF" : "#fff",
             } as React.CSSProperties
           }
         >
@@ -129,7 +129,7 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
   return (
     <div className="relative z-10 flex min-h-0 flex-1 flex-col">
       <div className="px-6 pb-4 pt-1">
-        <h2 className="font-jua text-[27px] leading-tight">어디까지 만들까요?</h2>
+        <h2 className="font-display text-[27px] leading-tight">어디까지 만들까요?</h2>
         <p className="mt-1 text-[13.5px] font-semibold text-white/85">
           전체 {range.maxPage}쪽 · {range.scanned ? "글자 없는 스캔본 (쪽을 그림으로 보내요)" : `약 ${range.totalChars.toLocaleString()}자`}
         </p>
@@ -148,7 +148,7 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
                   setTo(c.to);
                   setAnchor(null);
                 }}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-extrabold ${on ? "bg-[var(--navy)] text-[var(--yellow)]" : "bg-[#F1F3FA] text-[#4B5563]"}`}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-extrabold ${on ? "bg-[var(--ink)] text-white" : "border-2 border-[var(--ink)] bg-white text-[var(--ink)]"}`}
                 aria-pressed={on}
               >
                 {c.label}
@@ -174,7 +174,7 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
                   onClick={() => tap(n)}
                   aria-label={`${n}쪽${inside ? " (선택됨)" : ""}`}
                   aria-pressed={inside}
-                  className={`relative overflow-hidden rounded-[12px] bg-[#F4F5FA] text-left transition-all ${
+                  className={`relative overflow-hidden rounded-[12px] bg-[var(--paper)] text-left transition-all ${
                     anchor === n ? "ring-[3px] ring-[var(--yellow)]" : inside ? "ring-[3px] ring-[var(--blue)]" : "opacity-50 ring-1 ring-black/10"
                   }`}
                   style={{ aspectRatio: "3 / 4" }}
@@ -182,11 +182,11 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
                   {thumb ? (
                     <img src={thumb} alt="" className="h-full w-full object-cover object-top" />
                   ) : (
-                    <div className="h-full w-full animate-pulse bg-[#E9ECF5]" />
+                    <div className="h-full w-full animate-pulse bg-[var(--chip)]" />
                   )}
                   <span
                     className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-extrabold ${
-                      inside ? "bg-[var(--blue)] text-white" : "bg-white/90 text-[#4B5563]"
+                      inside ? "bg-[var(--blue)] text-white" : "bg-white/90 text-[var(--ink)]"
                     }`}
                   >
                     {n}
@@ -212,7 +212,7 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
                 setFrom(clampPage(Number(e.target.value)));
                 setAnchor(null);
               }}
-              className="w-16 rounded-xl border-2 border-[#E5E7EB] px-2 py-1.5 text-center text-[16px] font-extrabold outline-none focus:border-[var(--blue)]"
+              className="w-16 rounded-xl border-2 border-[var(--ink)] px-2 py-1.5 text-center text-[16px] font-extrabold outline-none focus:border-[var(--blue)]"
               aria-label="시작 쪽"
             />
             <span className="text-[14px] font-bold text-[var(--muted)]">~</span>
@@ -226,18 +226,18 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
                 setTo(clampPage(Number(e.target.value)));
                 setAnchor(null);
               }}
-              className="w-16 rounded-xl border-2 border-[#E5E7EB] px-2 py-1.5 text-center text-[16px] font-extrabold outline-none focus:border-[var(--blue)]"
+              className="w-16 rounded-xl border-2 border-[var(--ink)] px-2 py-1.5 text-center text-[16px] font-extrabold outline-none focus:border-[var(--blue)]"
               aria-label="끝 쪽"
             />
             <span className="text-[14px] font-bold text-[var(--muted)]">쪽 ({pages}쪽)</span>
-            <span className={`ml-auto text-[12.5px] font-extrabold ${over ? "text-[#E03E3E]" : "text-[var(--muted)]"}`}>
+            <span className={`ml-auto text-[12.5px] font-extrabold ${over ? "text-[var(--red)]" : "text-[var(--muted)]"}`}>
               {range.scanned ? `${pages} / ${range.maxPages}쪽` : `${sel.toLocaleString()} / ${range.maxChars.toLocaleString()}자`}
             </span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#EEF0F6]">
-            <div className={`h-full rounded-full transition-[width] ${over ? "bg-[#FF5A6A]" : "bg-[var(--blue)]"}`} style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }} />
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--chip)]">
+            <div className={`h-full rounded-full transition-[width] ${over ? "bg-[var(--red)]" : "bg-[var(--blue)]"}`} style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }} />
           </div>
-          <p className={`mt-1.5 text-[12px] font-semibold ${over || empty ? "text-[#E03E3E]" : "text-[var(--muted)]"}`}>
+          <p className={`mt-1.5 text-[12px] font-semibold ${over || empty ? "text-[var(--red)]" : "text-[var(--muted)]"}`}>
             {over
               ? range.scanned
                 ? `스캔본은 한 번에 ${range.maxPages}쪽까지 보낼 수 있어요. 범위를 줄여 주세요.`
@@ -250,8 +250,8 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
             type="button"
             disabled={over || empty}
             onClick={() => onChoose({ from: lo, to: hi })}
-            className={`mt-2.5 w-full rounded-full py-3 font-jua text-[19px] ${
-              over || empty ? "bg-[#E5E7EB] text-[#9CA3AF]" : "bg-[var(--navy)] text-[var(--yellow)] shadow-[0_4px_0_rgba(27,27,58,0.25)] active:translate-y-[2px]"
+            className={`mt-2.5 w-full rounded-[18px] py-3.5 font-display text-[19px] ${
+              over || empty ? "bg-[var(--chip)] text-[var(--muted)]" : "bg-[var(--ocean)] text-white active:translate-y-[1px]"
             }`}
           >
             {lo === hi ? `${lo}쪽으로 만들기` : `${lo}–${hi}쪽으로 만들기`}
@@ -291,9 +291,7 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
   const waitNote = job.message && job.message !== "핵심 개념 찾는 중…" ? job.message : "개념을 고르는 데 보통 1분쯤 걸려요";
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden text-white" style={{ background: "linear-gradient(180deg,#4B6BFB 0%,#5B5CF6 55%,#6C4CF1 100%)" }}>
-      <div className="pointer-events-none absolute -left-24 top-20 h-72 w-72 rounded-full bg-white/15 blur-3xl" />
-      <div className="pointer-events-none absolute -right-24 bottom-20 h-80 w-80 rounded-full bg-[#A78BFA]/40 blur-3xl" />
+    <div className="relative flex h-full flex-col overflow-hidden text-white" style={{ background: "var(--ocean)" }}>
 
       <header className="relative z-10 flex items-center px-3 pt-[max(14px,env(safe-area-inset-top))]">
         <button type="button" onClick={onCancel} aria-label="취소" className="flex h-10 w-10 items-center justify-center rounded-full active:bg-white/10">
@@ -306,16 +304,15 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
 
       {job.phase === "error" ? (
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-7 text-center">
-          <div className="animate-shake-x text-[54px]">{noKey ? "🔌" : "😵"}</div>
-          <h2 className="mt-3 font-jua text-[27px]">{noKey ? "아직 AI 연결 전이에요" : "앗, 만들지 못했어요"}</h2>
+          <h2 className="mt-3 font-display text-[27px]">{noKey ? "아직 AI 연결 전이에요" : "앗, 만들지 못했어요"}</h2>
           <p className="mt-2 text-[14.5px] font-semibold leading-relaxed text-white/90">{job.error}</p>
           <div className="mt-6 flex w-full flex-col gap-2.5">
             {!noKey ? (
-              <button type="button" onClick={onRetry} className="rounded-full border-[3px] border-white bg-[var(--navy)] py-3 font-jua text-[19px] text-[var(--yellow)]">
+              <button type="button" onClick={onRetry} className="rounded-[18px] bg-white py-3.5 font-display text-[19px] text-[var(--ocean)]">
                 다시 시도
               </button>
             ) : null}
-            <button type="button" onClick={onSample} className="rounded-full bg-white py-3 text-[15px] font-extrabold text-[var(--navy)]">
+            <button type="button" onClick={onSample} className="rounded-[18px] border-[2.5px] border-white py-3 font-display text-[17px] text-white">
               미리 만든 예시 카드 보기
             </button>
             <button type="button" onClick={onCancel} className="py-2 text-[14px] font-bold text-white/85">
@@ -329,9 +326,9 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
         <div className="relative z-10 flex min-h-0 flex-1 flex-col px-6">
           <div className="flex flex-1 flex-col items-center justify-center">
             <CardStack found={job.found.length} />
-            <h2 className="mt-6 text-center font-jua text-[26px] leading-tight">{heading}</h2>
+            <h2 className="mt-6 text-center font-display text-[26px] leading-tight">{heading}</h2>
             <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-white/25">
-              <div className="relative h-full rounded-full bg-[var(--yellow)] transition-[width] duration-500" style={{ width: `${Math.round(job.progress * 100)}%` }}>
+              <div className="relative h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${Math.round(job.progress * 100)}%` }}>
                 <div className="animate-shimmer absolute inset-0" />
               </div>
             </div>
@@ -340,7 +337,7 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
             </p>
           </div>
 
-          <div className="mb-4 space-y-3 rounded-[24px] bg-white/12 p-4 ring-1 ring-white/20 backdrop-blur-sm">
+          <div className="mb-4 space-y-3 rounded-[20px] border-[2px] border-white/40 p-4">
             <Step state={st(0)} label="자료 읽기" />
             <Step
               state={st(1)}
@@ -357,13 +354,13 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
                     <span
                       key={`${t}${i}`}
                       className={`animate-pop-in inline-flex items-center gap-1 rounded-full py-1 pl-2.5 pr-1 text-[12.5px] font-bold ${
-                        status === "ready" ? "bg-white text-[var(--navy)]" : status === "error" ? "bg-[#FF5A6A] text-white" : "bg-white/20 text-white"
+                        status === "ready" ? "bg-white text-[var(--ink)]" : status === "error" ? "bg-[var(--red)] text-white" : "bg-white/20 text-white"
                       }`}
                     >
                       {status === "ready" ? "✓ " : status === "error" ? "! " : ""}
                       {t}
                       {tpl && TEMPLATE_LABEL[tpl] ? (
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10.5px] font-extrabold ${status === "ready" ? "bg-[#EEF2FF] text-[var(--blue)]" : "bg-white/20"}`}>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10.5px] font-extrabold ${status === "ready" ? "bg-[var(--ans)] text-[var(--ocean)]" : "bg-white/20"}`}>
                           {TEMPLATE_LABEL[tpl]}
                         </span>
                       ) : (
@@ -381,8 +378,8 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
               type="button"
               disabled={!canOpen}
               onClick={onOpenEarly}
-              className={`w-full rounded-full border-[3px] py-3.5 font-jua text-[20px] transition-all ${
-                canOpen ? "border-white bg-[var(--yellow)] text-[var(--navy)] shadow-[0_5px_0_rgba(27,27,58,0.35)]" : "border-white/30 bg-white/10 text-white/50"
+              className={`w-full rounded-[18px] border-[2.5px] py-4 font-display text-[19px] transition-all ${
+                canOpen ? "border-white bg-white text-[var(--ocean)]" : "border-white/30 bg-transparent text-white/60"
               }`}
             >
               {canOpen ? `준비된 ${job.ready}개부터 보기 →` : "카드가 준비되면 바로 볼 수 있어요"}
