@@ -1,0 +1,62 @@
+{
+  "flow": {
+    "when": "순서가 정해진 단계·절차. 단계 2~5개.",
+    "fill": "steps: 단계마다 emoji 1개, label 8자 이하(단계 이름), sub 12자 이하(그 단계에서 하는 일, 없으면 ''). focus: 가장 헷갈리거나 중요한 단계 번호(0부터), 없으면 -1.",
+    "example": {"type":"flow","steps":[{"emoji":"🤔","label":"가설","sub":"이럴 것이다"},{"emoji":"🧪","label":"실험","sub":"조건 바꿔 보기"},{"emoji":"📊","label":"분석","sub":"결과 비교"},{"emoji":"✅","label":"결론","sub":"가설 채택/기각"}],"focus":1}
+  },
+  "exchange": {
+    "when": "두 주체가 무언가(요청·응답·돈·신호·물건)를 순서대로 주고받는 개념.",
+    "fill": "left/right: 두 주체(emoji, label 8자, sub ''). messages: 주고받는 순서대로 2~4개, from은 보내는 쪽(left|right), text 14자 이하.",
+    "example": {"type":"exchange","left":{"emoji":"📱","label":"날씨 앱","sub":""},"right":{"emoji":"🖥️","label":"기상청 서버","sub":""},"messages":[{"from":"left","text":"서울 날씨 줘"},{"from":"right","text":"맑음, 18도"}]}
+  },
+  "versus": {
+    "when": "두 대상의 차이·대조가 시험 포인트인 개념.",
+    "fill": "a/b: 비교 대상(emoji, label 8자, sub 12자 한 줄 요약). rows: 비교 기준 1~3개, name 6자 이하, a·b 각 10자 이하. 차이가 분명한 기준만.",
+    "example": {"type":"versus","a":{"emoji":"🦠","label":"세균","sub":"혼자 사는 세포"},"b":{"emoji":"🧬","label":"바이러스","sub":"세포에 기생"},"rows":[{"name":"크기","a":"크다","b":"훨씬 작다"},{"name":"항생제","a":"듣는다","b":"안 듣는다"}]}
+  },
+  "chart": {
+    "when": "양이 늘고 줄거나, 두 값이 함께 움직이는 관계·추세.",
+    "fill": "kind: 시간·연속 변화는 line, 항목 비교는 bar. categories: x축 항목 2~6개(6자 이하). series: 1~2개, values는 categories와 개수 같게. 원문에 숫자가 없으면 모양만 보여 주는 예시 값(0~100)을 쓰고 illustrative: true. focus: 강조할 x 위치(0부터, 없으면 -1). note: 그 지점에 붙일 메모 14자 이하.",
+    "example": {"type":"chart","kind":"bar","xLabel":"가격","yLabel":"수요량","categories":["1만원","2만원","3만원"],"series":[{"name":"수요량","values":[90,55,25]}],"focus":2,"note":"비싸면 덜 산다","illustrative":true}
+  },
+  "cycle": {
+    "when": "마지막 단계가 처음으로 돌아오는 반복 과정.",
+    "fill": "nodes: 3~5개(emoji, label 8자, sub ''), 도는 순서대로. center: 가운데 글자 8자 이하(없으면 '').",
+    "example": {"type":"cycle","nodes":[{"emoji":"🌊","label":"증발","sub":""},{"emoji":"☁️","label":"응결","sub":""},{"emoji":"🌧️","label":"강수","sub":""},{"emoji":"🏞️","label":"흐름","sub":""}],"center":"물의 순환"}
+  },
+  "tree": {
+    "when": "종류·유형·구성 요소로 나뉘는 개념.",
+    "fill": "root: 묶는 이름. children: 2~4개(emoji, label 8자, sub 12자 한 줄 뜻).",
+    "example": {"type":"tree","root":{"emoji":"🏛️","label":"삼권분립","sub":""},"children":[{"emoji":"📜","label":"입법","sub":"법을 만든다"},{"emoji":"🏢","label":"행정","sub":"법을 집행"},{"emoji":"⚖️","label":"사법","sub":"법으로 판단"}]}
+  },
+  "matrix": {
+    "when": "두 기준(축)으로 대상의 위치나 유형을 정하는 개념.",
+    "fill": "x/y: 축 이름과 양 끝(low/high 6자 이하). items: 1~5개(emoji, label 6자, x·y 0~100, y는 위가 100). focus: 강조 대상 번호(없으면 -1). gap: 비어 있는 기회 자리(label 8자, 없으면 label '').",
+    "example": {"type":"matrix","x":{"name":"긴급도","low":"안 급함","high":"급함"},"y":{"name":"중요도","low":"덜 중요","high":"중요"},"items":[{"emoji":"🔥","label":"마감 과제","x":85,"y":85},{"emoji":"📚","label":"운동·공부","x":20,"y":80},{"emoji":"📞","label":"잡무 전화","x":80,"y":20},{"emoji":"📱","label":"SNS","x":15,"y":15}],"focus":1,"gap":{"emoji":"","label":"","x":0,"y":0}}
+  },
+  "formula": {
+    "when": "계산식·비율로 정의되는 개념.",
+    "fill": "result: 구하는 값 이름. op: 항 사이 기호(÷ × + −). terms: 2~3개(text 8자, note 10자 이하 설명). ÷ 이고 항이 2개면 분수로 그린다. example: 숫자 예시 한 줄 26자 이하.",
+    "example": {"type":"formula","result":"속력","op":"÷","terms":[{"text":"거리","note":"간 길이"},{"text":"시간","note":"걸린 시간"}],"example":"100m ÷ 20초 = 초속 5m"}
+  },
+  "chain": {
+    "when": "원인이 결과를 연쇄로 부르는 인과 관계.",
+    "fill": "links: 3~4개, 원인부터 순서대로(emoji, label 10자 이하, sub '').",
+    "example": {"type":"chain","links":[{"emoji":"🏦","label":"금리 인상","sub":""},{"emoji":"💳","label":"대출 감소","sub":""},{"emoji":"🛒","label":"소비 감소","sub":""},{"emoji":"📉","label":"물가 하락","sub":""}]}
+  },
+  "parts": {
+    "when": "전체 안에서 각 부분이 차지하는 비중.",
+    "fill": "whole: 전체 이름. parts: 2~5개(emoji, label 6자, value 비중 숫자, 합 100). 원문 숫자가 없으면 illustrative: true. focus: 강조 조각(없으면 -1).",
+    "example": {"type":"parts","whole":"공기","parts":[{"emoji":"","label":"질소","value":78},{"emoji":"","label":"산소","value":21},{"emoji":"","label":"기타","value":1}],"focus":1,"illustrative":false}
+  },
+  "timeline": {
+    "when": "시간 순서로 일어난 사건·시대 구분.",
+    "fill": "events: 3~5개(when 6자, label 8자, emoji). focus: 강조 사건(없으면 -1).",
+    "example": {"type":"timeline","events":[{"when":"1784","label":"증기기관","emoji":"🚂"},{"when":"1870","label":"전기","emoji":"💡"},{"when":"1969","label":"컴퓨터","emoji":"🖥️"},{"when":"2016","label":"AI·IoT","emoji":"🤖"}],"focus":3}
+  },
+  "analogy": {
+    "when": "위 틀에 안 맞는 추상 개념. 일상 사물에 빗대면 한 번에 이해되는 것.",
+    "fill": "thing: 개념(emoji, label 8자). like: 일상 비유(emoji, label 8자). because: 둘의 공통점 18자 이하.",
+    "example": {"type":"analogy","thing":{"emoji":"🔋","label":"미토콘드리아","sub":""},"like":{"emoji":"🏭","label":"발전소","sub":""},"because":"에너지(ATP)를 만든다"}
+  }
+}
