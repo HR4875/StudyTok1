@@ -156,7 +156,10 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
         <div className="relative min-h-0 flex-1 px-5 pb-3 pt-3">
           <div className="h-full w-full" style={{ transform: "rotate(-1.5deg)" }}>
             <div className="ts-pop sticker-dots v-paper relative h-full w-full rounded-[22px] border-[5px] border-[var(--ans-line)] p-3" style={dv(0)}>
-              <FitBox h={drawn.h}>{drawn.node}</FitBox>
+              {/* 칸(테두리·망점)만 기울이고, 안의 개념 그림은 반대로 돌려 똑바로 세움 */}
+              <div className="h-full w-full" style={{ transform: "rotate(1.5deg)" }}>
+                <FitBox h={drawn.h}>{drawn.node}</FitBox>
+              </div>
             </div>
           </div>
         </div>
