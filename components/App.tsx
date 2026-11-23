@@ -36,7 +36,6 @@ export default function App() {
     getHealth().then((h) => setApiReady(h ? h.hasKey || h.mock : null));
     // warm up fonts used by the motion renderer
     try {
-      void document.fonts?.load("400 40px Jua", "가나다API");
       void document.fonts?.load("800 40px 'Pretendard Variable'", "가나다");
       void document.fonts?.load("800 40px 'Wanted Sans Variable'", "가나다STUDY");
     } catch {}

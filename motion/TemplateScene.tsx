@@ -17,7 +17,8 @@ import { DW, drawVisual, type DrawTiming } from "./VisualDraw";
 /*  그래서 미리보기·재생·영상 내보내기가 모두 같은 프레임을 낸다.          */
 /* ------------------------------------------------------------------ */
 
-const JUA = "'Jua', 'Pretendard Variable', 'Pretendard', sans-serif";
+// 영상 글자: Wanted Sans 800 (2026-11-23 확정, Jua에서 교체). 외곽선·글자 그림자 없음
+const JUA = "'Wanted Sans Variable', 'Wanted Sans', 'Pretendard Variable', 'Pretendard', sans-serif";
 const PRE = "'Pretendard Variable', 'Pretendard', -apple-system, sans-serif";
 const CL = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -98,9 +99,9 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
               left: 60,
               width: W - 120,
               textAlign: "center",
-              font: `400 104px/1.14 ${JUA}`,
+              font: `800 104px/1.14 ${JUA}`,
               color: "#fff",
-              textShadow: "0 7px 0 rgba(27,27,58,0.38)",
+              textShadow: "none",
               opacity: Math.min(hookIn, 1) * hookOut,
               transform: `translateY(calc(-50% + ${(1 - hookIn) * 70 - (1 - hookOut) * 60}px)) scale(${(0.85 + 0.15 * hookIn) * (0.9 + 0.1 * hookOut)})`,
               wordBreak: "keep-all",
@@ -153,7 +154,7 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
                       background: isEm ? "#FFD43B" : "rgba(20,20,52,0.42)",
                       border: isEm ? `6px solid ${NAVY}` : "none",
                       boxShadow: isEm ? `0 8px 0 ${NAVY}` : "none",
-                      font: isEm ? `400 58px/1.25 ${JUA}` : `700 54px/1.32 ${PRE}`,
+                      font: isEm ? `800 58px/1.25 ${JUA}` : `700 54px/1.32 ${PRE}`,
                       letterSpacing: isEm ? 0 : -1,
                       color: isEm ? NAVY : "#fff",
                       textAlign: "center",
