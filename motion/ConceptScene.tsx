@@ -26,7 +26,7 @@ import {
   type ActorTrack,
   type Compiled,
 } from "./timeline";
-import { BAR_FILL, FILL, GREEN, NAVY, PALETTE_BG, RED, YELLOW, bgCss, outlineShadow } from "./palettes";
+import { BAR_FILL, FILL, GREEN, NAVY, PALETTE_BG, RED, YELLOW, bgCss } from "./palettes";
 
 const JUA = "'Jua', 'Pretendard Variable', 'Pretendard', sans-serif";
 const PRE = "'Pretendard Variable', 'Pretendard', -apple-system, sans-serif";
@@ -215,7 +215,6 @@ const labelStyle: React.CSSProperties = {
   textAlign: "center",
   lineHeight: 1.15,
   letterSpacing: -0.5,
-  textShadow: `0 3px 0 rgba(27,27,58,0.45)`,
   maxWidth: 320,
   wordBreak: "keep-all",
 };
@@ -383,7 +382,6 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
             textAlign: "center",
             maxWidth: 900,
             width: "max-content",
-            textShadow: outlineShadow(Math.max(4, fsz / 16), Math.max(6, fsz / 9)),
             filter: st.glow > 0 ? `drop-shadow(0 0 ${30 * st.glow}px rgba(255,212,59,${0.9 * st.glow}))` : undefined,
             wordBreak: "keep-all",
           }}
@@ -404,7 +402,6 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
             font: `400 ${fsz}px/1 ${JUA}`,
             color: a.color === "yellow" ? YELLOW : "#fff",
             whiteSpace: "nowrap",
-            textShadow: outlineShadow(Math.max(5, fsz / 18), Math.max(8, fsz / 10)),
             fontVariantNumeric: "tabular-nums",
           }}
         >
@@ -455,7 +452,6 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
               font: `400 50px/1 ${JUA}`,
               color: "#fff",
               whiteSpace: "nowrap",
-              textShadow: outlineShadow(4, 6),
             }}
           >
             {st.emoji ? <span style={{ font: `44px/1 ${EMOJI_FONT}`, marginRight: 6 }}>{st.emoji}</span> : null}
@@ -626,7 +622,6 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
           font: `400 ${size}px/${lh}px ${JUA}`,
           letterSpacing: size > 200 ? -4 : -2,
           color: "#fff",
-          textShadow: outlineShadow(Math.max(5, size / 40), Math.max(10, size / 17)),
           opacity: op,
           transform: `translate(${shx}px, ${shy}px) scale(${scale})`,
           whiteSpace: "nowrap",
@@ -646,7 +641,6 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
             textAlign: "center",
             font: `400 ${defSize}px/1.45 ${JUA}`,
             color: "#fff",
-            textShadow: `0 5px 0 ${NAVY}`,
             opacity: Math.min(1, subIn),
             transform: `translateY(${(1 - subIn) * 40}px)`,
             wordBreak: "keep-all",
@@ -659,7 +653,6 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
                 key={i}
                 style={{
                   color: NAVY,
-                  textShadow: "none",
                   background: YELLOW,
                   border: `6px solid ${NAVY}`,
                   borderRadius: 18,
@@ -753,7 +746,6 @@ export const ConceptScene: React.FC<ConceptSceneProps> = ({ scene, height = BASE
               textAlign: "center",
               font: `400 104px/1.14 ${JUA}`,
               color: "#fff",
-              textShadow: "0 7px 0 rgba(27,27,58,0.38)",
               opacity: Math.min(hookIn, 1) * hookOut,
               transform: `translateY(calc(-50% + ${(1 - hookIn) * 70 - (1 - hookOut) * 60}px)) scale(${(0.85 + 0.15 * hookIn) * (0.9 + 0.1 * hookOut)})`,
               wordBreak: "keep-all",
