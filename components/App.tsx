@@ -6,6 +6,7 @@ import { regenerateCard, startJob, type JobHandle, type JobState } from "@/lib/g
 import { SAMPLE_DECKS } from "@/lib/sampleDecks";
 import type { Deck } from "@/lib/schema";
 import { unlockAudio } from "@/lib/sfx";
+import { installPressFx } from "@/lib/fx";
 import { deleteDeck, loadDecks, loadSettings, saveDeck, saveSettings, type Settings } from "@/lib/storage";
 import Feed from "./Feed";
 import Home from "./Home";
@@ -26,6 +27,10 @@ export default function App() {
   const lastFiles = useRef<File[]>([]);
   const screenRef = useRef<Screen>("home");
   screenRef.current = screen;
+
+  useEffect(() => {
+    installPressFx();
+  }, []);
 
   useEffect(() => {
     getHealth().then((h) => setApiReady(h ? h.hasKey || h.mock : null));

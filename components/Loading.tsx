@@ -250,8 +250,8 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
             type="button"
             disabled={over || empty}
             onClick={() => onChoose({ from: lo, to: hi })}
-            className={`mt-2.5 w-full rounded-[18px] py-3.5 font-display text-[19px] ${
-              over || empty ? "bg-[var(--chip)] text-[var(--muted)]" : "bg-[var(--ocean)] text-white active:translate-y-[1px]"
+            className={`mt-2.5 h-14 w-full rounded-[18px] font-display text-[19px] ${
+              over || empty ? "bg-[var(--chip)] text-[var(--muted)]" : "press bg-[var(--ocean)] text-white"
             }`}
           >
             {lo === hi ? `${lo}쪽으로 만들기` : `${lo}–${hi}쪽으로 만들기`}
@@ -308,7 +308,7 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
           <p className="mt-2 text-[14.5px] font-semibold leading-relaxed text-white/90">{job.error}</p>
           <div className="mt-6 flex w-full flex-col gap-2.5">
             {!noKey ? (
-              <button type="button" onClick={onRetry} className="rounded-[18px] bg-white py-3.5 font-display text-[19px] text-[var(--ocean)]">
+              <button type="button" onClick={onRetry} className="press press-onblue h-14 rounded-[18px] bg-white font-display text-[19px] text-[var(--ocean)]">
                 다시 시도
               </button>
             ) : null}
@@ -378,8 +378,8 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
               type="button"
               disabled={!canOpen}
               onClick={onOpenEarly}
-              className={`w-full rounded-[18px] border-[2.5px] py-4 font-display text-[19px] transition-all ${
-                canOpen ? "border-white bg-white text-[var(--ocean)]" : "border-white/30 bg-transparent text-white/60"
+              className={`h-14 w-full rounded-[18px] border-[2.5px] font-display text-[19px] ${
+                canOpen ? "press press-onblue border-white bg-white text-[var(--ocean)]" : "border-white/30 bg-transparent text-white/60"
               }`}
             >
               {canOpen ? `준비된 ${job.ready}개부터 보기 →` : "카드가 준비되면 바로 볼 수 있어요"}

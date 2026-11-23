@@ -144,18 +144,18 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
       </div>
 
       {/* 주 버튼 + 보조 버튼 */}
-      <div className="shrink-0 space-y-2.5 px-5 pb-[max(18px,env(safe-area-inset-bottom))] pt-3">
+      <div className="shrink-0 space-y-4 px-5 pb-[max(18px,env(safe-area-inset-bottom))] pt-3">
         <button
           type="button"
           onClick={pick}
-          className="font-display w-full rounded-[18px] bg-[var(--ocean)] py-4 text-[20px] text-white transition-transform active:translate-y-[1px]"
+          className="press font-display h-14 w-full rounded-[18px] bg-[var(--ocean)] text-[19px] text-white"
         >
           자료 올리기 →
         </button>
         <button
           type="button"
           onClick={onSample}
-          className="font-display w-full rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white py-3.5 text-[19px] text-[var(--ink)] active:translate-y-[1px]"
+          className="press press-ink font-display h-14 w-full rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[19px] text-[var(--ink)]"
         >
           예시 자료로 둘러보기
         </button>

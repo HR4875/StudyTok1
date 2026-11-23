@@ -5,6 +5,7 @@ import { isShowable, paletteOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
 import type { Settings } from "@/lib/storage";
 import { playSfx, setSoundEnabled, unlockAudio } from "@/lib/sfx";
+import { burstFrom } from "@/lib/fx";
 import { W } from "@/motion/timeline";
 import QuizCard from "./QuizCard";
 import SceneCard, { type MotionSrc } from "./SceneCard";
@@ -106,6 +107,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const allSettled = !generating && deck.cards.every((c) => c.status !== "pending");
   const items = useMemo(() => buildItems(deck, settings, extras, allSettled), [deck, settings, extras, allSettled]);
   const current = items[Math.min(index, items.length - 1)];
+  // 완주 화면에 도착하면 제목에서 파티클이 한 번 터짐 (정답·완료 순간 = 팡 파티클)
+  const finishTitle = useRef<HTMLHeadingElement | null>(null);
+  const atEnd = current?.kind === "end";
+  useEffect(() => {
+    if (!atEnd) return;
+    const t = setTimeout(() => burstFrom(finishTitle.current, undefined, 24), 250);
+    return () => clearTimeout(t);
+  }, [atEnd]);
   const lastConceptBefore = useMemo(() => {
     let n = 0;
     for (let i = 0; i <= Math.min(index, items.length - 1); i++) if (items[i].kind === "card" || items[i].kind === "pending") n++;
@@ -248,7 +257,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                       <button
                         type="button"
                         onClick={() => onRetryCard(it.card.id)}
-                        className="font-display mt-5 rounded-[16px] bg-[var(--ocean)] px-7 py-3 text-[18px] text-white"
+                        className="press font-display mt-5 h-14 rounded-[18px] bg-[var(--ocean)] px-7 text-[19px] text-white"
                       >
                         다시 만들기
                       </button>
@@ -275,7 +284,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               ) : (
                 <div className="flex h-full w-full flex-col justify-center bg-[var(--paper)] px-6 text-[var(--ink)]">
                   <span className="self-start rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white">FINISH</span>
-                  <h2 className="font-display mt-3 text-[40px] leading-tight">완주했어요!</h2>
+                  <h2 ref={finishTitle} className="font-display mt-3 text-[40px] leading-tight">완주했어요!</h2>
                   <p className="mt-1 text-[14.5px] font-semibold text-[var(--muted)]">{deck.title}</p>
                   <div className="mt-6 grid w-full grid-cols-3 gap-2">
                     {[
@@ -289,12 +298,12 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                       </div>
                     ))}
                   </div>
-                  <div className="mt-6 flex w-full flex-col gap-2.5">
-                    <button type="button" onClick={() => scrollTo(0)} className="font-display rounded-[18px] bg-[var(--ocean)] py-4 text-[19px] text-white">
+                  <div className="mt-6 flex w-full flex-col gap-4">
+                    <button type="button" onClick={() => scrollTo(0)} className="press font-display h-14 rounded-[18px] bg-[var(--ocean)] text-[19px] text-white">
                       처음부터 다시 보기
                     </button>
                     {wrongCards.length ? (
-                      <button type="button" onClick={() => setNotes(true)} className="font-display rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white py-3.5 text-[18px] text-[var(--ink)]">
+                      <button type="button" onClick={() => setNotes(true)} className="press press-ink font-display h-14 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[19px] text-[var(--ink)]">
                         오답노트 복습
                       </button>
                     ) : null}
