@@ -26,7 +26,7 @@ import {
   type ActorTrack,
   type Compiled,
 } from "./timeline";
-import { BAR_FILL, FILL, GREEN, NAVY, PALETTE_BG, RED, YELLOW, bgCss, outlineShadow } from "./palettes";
+import { BAR_FILL, FILL, GREEN, NAVY, OCEAN, PALETTE_BG, RED, YELLOW, bgCss, outlineShadow } from "./palettes";
 
 // 영상 글자: Wanted Sans 800 (2026-11-23 확정, Jua에서 교체). 외곽선·글자 그림자 없음
 const JUA = "'Wanted Sans Variable', 'Wanted Sans', 'Pretendard Variable', 'Pretendard', sans-serif";
@@ -591,7 +591,8 @@ function splitTerm(term: string): { lines: string[]; size: number } {
   return { lines: best.lines, size: Math.max(70, Math.min(190, 960 / best.max)) };
 }
 
-export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number; termAt: number; oy: number }) {
+/** light: 아주 연한 하늘 바탕 영상 (2026-11-23 확정) → 개념 이름 오션 블루, 정의 잉크, 강조 반쪽 형광펜 */
+export function TermBlock({ scene, fr, termAt, oy, light = false }: { scene: Scene; fr: number; termAt: number; oy: number; light?: boolean }) {
   if (fr < termAt) return null;
   const s = sp(fr, termAt, 9, 260, 0.9);
   const scale = interpolate(s, [0, 1], [2.4, 1]);
@@ -626,7 +627,7 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
           textAlign: "center",
           font: `800 ${size}px/${lh}px ${JUA}`,
           letterSpacing: size > 200 ? -4 : -2,
-          color: "#fff",
+          color: light ? OCEAN : "#fff",
           textShadow: "none",
           opacity: op,
           transform: `translate(${shx}px, ${shy}px) scale(${scale})`,
@@ -646,7 +647,7 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
             width: W - 100,
             textAlign: "center",
             font: `800 ${defSize}px/1.45 ${JUA}`,
-            color: "#fff",
+            color: light ? NAVY : "#fff",
             textShadow: "none",
             opacity: Math.min(1, subIn),
             transform: `translateY(${(1 - subIn) * 40}px)`,
@@ -655,7 +656,23 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
           }}
         >
           {parts.map((p, i) =>
-            p.hl ? (
+            p.hl && light ? (
+              <span
+                key={i}
+                style={{
+                  color: NAVY,
+                  // 반쪽 형광펜: 글자 아래 절반만 노랑이 왼쪽부터 그어진다
+                  backgroundImage: `linear-gradient(transparent 56%, ${YELLOW} 56%, ${YELLOW} 96%, transparent 96%)`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: `${hl * 100}% 100%`,
+                  padding: "0 8px",
+                  boxDecorationBreak: "clone",
+                  WebkitBoxDecorationBreak: "clone",
+                }}
+              >
+                {p.text}
+              </span>
+            ) : p.hl ? (
               <span
                 key={i}
                 style={{

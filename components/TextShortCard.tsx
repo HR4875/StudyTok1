@@ -190,9 +190,9 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
                   className="ts-hl"
                   style={{
                     color: NAVY,
-                    background: YELLOW,
-                    borderRadius: 6,
-                    padding: "1px 6px",
+                    // 반쪽 형광펜 (2026-11-23 확정): 글자 아래 절반만 노랑, 테두리·박스 없음
+                    background: `linear-gradient(transparent 56%, ${YELLOW} 56%, ${YELLOW} 96%, transparent 96%)`,
+                    padding: "0 3px",
                     margin: "0 1px",
                     boxDecorationBreak: "clone",
                     WebkitBoxDecorationBreak: "clone",

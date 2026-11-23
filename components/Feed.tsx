@@ -245,7 +245,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const readyCount = deck.cards.filter((c) => c.status === "ready").length;
 
   /** 모션 카드(색 바탕) 위에서만 흰 글씨 상단 바, 나머지(종이 바탕)는 잉크 글씨 */
-  const dark = current?.kind === "card" && (view === "motion" || !current.card.short);
+  // 모션 영상은 아주 연한 하늘 바탕(2026-11-23)이라 잉크 글씨 상단 바를 쓴다. 짙은 바탕은 예전 장면(short 없음)만
+  const dark = current?.kind === "card" && !current.card.short;
+  const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short;
   const chip = (active: boolean) =>
     `shrink-0 rounded-full border-2 px-3 py-[5px] text-[12.5px] font-bold transition-colors ${
       dark
@@ -373,7 +375,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
 
       {/* top bar */}
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 z-20 pb-3 pt-[max(10px,env(safe-area-inset-top))] ${dark ? "bg-gradient-to-b from-black/30 to-transparent" : "bg-[var(--paper)]"}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 pb-3 pt-[max(10px,env(safe-area-inset-top))] ${dark ? "bg-gradient-to-b from-black/30 to-transparent" : skyVideo ? "bg-gradient-to-b from-[#F5F9FF] via-[#F5F9FF]/85 to-transparent" : "bg-[var(--paper)]"}`}
       >
         <div className="pointer-events-auto flex items-center gap-1 px-2">
           <button type="button" onClick={onBack} aria-label="홈으로" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full active:bg-black/5">
