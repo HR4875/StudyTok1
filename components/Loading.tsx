@@ -45,26 +45,32 @@ function Step({ state, label, detail }: { state: "done" | "doing" | "todo"; labe
   );
 }
 
-function CardStack({ found }: { found: number }) {
-  const emojis = ["📄", "✂️", "🎬", "🧩"];
+/** 기울어진 스티커 카드 세 장 (개념 그림 칸과 같은 모양). 가운데 카드에 방금 찾은 개념 이름 */
+function CardStack({ label }: { label?: string }) {
+  const dots = { backgroundImage: "radial-gradient(rgba(35,35,37,.12) 1px, transparent 1.2px)", backgroundSize: "10px 10px" };
   return (
-    <div className="relative mx-auto h-[130px] w-[200px]" aria-hidden>
-      {[0, 1, 2].map((i) => (
+    <div className="relative mx-auto h-[170px] w-[230px]" aria-hidden>
+      {[0, 2, 1].map((i) => (
         <div
           key={i}
-          className="absolute left-1/2 top-1/2 flex h-[116px] w-[82px] items-center justify-center rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[34px]"
+          className="absolute left-1/2 top-1/2 flex h-[150px] w-[118px] flex-col items-center justify-center rounded-[18px] border-[5px] border-[var(--ink)] bg-white"
           style={
             {
-              marginLeft: -41 + (i - 1) * 42,
-              marginTop: -58,
-              "--r": `${(i - 1) * 9}deg`,
+              ...dots,
+              marginLeft: -59 + (i - 1) * 46,
+              marginTop: -75 + (i === 1 ? -6 : 6),
+              "--r": `${i === 1 ? -1.5 : (i - 1) * 8}deg`,
               animation: `card-stack 1.8s ease-in-out ${i * 0.18}s infinite`,
-              zIndex: i === 1 ? 2 : 1,
-              background: i === 1 ? "#C9E2FF" : "#fff",
+              background: i === 1 ? undefined : "#F4F3EF",
             } as React.CSSProperties
           }
         >
-          {emojis[(i + found) % emojis.length]}
+          {i === 1 ? (
+            <>
+              <span className="h-12 w-12 rounded-[12px] border-[2.5px] border-[var(--ink)] bg-[var(--yellow)]" />
+              <span className="mt-3 max-w-[96px] truncate text-center text-[14px] font-bold text-[var(--ink)]">{label ?? "개념 찾는 중"}</span>
+            </>
+          ) : null}
         </div>
       ))}
     </div>
@@ -124,139 +130,108 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
   };
   // 개념 뽑기 약 35초 + 글자 600자당 1초 + 카드는 CONCURRENCY장씩 한 장에 약 28초 (시험 생성 기준)
   const minutes = Math.max(1, Math.round((35 + Math.min(sel, range.maxChars) / 600 + Math.ceil(count / CONCURRENCY) * 28) / 60));
-  const clampPage = (v: number) => Math.max(1, Math.min(range.maxPage, Math.round(v) || 1));
 
+  const pct = Math.round(ratio * 100);
   return (
-    <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-      <div className="px-6 pb-4 pt-1">
-        <h2 className="font-display text-[27px] leading-tight">어디까지 만들까요?</h2>
-        <p className="mt-1 text-[13.5px] font-semibold text-white/85">
+    <div className="relative z-10 flex min-h-0 flex-1 flex-col text-[var(--ink)]">
+      <div className="px-6 pb-3 pt-2">
+        <span className="inline-block rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white">Track #1 : 업로드</span>
+        <h2 className="font-display mt-3 text-[28px] leading-tight">어디까지 만들까요?</h2>
+        <p className="mt-1 text-[14px] font-medium text-[var(--muted)]">
           전체 {range.maxPage}쪽 · {range.scanned ? "글자 없는 스캔본 (쪽을 그림으로 보내요)" : `약 ${range.totalChars.toLocaleString()}자`}
         </p>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col rounded-t-[28px] bg-white text-[var(--ink)]">
-        <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 pb-2 pt-4">
-          {chips.map((c) => {
-            const on = lo === c.from && hi === c.to;
+      <div className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto px-6 pb-3">
+        {chips.map((c) => {
+          const on = lo === c.from && hi === c.to;
+          return (
+            <button
+              key={c.label}
+              type="button"
+              onClick={() => {
+                setFrom(c.from);
+                setTo(c.to);
+                setAnchor(null);
+              }}
+              className={`h-10 shrink-0 rounded-full border-[2.5px] border-[var(--ink)] px-4 text-[14px] font-bold ${on ? "bg-[var(--ink)] text-white" : "bg-white text-[var(--ink)]"}`}
+              aria-pressed={on}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="px-6 pb-2 text-[13px] font-medium text-[var(--muted)]">
+        {anchor === null ? "쪽을 누르면 시작 쪽부터 다시 고를 수 있어요" : `${anchor}쪽부터 · 이제 끝 쪽을 눌러 주세요`}
+      </p>
+
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-6 pb-3 pt-1">
+        <div className="grid grid-cols-4 gap-2">
+          {range.chars.map((ch, i) => {
+            const n = i + 1;
+            const inside = n >= lo && n <= hi;
+            const edge = inside && (n === lo || n === hi) && lo !== hi;
+            const thumb = range.thumbs[i];
+            const badge = range.scanned || ch >= range.imageBelow ? null : asPicture.has(n) ? "그림" : "빈 쪽";
             return (
               <button
-                key={c.label}
+                key={n}
                 type="button"
-                onClick={() => {
-                  setFrom(c.from);
-                  setTo(c.to);
-                  setAnchor(null);
-                }}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-extrabold ${on ? "bg-[var(--ink)] text-white" : "border-2 border-[var(--ink)] bg-white text-[var(--ink)]"}`}
-                aria-pressed={on}
+                onClick={() => tap(n)}
+                aria-label={`${n}쪽${inside ? " (선택됨)" : ""}`}
+                aria-pressed={inside}
+                className={`relative overflow-hidden rounded-[8px] border-[2.5px] text-left transition-colors ${
+                  anchor === n
+                    ? "border-[var(--yellow)] bg-[var(--ans)]"
+                    : inside
+                      ? "border-[var(--blue)] bg-[var(--ans)]"
+                      : "border-[var(--ink)] bg-white"
+                } ${edge ? "outline outline-[2.5px] outline-offset-[2px] outline-[var(--ocean)]" : ""}`}
+                style={{ aspectRatio: "3 / 4" }}
               >
-                {c.label}
+                {thumb ? (
+                  <img src={thumb} alt="" className={`h-full w-full object-cover object-top ${inside ? "opacity-80 mix-blend-multiply" : ""}`} />
+                ) : (
+                  <div className="h-full w-full animate-pulse bg-[var(--chip)]" />
+                )}
+                <span className="absolute bottom-1 right-1.5 text-[12px] font-bold text-[var(--ink)]">{n}</span>
+                {badge ? (
+                  <span className="absolute left-1 top-1 rounded-[6px] bg-[var(--ink)] px-1 py-0.5 text-[10.5px] font-bold text-white">{badge}</span>
+                ) : null}
               </button>
             );
           })}
         </div>
-        <p className="px-5 pb-2 text-[12px] font-semibold text-[var(--muted)]">
-          {anchor === null ? "쪽을 눌러 시작 쪽부터 다시 고를 수 있어요" : `${anchor}쪽부터 · 이제 끝 쪽을 눌러 주세요`}
+      </div>
+
+      <div className="shrink-0 px-6 pb-[max(18px,env(safe-area-inset-bottom))] pt-3">
+        <div className="flex items-center gap-2 text-[13px] font-bold">
+          <span>한 번에 만들 수 있는 양</span>
+          <span className={`ml-auto ${over ? "text-[var(--red)]" : "text-[var(--ocean)]"}`}>{pct}%</span>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--chip)]">
+          <div className={`h-full rounded-full transition-[width] ${over ? "bg-[var(--red)]" : "bg-[var(--ocean)]"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+        </div>
+        <p className={`mt-2 text-[13px] font-medium ${over || empty ? "text-[var(--red)]" : "text-[var(--muted)]"}`}>
+          {over
+            ? range.scanned
+              ? `스캔본은 한 번에 ${range.maxPages}쪽까지예요. 범위를 줄여 주세요.`
+              : "한 번에 만들기엔 너무 많아요. 범위를 줄이면 나머지는 다음 묶음으로 만들 수 있어요."
+            : empty
+              ? "고른 쪽에 글자가 거의 없어요. 다른 쪽을 골라 주세요."
+              : `개념 ${count}개 · 약 ${minutes}분 걸려요 · 준비된 카드부터 볼 수 있어요`}
         </p>
-
-        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-3">
-          <div className="grid grid-cols-3 gap-2.5">
-            {range.chars.map((ch, i) => {
-              const n = i + 1;
-              const inside = n >= lo && n <= hi;
-              const thumb = range.thumbs[i];
-              const badge = range.scanned || ch >= range.imageBelow ? null : asPicture.has(n) ? "그림으로 읽어요" : "글자 거의 없음";
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => tap(n)}
-                  aria-label={`${n}쪽${inside ? " (선택됨)" : ""}`}
-                  aria-pressed={inside}
-                  className={`relative overflow-hidden rounded-[12px] bg-[var(--paper)] text-left transition-all ${
-                    anchor === n ? "ring-[3px] ring-[var(--yellow)]" : inside ? "ring-[3px] ring-[var(--blue)]" : "opacity-50 ring-1 ring-black/10"
-                  }`}
-                  style={{ aspectRatio: "3 / 4" }}
-                >
-                  {thumb ? (
-                    <img src={thumb} alt="" className="h-full w-full object-cover object-top" />
-                  ) : (
-                    <div className="h-full w-full animate-pulse bg-[var(--chip)]" />
-                  )}
-                  <span
-                    className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-extrabold ${
-                      inside ? "bg-[var(--blue)] text-white" : "bg-white/90 text-[var(--ink)]"
-                    }`}
-                  >
-                    {n}
-                  </span>
-                  {badge ? (
-                    <span className="absolute inset-x-1.5 bottom-1.5 rounded-md bg-black/55 px-1 py-0.5 text-center text-[10.5px] font-bold text-white">{badge}</span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="border-t border-black/5 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={range.maxPage}
-              value={from}
-              onChange={(e) => {
-                setFrom(clampPage(Number(e.target.value)));
-                setAnchor(null);
-              }}
-              className="w-16 rounded-xl border-2 border-[var(--ink)] px-2 py-1.5 text-center text-[16px] font-extrabold outline-none focus:border-[var(--blue)]"
-              aria-label="시작 쪽"
-            />
-            <span className="text-[14px] font-bold text-[var(--muted)]">~</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={range.maxPage}
-              value={to}
-              onChange={(e) => {
-                setTo(clampPage(Number(e.target.value)));
-                setAnchor(null);
-              }}
-              className="w-16 rounded-xl border-2 border-[var(--ink)] px-2 py-1.5 text-center text-[16px] font-extrabold outline-none focus:border-[var(--blue)]"
-              aria-label="끝 쪽"
-            />
-            <span className="text-[14px] font-bold text-[var(--muted)]">쪽 ({pages}쪽)</span>
-            <span className={`ml-auto text-[12.5px] font-extrabold ${over ? "text-[var(--red)]" : "text-[var(--muted)]"}`}>
-              {range.scanned ? `${pages} / ${range.maxPages}쪽` : `${sel.toLocaleString()} / ${range.maxChars.toLocaleString()}자`}
-            </span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--chip)]">
-            <div className={`h-full rounded-full transition-[width] ${over ? "bg-[var(--red)]" : "bg-[var(--blue)]"}`} style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }} />
-          </div>
-          <p className={`mt-1.5 text-[12px] font-semibold ${over || empty ? "text-[var(--red)]" : "text-[var(--muted)]"}`}>
-            {over
-              ? range.scanned
-                ? `스캔본은 한 번에 ${range.maxPages}쪽까지 보낼 수 있어요. 범위를 줄여 주세요.`
-                : "한 번에 만들기엔 길어요. 범위를 줄여 주세요. 나머지는 다음 묶음으로 만들 수 있어요."
-              : empty
-                ? "고른 쪽에 글자가 거의 없어요. 다른 쪽을 골라 주세요."
-                : `개념 ${count}개 · 약 ${minutes}분 · 만드는 동안 준비된 카드부터 볼 수 있어요`}
-          </p>
-          <button
-            type="button"
-            disabled={over || empty}
-            onClick={() => onChoose({ from: lo, to: hi })}
-            className={`mt-2.5 w-full rounded-[18px] py-3.5 font-display text-[19px] ${
-              over || empty ? "bg-[var(--chip)] text-[var(--muted)]" : "bg-[var(--ocean)] text-white active:translate-y-[1px]"
-            }`}
-          >
-            {lo === hi ? `${lo}쪽으로 만들기` : `${lo}–${hi}쪽으로 만들기`}
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={over || empty}
+          onClick={() => onChoose({ from: lo, to: hi })}
+          className={`mt-4 h-14 w-full rounded-[18px] font-display text-[19px] ${
+            over || empty ? "bg-[var(--chip)] text-[var(--muted)]" : "press bg-[var(--ocean)] text-white"
+          }`}
+        >
+          {lo === hi ? `${lo}쪽으로 만들기 →` : `${lo}–${hi}쪽으로 만들기 →`}
+        </button>
       </div>
     </div>
   );
@@ -290,16 +265,17 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
   // 첫 개념이 나오기 전에는 얼마나 기다렸는지 보여 준다 (서버가 알려 준 진행 상황이 있으면 그것도)
   const waitNote = job.message && job.message !== "핵심 개념 찾는 중…" ? job.message : "개념을 고르는 데 보통 1분쯤 걸려요";
 
+  const paper = job.phase === "range" && !!job.range;
   return (
-    <div className="relative flex h-full flex-col overflow-hidden text-white" style={{ background: "var(--ocean)" }}>
+    <div className={`relative flex h-full flex-col overflow-hidden ${paper ? "text-[var(--ink)]" : "text-white"}`} style={{ background: paper ? "var(--paper)" : "var(--ocean)" }}>
 
       <header className="relative z-10 flex items-center px-3 pt-[max(14px,env(safe-area-inset-top))]">
-        <button type="button" onClick={onCancel} aria-label="취소" className="flex h-10 w-10 items-center justify-center rounded-full active:bg-white/10">
+        <button type="button" onClick={onCancel} aria-label="취소" className={`flex h-11 w-11 items-center justify-center rounded-full ${paper ? "active:bg-black/5" : "active:bg-white/10"}`}>
           <svg width="20" height="20" viewBox="0 0 20 20">
-            <path d="M4 4 L16 16 M16 4 L4 16" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
+            <path d="M4 4 L16 16 M16 4 L4 16" stroke={paper ? "#232325" : "#fff"} strokeWidth="2.6" strokeLinecap="round" />
           </svg>
         </button>
-        <span className="ml-1 max-w-[70%] truncate text-[13px] font-bold text-white/85">{job.fileName}</span>
+        <span className={`ml-1 max-w-[70%] truncate text-[13px] font-bold ${paper ? "text-[var(--muted)]" : "text-white/85"}`}>{job.fileName}</span>
       </header>
 
       {job.phase === "error" ? (
@@ -308,7 +284,7 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
           <p className="mt-2 text-[14.5px] font-semibold leading-relaxed text-white/90">{job.error}</p>
           <div className="mt-6 flex w-full flex-col gap-2.5">
             {!noKey ? (
-              <button type="button" onClick={onRetry} className="rounded-[18px] bg-white py-3.5 font-display text-[19px] text-[var(--ocean)]">
+              <button type="button" onClick={onRetry} className="press press-onblue h-14 rounded-[18px] bg-white font-display text-[19px] text-[var(--ocean)]">
                 다시 시도
               </button>
             ) : null}
@@ -325,15 +301,15 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
       ) : (
         <div className="relative z-10 flex min-h-0 flex-1 flex-col px-6">
           <div className="flex flex-1 flex-col items-center justify-center">
-            <CardStack found={job.found.length} />
-            <h2 className="mt-6 text-center font-display text-[26px] leading-tight">{heading}</h2>
+            <CardStack label={job.found[Math.max(0, Math.min(job.found.length - 1, job.ready))]} />
+            <h2 className="mt-7 text-center font-display text-[28px] leading-tight">{heading}</h2>
             <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-white/25">
               <div className="relative h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${Math.round(job.progress * 100)}%` }}>
                 <div className="animate-shimmer absolute inset-0" />
               </div>
             </div>
             <p className="mt-3 min-h-[20px] text-center text-[13px] font-semibold text-white/80">
-              {job.phase === "outline" && job.thinking ? `${elapsed}초째 · ${waitNote}` : TIPS[tip]}
+              {job.phase === "outline" && job.thinking ? `${elapsed}초째 · ${waitNote}` : `팁 · ${TIPS[tip]}`}
             </p>
           </div>
 
@@ -378,8 +354,8 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
               type="button"
               disabled={!canOpen}
               onClick={onOpenEarly}
-              className={`w-full rounded-[18px] border-[2.5px] py-4 font-display text-[19px] transition-all ${
-                canOpen ? "border-white bg-white text-[var(--ocean)]" : "border-white/30 bg-transparent text-white/60"
+              className={`h-14 w-full rounded-[18px] border-[2.5px] font-display text-[19px] ${
+                canOpen ? "press press-onblue border-white bg-white text-[var(--ocean)]" : "border-white/30 bg-transparent text-white/60"
               }`}
             >
               {canOpen ? `준비된 ${job.ready}개부터 보기 →` : "카드가 준비되면 바로 볼 수 있어요"}

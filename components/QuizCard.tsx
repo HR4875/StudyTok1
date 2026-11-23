@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
+import { burstFrom } from "@/lib/fx";
 import type { Quiz } from "@/lib/schema";
 import type { Palette } from "@/lib/schema";
 
@@ -13,45 +14,6 @@ interface Props {
   streak: number;
   onAnswer: (i: number) => void;
   onNext: () => void;
-}
-
-function Confetti() {
-  const bits = useMemo(
-    () =>
-      Array.from({ length: 26 }, (_, i) => ({
-        left: 50 + (Math.random() - 0.5) * 20,
-        dx: (Math.random() - 0.5) * 340,
-        dy: -120 - Math.random() * 260,
-        rot: Math.random() * 720,
-        color: ["#FFD43B", "#0A5FC2", "#1286F0", "#C9E2FF", "#232325"][i % 5],
-        size: 8 + Math.random() * 8,
-        delay: Math.random() * 0.08,
-      })),
-    [],
-  );
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {bits.map((b, i) => (
-        <span
-          key={i}
-          className="absolute top-[55%] block rounded-sm"
-          style={
-            {
-              left: `${b.left}%`,
-              width: b.size,
-              height: b.size * 0.6,
-              background: b.color,
-              animation: `confetti-fly 1.1s cubic-bezier(.15,.7,.4,1) ${b.delay}s forwards`,
-              "--dx": `${b.dx}px`,
-              "--dy": `${b.dy}px`,
-              "--rot": `${b.rot}deg`,
-            } as React.CSSProperties
-          }
-        />
-      ))}
-      <style>{`@keyframes confetti-fly{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--dx),calc(var(--dy) + 260px)) rotate(var(--rot));opacity:0}}`}</style>
-    </div>
-  );
 }
 
 /* 확정 UI(C안) 퀴즈: 종이 바탕, 잉크 QUIZ 라벨 + 빨간 COMBO, 흰 칸 + 잉크 테두리 선택지.
@@ -79,50 +41,87 @@ export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer
           let box = "border-[var(--ink)] bg-white text-[var(--ink)]";
           let key = "bg-[var(--chip)] text-[var(--ink)]";
           let text = "";
+          let state = "";
           if (answered && isAns) {
+            state = "is-ok";
             box = "border-[var(--ans-line)] bg-[var(--ans)] text-[var(--ocean)]";
             key = "bg-white text-[var(--ocean)]";
           } else if (answered && isSel) {
             box = "border-[var(--red)] bg-white text-[var(--red)] animate-shake-x";
+            state = "is-no";
             key = "bg-[var(--red)] text-white";
             text = "line-through";
           } else if (answered) {
             box = "border-[var(--ink)] bg-white text-[var(--ink)] opacity-50";
+            state = "is-dim";
           }
           return (
             <button
               key={i}
               type="button"
               disabled={answered}
-              onClick={() => onAnswer(i)}
-              className={`flex items-center gap-3 rounded-[16px] border-[2.5px] px-3.5 py-3 text-left text-[16.5px] font-bold transition-colors active:scale-[0.99] ${box}`}
+              onClick={(e) => {
+                if (i === quiz.answer) burstFrom(e.currentTarget, e.clientX ? { x: e.clientX, y: e.clientY } : undefined);
+                onAnswer(i);
+              }}
+              className={`opt-press flex min-h-14 items-center gap-3 rounded-[16px] border-[2.5px] px-3.5 py-3 text-left text-[17px] font-bold ${box} ${state}`}
             >
               <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-[15px] font-extrabold ${key}`}>{i + 1}</span>
               <span className={text} style={{ wordBreak: "keep-all" }}>
                 {o}
-                {answered && isAns ? " ✓" : ""}
+                {answered && isAns ? <span className="tick-pop ml-1 inline-block">✓</span> : null}
               </span>
             </button>
           );
         })}
       </div>
       {answered ? (
-        <div className="animate-pop-in mt-auto pb-[max(20px,env(safe-area-inset-bottom))] pt-4">
-          <div className="rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white px-4 py-3">
-            <p className="text-[14.5px] font-medium leading-relaxed text-[var(--ink)]">
-              <span className={`font-display mr-1.5 text-[18px] ${correct ? "text-[var(--ans-line)]" : "text-[var(--red)]"}`}>{correct ? "정답!" : "오답"}</span>
-              {quiz.explanation || (correct ? "" : "오답노트에 담았어요.")}
-            </p>
-            {!correct && quiz.explanation ? <p className="mt-1 text-[12.5px] font-semibold text-[var(--muted)]">오답노트에 담았어요.</p> : null}
+        /* 해설 바텀 시트 (11/23 확정): 오답 = 연한 빨강, 정답 = 연한 파랑. 다음 버튼까지 시트 안에 */
+        <div
+          className={`sheet-up -mx-6 mt-auto flex flex-col gap-2 rounded-t-[24px] px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 ${
+            correct ? "bg-[var(--blue-soft)]" : "bg-[var(--red-soft)]"
+          }`}
+        >
+          <div className={`font-display flex items-center gap-2 text-[24px] ${correct ? "text-[var(--ocean)]" : "text-[var(--red)]"}`}>
+            <span
+              className={`tick-pop flex h-8 w-8 items-center justify-center rounded-full ${
+                correct ? "bg-[var(--ans-line)]" : "bg-[var(--red)]"
+              }`}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                {correct ? (
+                  <path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                ) : (
+                  <path d="M4 4 L12 12 M12 4 L4 12" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
+                )}
+              </svg>
+            </span>
+            {correct ? "정답이에요!" : "아깝다!"}
           </div>
-          <button type="button" onClick={onNext} className="font-display mt-3 w-full rounded-[18px] bg-[var(--ocean)] py-4 text-[19px] text-white">
-            다음 카드 →
+          {!correct ? (
+            <p className="text-[15px] font-bold text-[var(--ink)]" style={{ wordBreak: "keep-all" }}>
+              정답: {quiz.options[quiz.answer]}
+            </p>
+          ) : null}
+          {quiz.explanation ? (
+            <p className="text-[15px] font-medium leading-[1.6] text-[var(--ink)]" style={{ wordBreak: "keep-all" }}>
+              {quiz.explanation}
+            </p>
+          ) : null}
+          {!correct ? <p className="text-[13px] font-semibold text-[var(--muted)]">오답노트에 담았어요</p> : null}
+          <button
+            type="button"
+            onClick={onNext}
+            className={`press font-display mt-2 h-14 w-full rounded-[18px] text-[19px] text-white ${
+              correct ? "bg-[var(--ocean)]" : "press-red bg-[var(--red)]"
+            }`}
+          >
+            {correct ? "다음 카드 →" : "알겠어요, 다음 →"}
           </button>
         </div>
       ) : (
         <p className="mt-auto pb-[max(28px,env(safe-area-inset-bottom))] pt-4 text-center text-[12.5px] font-semibold text-[var(--muted)]">정답을 골라 보세요 · 넘기면 건너뛰기</p>
       )}
-      {correct ? <Confetti /> : null}
-    </div>
+          </div>
   );
 }

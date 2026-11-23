@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from "next";
-// 모션 렌더러 글자: Jua (@fontsource, 'Jua' 이름 그대로 써야 모션 렌더러가 찾는다)
-import "@fontsource/jua";
 // 제목·버튼 글자: Wanted Sans Variable (npm 패키지, OFL. 글자 범위별로 필요한 조각만 받는 split 버전)
 import "wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css";
 // 본문: Pretendard (npm 패키지, 쓰는 글자만 받는 dynamic subset)

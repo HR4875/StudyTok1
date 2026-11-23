@@ -5,6 +5,7 @@ import { isShowable, paletteOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
 import type { Settings } from "@/lib/storage";
 import { playSfx, setSoundEnabled, unlockAudio } from "@/lib/sfx";
+import { burstFrom } from "@/lib/fx";
 import { W } from "@/motion/timeline";
 import QuizCard from "./QuizCard";
 import SceneCard, { type MotionSrc } from "./SceneCard";
@@ -84,6 +85,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<{ afterKey: string; cardId: string; n: number }[]>([]);
   const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
   const [quizMenu, setQuizMenu] = useState(false);
   const [detail, setDetail] = useState<Card | null>(null);
   const [notes, setNotes] = useState(false);
@@ -106,6 +108,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const allSettled = !generating && deck.cards.every((c) => c.status !== "pending");
   const items = useMemo(() => buildItems(deck, settings, extras, allSettled), [deck, settings, extras, allSettled]);
   const current = items[Math.min(index, items.length - 1)];
+  // 완주 화면에 도착하면 제목에서 파티클이 한 번 터짐 (정답·완료 순간 = 팡 파티클)
+  const finishTitle = useRef<HTMLHeadingElement | null>(null);
+  const atEnd = current?.kind === "end";
+  useEffect(() => {
+    if (!atEnd) return;
+    const t = setTimeout(() => burstFrom(finishTitle.current, undefined, 24), 250);
+    return () => clearTimeout(t);
+  }, [atEnd]);
   const lastConceptBefore = useMemo(() => {
     let n = 0;
     for (let i = 0; i <= Math.min(index, items.length - 1); i++) if (items[i].kind === "card" || items[i].kind === "pending") n++;
@@ -162,7 +172,11 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     setAnswers((a) => ({ ...a, [item.key]: i }));
     const ok = i === quiz.answer;
     playSfx(ok ? "correct" : "wrong");
-    setStreak((s) => (ok ? s + 1 : 0));
+    setStreak((s) => {
+      const n = ok ? s + 1 : 0;
+      setBestStreak((b) => Math.max(b, n));
+      return n;
+    });
     const wrong = new Set(deck.wrong ?? []);
     if (ok) {
       if (item.retry) wrong.delete(item.card.id);
@@ -175,6 +189,23 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       }
     }
     onDeckChange({ ...deck, wrong: [...wrong] });
+  };
+
+  /** 완주 화면에서 오답 퀴즈를 끝 바로 앞에 다시 넣는다. 화면 위치는 그대로라 첫 오답 퀴즈가 바로 보인다 */
+  const redoWrong = (endAt: number) => {
+    playSfx("tap");
+    const before = items[endAt - 1]?.key;
+    if (!before) return;
+    setExtras((x) => {
+      const ids = deck.cards.filter((c) => deck.wrong?.includes(c.id) && quizOf(c)).map((c) => c.id);
+      // 같은 자리에 넣으면 나중 것이 앞에 오므로 거꾸로 넣어 원래 순서를 지킨다
+      return [...x, ...ids.reverse().map((cardId, k) => ({ afterKey: before, cardId, n: x.length + k + 1 }))];
+    });
+    // 브라우저가 완주 화면을 붙잡고 같이 내려가지 않도록, 새로 들어온 첫 퀴즈 자리로 바로 맞춘다
+    requestAnimationFrame(() => {
+      const el = scroller.current;
+      if (el) el.scrollTop = endAt * el.clientHeight;
+    });
   };
 
   const quizItems = items.filter((i) => i.kind === "quiz");
@@ -214,7 +245,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const readyCount = deck.cards.filter((c) => c.status === "ready").length;
 
   /** 모션 카드(색 바탕) 위에서만 흰 글씨 상단 바, 나머지(종이 바탕)는 잉크 글씨 */
-  const dark = current?.kind === "card" && (view === "motion" || !current.card.short);
+  // 모션 영상은 아주 연한 하늘 바탕(2026-11-23)이라 잉크 글씨 상단 바를 쓴다. 짙은 바탕은 예전 장면(short 없음)만
+  const dark = current?.kind === "card" && !current.card.short;
+  const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short;
   const chip = (active: boolean) =>
     `shrink-0 rounded-full border-2 px-3 py-[5px] text-[12.5px] font-bold transition-colors ${
       dark
@@ -230,7 +263,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   return (
     <div className="relative h-full w-full overflow-hidden bg-[var(--paper)]">
       {/* feed */}
-      <div ref={scroller} onScroll={onScroll} className="snap-feed no-scrollbar h-full w-full overflow-y-scroll">
+      <div ref={scroller} onScroll={onScroll} className="snap-feed no-scrollbar h-full w-full overflow-y-scroll [overflow-anchor:none]">
         {items.map((it, i) => {
           const dist = Math.abs(i - index);
           return (
@@ -248,7 +281,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                       <button
                         type="button"
                         onClick={() => onRetryCard(it.card.id)}
-                        className="font-display mt-5 rounded-[16px] bg-[var(--ocean)] px-7 py-3 text-[18px] text-white"
+                        className="press font-display mt-5 h-14 rounded-[18px] bg-[var(--ocean)] px-7 text-[19px] text-white"
                       >
                         다시 만들기
                       </button>
@@ -273,33 +306,59 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   onNext={() => scrollTo(i + 1)}
                 />
               ) : (
-                <div className="flex h-full w-full flex-col justify-center bg-[var(--paper)] px-6 text-[var(--ink)]">
+                <div className="flex h-full w-full flex-col bg-[var(--paper)] px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-[112px] text-[var(--ink)]">
                   <span className="self-start rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white">FINISH</span>
-                  <h2 className="font-display mt-3 text-[40px] leading-tight">완주했어요!</h2>
-                  <p className="mt-1 text-[14.5px] font-semibold text-[var(--muted)]">{deck.title}</p>
+                  <h2 ref={finishTitle} className="font-display mt-3 text-[44px] leading-tight">완주했어요!</h2>
+                  <p className="mt-1 truncate text-[14px] font-medium text-[var(--muted)]">
+                    {deck.subject ? `${deck.subject} : ` : ""}
+                    {deck.title}
+                    {deck.range ? ` · ${deck.range.from === deck.range.to ? `${deck.range.from}쪽` : `${deck.range.from}–${deck.range.to}쪽`}` : ""}
+                  </p>
                   <div className="mt-6 grid w-full grid-cols-3 gap-2">
                     {[
-                      { k: "개념", v: `${readyCount}개` },
-                      { k: "퀴즈 정답", v: answered.length ? `${correctCount}/${answered.length}` : "-" },
-                      { k: "오답노트", v: `${wrongCards.length}개` },
+                      { k: "개념", v: `${readyCount}개`, hi: false },
+                      { k: "퀴즈 정답", v: answered.length ? `${correctCount}/${answered.length}` : "-", hi: true },
+                      { k: "최고 콤보", v: bestStreak ? `×${bestStreak}` : "-", hi: false },
                     ].map((s) => (
-                      <div key={s.k} className="rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white px-2 py-3 text-center">
-                        <div className="font-display text-[24px]">{s.v}</div>
-                        <div className="text-[12px] font-bold text-[var(--muted)]">{s.k}</div>
+                      <div key={s.k} className={`rounded-[16px] border-[2.5px] border-[var(--ink)] px-2 py-3 text-center ${s.hi ? "bg-[var(--yellow)]" : "bg-white"}`}>
+                        <div className="font-display text-[28px] leading-tight">{s.v}</div>
+                        <div className="text-[13px] font-bold">{s.k}</div>
                       </div>
                     ))}
                   </div>
-                  <div className="mt-6 flex w-full flex-col gap-2.5">
-                    <button type="button" onClick={() => scrollTo(0)} className="font-display rounded-[18px] bg-[var(--ocean)] py-4 text-[19px] text-white">
-                      처음부터 다시 보기
-                    </button>
+                  {wrongCards.length ? (
+                    <div className="mt-4 overflow-hidden rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white">
+                      <div className="flex items-center bg-[var(--red-soft)] px-4 py-2 text-[14px] font-bold text-[var(--red)]">
+                        <span>오답노트 {wrongCards.length}개</span>
+                        <span className="ml-auto text-[13px]">다시 풀면 사라져요</span>
+                      </div>
+                      <div className="no-scrollbar max-h-[132px] overflow-y-auto">
+                        {wrongCards.map((c) => (
+                          <div key={c.id} className="flex items-center gap-2 border-t-[2.5px] border-[var(--ink)]/10 px-4 py-2.5 first:border-t-0">
+                            <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{c.concept.term}</span>
+                            {c.concept.pages ? <span className="shrink-0 text-[13px] font-medium text-[var(--muted)]">{c.concept.pages}</span> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="min-h-6 flex-1" />
+                  <div className="flex w-full flex-col gap-4">
                     {wrongCards.length ? (
-                      <button type="button" onClick={() => setNotes(true)} className="font-display rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white py-3.5 text-[18px] text-[var(--ink)]">
-                        오답노트 복습
+                      <button type="button" onClick={() => redoWrong(i)} className="press font-display h-14 rounded-[18px] bg-[var(--ocean)] text-[19px] text-white">
+                        오답노트 다시 풀기 →
                       </button>
                     ) : null}
-                    <button type="button" onClick={onBack} className="py-2 text-[14px] font-bold text-[var(--muted)]">
-                      홈으로
+                    <button
+                      type="button"
+                      onClick={() => scrollTo(0)}
+                      className={
+                        wrongCards.length
+                          ? "press press-ink font-display h-14 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[19px] text-[var(--ink)]"
+                          : "press font-display h-14 rounded-[18px] bg-[var(--ocean)] text-[19px] text-white"
+                      }
+                    >
+                      처음부터 다시 보기
                     </button>
                   </div>
                 </div>
@@ -316,7 +375,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
 
       {/* top bar */}
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 z-20 pb-3 pt-[max(10px,env(safe-area-inset-top))] ${dark ? "bg-gradient-to-b from-black/30 to-transparent" : "bg-[var(--paper)]"}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 pb-3 pt-[max(10px,env(safe-area-inset-top))] ${dark ? "bg-gradient-to-b from-black/30 to-transparent" : skyVideo ? "bg-gradient-to-b from-[#F5F9FF] via-[#F5F9FF]/85 to-transparent" : "bg-[var(--paper)]"}`}
       >
         <div className="pointer-events-auto flex items-center gap-1 px-2">
           <button type="button" onClick={onBack} aria-label="홈으로" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full active:bg-black/5">

@@ -6,6 +6,7 @@ import { regenerateCard, startJob, type JobHandle, type JobState } from "@/lib/g
 import { SAMPLE_DECKS } from "@/lib/sampleDecks";
 import type { Deck } from "@/lib/schema";
 import { unlockAudio } from "@/lib/sfx";
+import { installPressFx } from "@/lib/fx";
 import { deleteDeck, loadDecks, loadSettings, saveDeck, saveSettings, type Settings } from "@/lib/storage";
 import Feed from "./Feed";
 import Home from "./Home";
@@ -28,10 +29,13 @@ export default function App() {
   screenRef.current = screen;
 
   useEffect(() => {
+    installPressFx();
+  }, []);
+
+  useEffect(() => {
     getHealth().then((h) => setApiReady(h ? h.hasKey || h.mock : null));
     // warm up fonts used by the motion renderer
     try {
-      void document.fonts?.load("400 40px Jua", "가나다API");
       void document.fonts?.load("800 40px 'Pretendard Variable'", "가나다");
       void document.fonts?.load("800 40px 'Wanted Sans Variable'", "가나다STUDY");
     } catch {}

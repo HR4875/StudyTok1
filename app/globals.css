@@ -209,3 +209,65 @@ svg .ts-pop { transform-box: fill-box; transform-origin: center; }
 .v-paper [stroke="#FFD43B"] { stroke: #0a5fc2; }
 .v-paper [stroke^="rgba(255,255,255"] { stroke: rgba(35, 35, 37, 0.35); }
 .v-paper [fill^="rgba(255,255,255"] { fill: rgba(10, 95, 194, 0.06); }
+
+/* ── 버튼 손맛 (2026-11-23 확정, lib/fx.ts 참고) ──────────────────────────
+   아래 두께는 흐린 그림자가 아니라 단색 판(6px). 글자 그림자 없음 규칙과 별개. */
+:root { --ocean-deep: #064489; }
+.press {
+  --plate: var(--ocean-deep);
+  box-shadow: 0 6px 0 var(--plate);
+  transition: transform 0.08s, box-shadow 0.08s;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.press-ink { --plate: var(--ink); }
+.press-onblue { --plate: #05386f; }
+.press:active:not(:disabled) {
+  transform: translateY(6px) scale(1.03, 0.88);
+  box-shadow: 0 0 0 var(--plate);
+}
+.press.pop:not(:active) { animation: press-spring 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.press:disabled { box-shadow: none; }
+@keyframes press-spring {
+  0% { transform: translateY(6px) scale(1.03, 0.88); }
+  40% { transform: translateY(-4px) scale(0.96, 1.08); }
+  100% { transform: none; }
+}
+
+/* 퀴즈 선택지: 같은 손맛 (판 5px), 정답은 튀며 ✓, 오답은 흔들림 */
+.opt-press {
+  --plate: var(--ink);
+  box-shadow: 0 5px 0 var(--plate);
+  transition: transform 0.06s, box-shadow 0.06s, background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.opt-press:active:not(:disabled) { transform: translateY(5px); box-shadow: 0 0 0 var(--plate); }
+.opt-press.is-ok { --plate: var(--ans-line); animation: press-spring 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.opt-press.is-no { --plate: var(--red); }
+.opt-press.is-dim { box-shadow: none; }
+.tick-pop { animation: tick-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes tick-pop { from { transform: scale(0); } }
+
+/* 정답·완료 파티클 */
+.fx-pt {
+  position: fixed;
+  z-index: 9999;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 3px;
+  pointer-events: none;
+  animation: fx-fly 0.75s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+@keyframes fx-fly { to { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .press, .press.pop, .opt-press, .opt-press.is-ok, .tick-pop { animation: none !important; transition: none !important; }
+}
+
+/* 해설 바텀 시트 (2026-11-23 확정) */
+:root { --red-soft: #fde7e4; --blue-soft: #e3f0ff; }
+.press-red { --plate: #9e140e; }
+.sheet-up { animation: sheet-up 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet-up { animation: none; } }

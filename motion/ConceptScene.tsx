@@ -26,9 +26,10 @@ import {
   type ActorTrack,
   type Compiled,
 } from "./timeline";
-import { BAR_FILL, FILL, GREEN, NAVY, PALETTE_BG, RED, YELLOW, bgCss } from "./palettes";
+import { BAR_FILL, FILL, GREEN, NAVY, OCEAN, PALETTE_BG, RED, YELLOW, bgCss, outlineShadow } from "./palettes";
 
-const JUA = "'Jua', 'Pretendard Variable', 'Pretendard', sans-serif";
+// 영상 글자: Wanted Sans 800 (2026-11-23 확정, Jua에서 교체). 외곽선·글자 그림자 없음
+const JUA = "'Wanted Sans Variable', 'Wanted Sans', 'Pretendard Variable', 'Pretendard', sans-serif";
 const PRE = "'Pretendard Variable', 'Pretendard', -apple-system, sans-serif";
 const EMOJI_FONT = "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
 const CL = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -215,6 +216,7 @@ const labelStyle: React.CSSProperties = {
   textAlign: "center",
   lineHeight: 1.15,
   letterSpacing: -0.5,
+  textShadow: "none",
   maxWidth: 320,
   wordBreak: "keep-all",
 };
@@ -302,7 +304,7 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
             }}
           >
             {st.emoji || (
-              <span style={{ font: `400 ${s * 0.26}px/1.05 ${JUA}`, textAlign: "center", padding: 10, wordBreak: "keep-all" }}>
+              <span style={{ font: `800 ${s * 0.26}px/1.05 ${JUA}`, textAlign: "center", padding: 10, wordBreak: "keep-all" }}>
                 {st.label}
               </span>
             )}
@@ -358,7 +360,7 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
             alignItems: "center",
             justifyContent: "center",
             gap: 14,
-            font: `400 ${PILL_FONT}px/1 ${JUA}`,
+            font: `800 ${PILL_FONT}px/1 ${JUA}`,
             color: fg,
             whiteSpace: "nowrap",
             boxShadow: [`0 8px 0 rgba(27,27,58,0.45)`, glowShadow].filter(Boolean).join(", "),
@@ -377,11 +379,12 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
         <div
           style={{
             position: "relative",
-            font: `400 ${fsz}px/1.12 ${JUA}`,
+            font: `800 ${fsz}px/1.12 ${JUA}`,
             color,
             textAlign: "center",
             maxWidth: 900,
             width: "max-content",
+            textShadow: "none",
             filter: st.glow > 0 ? `drop-shadow(0 0 ${30 * st.glow}px rgba(255,212,59,${0.9 * st.glow}))` : undefined,
             wordBreak: "keep-all",
           }}
@@ -399,9 +402,10 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
         <div
           style={{
             position: "relative",
-            font: `400 ${fsz}px/1 ${JUA}`,
+            font: `800 ${fsz}px/1 ${JUA}`,
             color: a.color === "yellow" ? YELLOW : "#fff",
             whiteSpace: "nowrap",
+            textShadow: "none",
             fontVariantNumeric: "tabular-nums",
           }}
         >
@@ -449,9 +453,10 @@ function ActorView({ tr, st, maxValue }: { tr: ActorTrack; st: ActorState; maxVa
               left: 0,
               bottom: hpx + 18,
               transform: "translateX(-50%)",
-              font: `400 50px/1 ${JUA}`,
+              font: `800 50px/1 ${JUA}`,
               color: "#fff",
               whiteSpace: "nowrap",
+              textShadow: "none",
             }}
           >
             {st.emoji ? <span style={{ font: `44px/1 ${EMOJI_FONT}`, marginRight: 6 }}>{st.emoji}</span> : null}
@@ -532,7 +537,7 @@ function Bubble({ x, y, text, emoji, bg, tail, scale, opacity }: { x: number; y:
           border: `6px solid ${NAVY}`,
           borderRadius: 30,
           padding: "12px 30px 16px",
-          font: `400 50px ${JUA}`,
+          font: `800 50px ${JUA}`,
           color: NAVY,
           whiteSpace: "nowrap",
           boxShadow: `0 8px 0 ${NAVY}`,
@@ -586,7 +591,8 @@ function splitTerm(term: string): { lines: string[]; size: number } {
   return { lines: best.lines, size: Math.max(70, Math.min(190, 960 / best.max)) };
 }
 
-export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number; termAt: number; oy: number }) {
+/** light: 아주 연한 하늘 바탕 영상 (2026-11-23 확정) → 개념 이름 오션 블루, 정의 잉크, 강조 반쪽 형광펜 */
+export function TermBlock({ scene, fr, termAt, oy, light = false }: { scene: Scene; fr: number; termAt: number; oy: number; light?: boolean }) {
   if (fr < termAt) return null;
   const s = sp(fr, termAt, 9, 260, 0.9);
   const scale = interpolate(s, [0, 1], [2.4, 1]);
@@ -619,9 +625,10 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
           left: 0,
           width: W,
           textAlign: "center",
-          font: `400 ${size}px/${lh}px ${JUA}`,
+          font: `800 ${size}px/${lh}px ${JUA}`,
           letterSpacing: size > 200 ? -4 : -2,
-          color: "#fff",
+          color: light ? OCEAN : "#fff",
+          textShadow: "none",
           opacity: op,
           transform: `translate(${shx}px, ${shy}px) scale(${scale})`,
           whiteSpace: "nowrap",
@@ -639,8 +646,9 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
             left: 50,
             width: W - 100,
             textAlign: "center",
-            font: `400 ${defSize}px/1.45 ${JUA}`,
-            color: "#fff",
+            font: `800 ${defSize}px/1.45 ${JUA}`,
+            color: light ? NAVY : "#fff",
+            textShadow: "none",
             opacity: Math.min(1, subIn),
             transform: `translateY(${(1 - subIn) * 40}px)`,
             wordBreak: "keep-all",
@@ -648,11 +656,28 @@ export function TermBlock({ scene, fr, termAt, oy }: { scene: Scene; fr: number;
           }}
         >
           {parts.map((p, i) =>
-            p.hl ? (
+            p.hl && light ? (
               <span
                 key={i}
                 style={{
                   color: NAVY,
+                  // 반쪽 형광펜: 글자 아래 절반만 노랑이 왼쪽부터 그어진다
+                  backgroundImage: `linear-gradient(transparent 56%, ${YELLOW} 56%, ${YELLOW} 96%, transparent 96%)`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: `${hl * 100}% 100%`,
+                  padding: "0 8px",
+                  boxDecorationBreak: "clone",
+                  WebkitBoxDecorationBreak: "clone",
+                }}
+              >
+                {p.text}
+              </span>
+            ) : p.hl ? (
+              <span
+                key={i}
+                style={{
+                  color: NAVY,
+                  textShadow: "none",
                   background: YELLOW,
                   border: `6px solid ${NAVY}`,
                   borderRadius: 18,
@@ -744,8 +769,9 @@ export const ConceptScene: React.FC<ConceptSceneProps> = ({ scene, height = BASE
               left: 60,
               width: W - 120,
               textAlign: "center",
-              font: `400 104px/1.14 ${JUA}`,
+              font: `800 104px/1.14 ${JUA}`,
               color: "#fff",
+              textShadow: "none",
               opacity: Math.min(hookIn, 1) * hookOut,
               transform: `translateY(calc(-50% + ${(1 - hookIn) * 70 - (1 - hookOut) * 60}px)) scale(${(0.85 + 0.15 * hookIn) * (0.9 + 0.1 * hookOut)})`,
               wordBreak: "keep-all",
@@ -849,7 +875,7 @@ export const ConceptScene: React.FC<ConceptSceneProps> = ({ scene, height = BASE
                             borderRadius: 999,
                             background: YELLOW,
                             border: `5px solid ${NAVY}`,
-                            font: `400 38px/1.15 ${JUA}`,
+                            font: `800 38px/1.15 ${JUA}`,
                             color: NAVY,
                             whiteSpace: "nowrap",
                           }}
@@ -928,7 +954,7 @@ export const ConceptScene: React.FC<ConceptSceneProps> = ({ scene, height = BASE
                     borderRadius: 999,
                     background: NAVY,
                     border: "5px solid #fff",
-                    font: `400 46px/1 ${JUA}`,
+                    font: `800 46px/1 ${JUA}`,
                     color: YELLOW,
                     whiteSpace: "nowrap",
                     display: "flex",
@@ -990,7 +1016,7 @@ export const ConceptScene: React.FC<ConceptSceneProps> = ({ scene, height = BASE
                         borderRadius: 999,
                         background: "#fff",
                         border: `4px solid ${NAVY}`,
-                        font: `400 34px/1.1 ${JUA}`,
+                        font: `800 34px/1.1 ${JUA}`,
                         color: NAVY,
                         whiteSpace: "nowrap",
                       }}

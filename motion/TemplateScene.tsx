@@ -6,7 +6,10 @@ import { getTimeline, type VisualTimeline } from "@/lib/compileVisual";
 import type { Scene } from "@/lib/schema";
 import type { TextShort, VisualPlan } from "@/lib/visual";
 import { TermBlock } from "./ConceptScene";
-import { NAVY, PALETTE_BG, bgCss } from "./palettes";
+import { NAVY, OCEAN } from "./palettes";
+
+/** 영상 바탕 (2026-11-23 확정): 아주 연한 하늘 #F5F9FF + 잉크 글자 + 오션 블루 제목·자막 */
+const VIDEO_BG = "#F5F9FF";
 import { BASE_H, CAPTION_Y, FPS, HOOK_Y, STAGE, W } from "./timeline";
 import { DW, drawVisual, type DrawTiming } from "./VisualDraw";
 
@@ -17,7 +20,8 @@ import { DW, drawVisual, type DrawTiming } from "./VisualDraw";
 /*  그래서 미리보기·재생·영상 내보내기가 모두 같은 프레임을 낸다.          */
 /* ------------------------------------------------------------------ */
 
-const JUA = "'Jua', 'Pretendard Variable', 'Pretendard', sans-serif";
+// 영상 글자: Wanted Sans 800 (2026-11-23 확정, Jua에서 교체). 외곽선·글자 그림자 없음
+const JUA = "'Wanted Sans Variable', 'Wanted Sans', 'Pretendard Variable', 'Pretendard', sans-serif";
 const PRE = "'Pretendard Variable', 'Pretendard', -apple-system, sans-serif";
 const CL = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -49,7 +53,6 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
   const drawn = useMemo(() => drawVisual(short.visual, motionTiming(tl), { subs: false }), [short, tl]);
   const H = height;
   const oy = Math.round((H - BASE_H) / 2);
-  const pal = PALETTE_BG[short.palette] ?? PALETTE_BG.blue;
   const d0f = Math.round(tl.d0 * FPS);
   const termF = Math.round(tl.termAt * FPS);
   const drift = Math.sin(fr / 40) * 40;
@@ -65,7 +68,7 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
   const top = STAGE.y0 + (STAGE.h - drawn.h * s) / 2;
 
   return (
-    <AbsoluteFill style={{ background: bgCss(short.palette), overflow: "hidden", fontFamily: PRE }}>
+    <AbsoluteFill style={{ background: VIDEO_BG, overflow: "hidden", fontFamily: PRE }}>
       <div
         style={{
           position: "absolute",
@@ -74,7 +77,7 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
           width: 760,
           height: 760,
           borderRadius: 760,
-          background: "radial-gradient(circle, rgba(255,255,255,0.20), rgba(255,255,255,0) 70%)",
+          background: "radial-gradient(circle, rgba(201,226,255,0.35), rgba(201,226,255,0) 70%)",
         }}
       />
       <div
@@ -85,7 +88,7 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
           width: 900,
           height: 900,
           borderRadius: 900,
-          background: `radial-gradient(circle, ${pal.glow}, rgba(0,0,0,0) 70%)`,
+          background: "radial-gradient(circle, rgba(201,226,255,0.30), rgba(201,226,255,0) 70%)",
         }}
       />
 
@@ -98,9 +101,9 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
               left: 60,
               width: W - 120,
               textAlign: "center",
-              font: `400 104px/1.14 ${JUA}`,
-              color: "#fff",
-              textShadow: "0 7px 0 rgba(27,27,58,0.38)",
+              font: `800 104px/1.14 ${JUA}`,
+              color: NAVY,
+              textShadow: "none",
               opacity: Math.min(hookIn, 1) * hookOut,
               transform: `translateY(calc(-50% + ${(1 - hookIn) * 70 - (1 - hookOut) * 60}px)) scale(${(0.85 + 0.15 * hookIn) * (0.9 + 0.1 * hookOut)})`,
               wordBreak: "keep-all",
@@ -113,7 +116,7 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
 
         {/* 무대: CSS 효과를 이 프레임 시각(--t)에 멈춰 세운다 */}
         <div
-          className="ts-anim ts-seek"
+          className="ts-anim ts-seek v-paper"
           style={
             {
               position: "absolute",
@@ -148,27 +151,38 @@ export const TemplateScene: React.FC<TemplateSceneProps> = ({ short, plan, heigh
                       opacity: Math.min(inP, 1) * outP,
                       maxWidth: 940,
                       width: "max-content",
-                      padding: "18px 36px 20px",
-                      borderRadius: 30,
-                      background: isEm ? "#FFD43B" : "rgba(20,20,52,0.42)",
-                      border: isEm ? `6px solid ${NAVY}` : "none",
-                      boxShadow: isEm ? `0 8px 0 ${NAVY}` : "none",
-                      font: isEm ? `400 58px/1.25 ${JUA}` : `700 54px/1.32 ${PRE}`,
+                      padding: "18px 40px 20px",
+                      // 각진 말풍선 자막 (2026-11-23 확정): 모서리 작게, 위쪽 꼬리로 그림을 가리킴
+                      borderRadius: 14,
+                      background: isEm ? NAVY : OCEAN,
+                      font: isEm ? `800 58px/1.25 ${JUA}` : `700 54px/1.32 ${PRE}`,
                       letterSpacing: isEm ? 0 : -1,
-                      color: isEm ? NAVY : "#fff",
+                      color: "#fff",
                       textAlign: "center",
                       wordBreak: "keep-all",
                       textWrap: "balance",
                     } as React.CSSProperties
                   }
                 >
+                  <span
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      top: -22,
+                      marginLeft: -24,
+                      borderLeft: "24px solid transparent",
+                      borderRight: "24px solid transparent",
+                      borderBottom: `24px solid ${isEm ? NAVY : OCEAN}`,
+                    }}
+                  />
                   {cap.text}
                 </div>
               );
             })
           : null}
 
-        <TermBlock scene={short as unknown as Scene} fr={fr} termAt={termF} oy={oy} />
+        <TermBlock scene={short as unknown as Scene} fr={fr} termAt={termF} oy={oy} light />
       </div>
     </AbsoluteFill>
   );
