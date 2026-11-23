@@ -69,23 +69,54 @@ export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer
               <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-[15px] font-extrabold ${key}`}>{i + 1}</span>
               <span className={text} style={{ wordBreak: "keep-all" }}>
                 {o}
-                {answered && isAns ? <span className="tick-pop ml-1">✓</span> : null}
+                {answered && isAns ? <span className="tick-pop ml-1 inline-block">✓</span> : null}
               </span>
             </button>
           );
         })}
       </div>
       {answered ? (
-        <div className="animate-pop-in mt-auto pb-[max(20px,env(safe-area-inset-bottom))] pt-4">
-          <div className="rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white px-4 py-3">
-            <p className="text-[14.5px] font-medium leading-relaxed text-[var(--ink)]">
-              <span className={`font-display mr-1.5 text-[18px] ${correct ? "text-[var(--ans-line)]" : "text-[var(--red)]"}`}>{correct ? "정답!" : "오답"}</span>
-              {quiz.explanation || (correct ? "" : "오답노트에 담았어요.")}
-            </p>
-            {!correct && quiz.explanation ? <p className="mt-1 text-[12.5px] font-semibold text-[var(--muted)]">오답노트에 담았어요.</p> : null}
+        /* 해설 바텀 시트 (11/23 확정): 오답 = 연한 빨강, 정답 = 연한 파랑. 다음 버튼까지 시트 안에 */
+        <div
+          className={`sheet-up -mx-6 mt-auto flex flex-col gap-2 rounded-t-[24px] px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 ${
+            correct ? "bg-[var(--blue-soft)]" : "bg-[var(--red-soft)]"
+          }`}
+        >
+          <div className={`font-display flex items-center gap-2 text-[24px] ${correct ? "text-[var(--ocean)]" : "text-[var(--red)]"}`}>
+            <span
+              className={`tick-pop flex h-8 w-8 items-center justify-center rounded-full ${
+                correct ? "bg-[var(--ans-line)]" : "bg-[var(--red)]"
+              }`}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                {correct ? (
+                  <path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                ) : (
+                  <path d="M4 4 L12 12 M12 4 L4 12" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
+                )}
+              </svg>
+            </span>
+            {correct ? "정답이에요!" : "아깝다!"}
           </div>
-          <button type="button" onClick={onNext} className="press font-display mt-4 h-14 w-full rounded-[18px] bg-[var(--ocean)] text-[19px] text-white">
-            다음 카드 →
+          {!correct ? (
+            <p className="text-[15px] font-bold text-[var(--ink)]" style={{ wordBreak: "keep-all" }}>
+              정답: {quiz.options[quiz.answer]}
+            </p>
+          ) : null}
+          {quiz.explanation ? (
+            <p className="text-[15px] font-medium leading-[1.6] text-[var(--ink)]" style={{ wordBreak: "keep-all" }}>
+              {quiz.explanation}
+            </p>
+          ) : null}
+          {!correct ? <p className="text-[13px] font-semibold text-[var(--muted)]">오답노트에 담았어요</p> : null}
+          <button
+            type="button"
+            onClick={onNext}
+            className={`press font-display mt-2 h-14 w-full rounded-[18px] text-[19px] text-white ${
+              correct ? "bg-[var(--ocean)]" : "press-red bg-[var(--red)]"
+            }`}
+          >
+            {correct ? "다음 카드 →" : "알겠어요, 다음 →"}
           </button>
         </div>
       ) : (

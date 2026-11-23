@@ -245,7 +245,7 @@ svg .ts-pop { transform-box: fill-box; transform-origin: center; }
 .opt-press.is-ok { --plate: var(--ans-line); animation: press-spring 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
 .opt-press.is-no { --plate: var(--red); }
 .opt-press.is-dim { box-shadow: none; }
-.tick-pop { display: inline-block; animation: tick-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.tick-pop { animation: tick-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1); }
 @keyframes tick-pop { from { transform: scale(0); } }
 
 /* 정답·완료 파티클 */
@@ -264,3 +264,10 @@ svg .ts-pop { transform-box: fill-box; transform-origin: center; }
 @media (prefers-reduced-motion: reduce) {
   .press, .press.pop, .opt-press, .opt-press.is-ok, .tick-pop { animation: none !important; transition: none !important; }
 }
+
+/* 해설 바텀 시트 (2026-11-23 확정) */
+:root { --red-soft: #fde7e4; --blue-soft: #e3f0ff; }
+.press-red { --plate: #9e140e; }
+.sheet-up { animation: sheet-up 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet-up { animation: none; } }
