@@ -98,7 +98,16 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    let lastH = el.clientHeight;
+    const ro = new ResizeObserver(() => {
+      // 화면 높이가 바뀌면(앱 안 브라우저 툴바 등) 보던 장이 어긋나지 않게 다시 맞춘다
+      if (lastH && el.clientHeight !== lastH) {
+        const i = Math.round(el.scrollTop / lastH);
+        el.scrollTop = i * el.clientHeight;
+      }
+      lastH = el.clientHeight;
+      setSize({ w: el.clientWidth, h: el.clientHeight });
+    });
     ro.observe(el);
     setSize({ w: el.clientWidth, h: el.clientHeight });
     return () => ro.disconnect();
@@ -310,7 +319,6 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   <span className="self-start rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white">FINISH</span>
                   <h2 ref={finishTitle} className="font-display mt-3 text-[44px] leading-tight">완주했어요!</h2>
                   <p className="mt-1 truncate text-[14px] font-medium text-[var(--muted)]">
-                    {deck.subject ? `${deck.subject} : ` : ""}
                     {deck.title}
                     {deck.range ? ` · ${deck.range.from === deck.range.to ? `${deck.range.from}쪽` : `${deck.range.from}–${deck.range.to}쪽`}` : ""}
                   </p>
@@ -383,11 +391,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               <path d="M14 4 L7 11 L14 18" stroke={fg} strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <span className="min-w-0 flex-1">
-            <span className="block max-w-full truncate rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white" style={{ width: "fit-content" }}>
-              {deck.subject ? `${deck.subject} : ` : ""}
-              {deck.title}
-            </span>
+          {/* 제목은 칸 없이 제목만 (11/24) */}
+          <span className="min-w-0 flex-1 truncate text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: fg }}>
+            {deck.title}
           </span>
           {deck.sample ? (
             <span className="shrink-0 rounded-full border-2 border-[var(--ink)] bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--ink)]" title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">

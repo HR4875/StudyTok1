@@ -3,10 +3,27 @@
 import React, { useEffect, useState } from "react";
 
 export function PhoneFrame({ children }: { children: React.ReactNode }) {
+  // 인스타그램·카카오톡 같은 앱 안 브라우저는 100dvh를 실제 보이는 높이보다 크게 잡는 일이 있어
+  // 아래쪽 버튼(퀴즈 "다음", 완주 버튼)이 화면 밖으로 밀렸다 (11/24). 실제 보이는 높이를 재서 쓴다.
+  useEffect(() => {
+    const set = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--app-h", `${Math.round(Math.min(h, window.innerHeight))}px`);
+    };
+    set();
+    window.addEventListener("resize", set);
+    window.addEventListener("orientationchange", set);
+    window.visualViewport?.addEventListener("resize", set);
+    return () => {
+      window.removeEventListener("resize", set);
+      window.removeEventListener("orientationchange", set);
+      window.visualViewport?.removeEventListener("resize", set);
+    };
+  }, []);
   return (
-    <div className="flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[var(--bg)] sm:p-4">
+    <div className="flex h-[var(--app-h,100dvh)] w-full items-center justify-center overflow-hidden bg-[var(--bg)] sm:p-4">
       <div
-        className="relative h-full w-full overflow-hidden bg-[var(--page)] sm:h-[min(900px,calc(100dvh-32px))] sm:w-auto sm:rounded-[46px] sm:border-[10px] sm:border-[#232325] sm:shadow-[0_30px_80px_rgba(35,35,37,0.25)]"
+        className="relative h-full w-full overflow-hidden bg-[var(--page)] sm:h-[min(900px,calc(var(--app-h,100dvh)-32px))] sm:w-auto sm:rounded-[46px] sm:border-[10px] sm:border-[#232325] sm:shadow-[0_30px_80px_rgba(35,35,37,0.25)]"
         style={{ aspectRatio: "auto" }}
       >
         <div className="phone-aspect relative h-full w-full sm:aspect-[9/19.5]">{children}</div>
