@@ -137,7 +137,8 @@ body {
 /*  모션(Remotion)은 컨테이너에 .ts-seek + --t(현재 시각)를 줘서          */
 /*  같은 효과를 프레임 단위로 멈춰 세운다(영상 내보내기에도 그대로).       */
 /* ------------------------------------------------------------------ */
-@keyframes ts-pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+/* 톡 등장 (11/23 확정): 40% → 100%, 반동은 아래 곡선이 만든다 */
+@keyframes ts-pop { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes ts-draw { 0% { stroke-dashoffset: 1; visibility: hidden; } 0.5% { visibility: visible; } 100% { stroke-dashoffset: 0; visibility: visible; } }
 @keyframes ts-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes ts-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -164,7 +165,7 @@ svg .ts-pop { transform-box: fill-box; transform-origin: center; }
   animation-duration: var(--dur, 0.5s);
   animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
-.ts-anim .ts-pop { animation-name: ts-pop; }
+.ts-anim .ts-pop { animation-name: ts-pop; animation-duration: var(--dur, 0.42s); animation-timing-function: cubic-bezier(0.2, 1.6, 0.4, 1); }
 .ts-anim .ts-draw { animation-name: ts-draw; stroke-dasharray: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); animation-duration: var(--dur, 0.45s); }
 .ts-anim .ts-grow { animation-name: ts-grow; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.1); }
 .ts-anim .ts-fade { animation-name: ts-fade; animation-timing-function: ease-out; }

@@ -132,9 +132,57 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     [items.length],
   );
 
+  /* 카드 더미 넘김 (2026-11-23 확정 ②): 스크롤 스냅은 그대로 두고, 스크롤 진행률로
+     지금 카드는 왼쪽 위로 날아가고 다음 카드는 뒤에서 앞으로 커지게 그린다.
+     손가락을 그대로 따라가고, 키보드·버튼 넘김(scrollTo)도 같은 움직임이 된다. */
+  const layers = useRef<(HTMLDivElement | null)[]>([]);
+  const stackRaf = useRef(0);
+  const applyStack = useCallback(() => {
+    stackRaf.current = 0;
+    const el = scroller.current;
+    if (!el) return;
+    const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const pos = el.scrollTop / Math.max(1, el.clientHeight);
+    const top = Math.floor(pos);
+    layers.current.forEach((node, i) => {
+      if (!node) return;
+      if (reduce || (i !== top && i !== top + 1)) {
+        if (node.style.transform) node.style.transform = "";
+        return;
+      }
+      const p = pos - i; // 0~1: 위로 떠나는 중, -1~0: 아래에서 다가오는 중
+      if (p >= 0) {
+        if (p < 0.001) {
+          node.style.transform = "";
+          return;
+        }
+        // 날아가는 곡선 cubic-bezier(.5,0,.7,.4)에 가깝게: 처음엔 느리게 떼고 끝에서 휙
+        const e = p * p * (0.6 + 0.4 * p);
+        node.style.transform = `translateY(${(p * 100).toFixed(2)}%) translate(${(-30 * e).toFixed(2)}%, ${(-110 * e).toFixed(2)}%) rotate(${(-14 * e).toFixed(2)}deg)`;
+      } else {
+        const q = -p; // 1 → 0 으로 다가옴
+        // 다가오는 곡선 cubic-bezier(.2,.9,.3,1.1): 빨리 커지고 끝에서 살짝 넘쳤다 멈춤
+        const k = 1 - q;
+        const g = 1 - Math.pow(1 - k, 3) + 0.05 * Math.sin(Math.PI * k) * k;
+        const scale = 0.86 + 0.14 * g;
+        node.style.transform = `translateY(${(-q * 100).toFixed(2)}%) translateY(${(6 * (1 - g)).toFixed(2)}%) scale(${scale.toFixed(4)})`;
+      }
+    });
+  }, []);
+  useEffect(() => {
+    applyStack();
+    const onResize = () => applyStack();
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (stackRaf.current) cancelAnimationFrame(stackRaf.current);
+    };
+  }, [applyStack, items.length]);
+
   const onScroll = useCallback(() => {
     const el = scroller.current;
     if (!el) return;
+    if (!stackRaf.current) stackRaf.current = requestAnimationFrame(applyStack);
     const i = Math.round(el.scrollTop / Math.max(1, el.clientHeight));
     setIndex((prev) => {
       if (prev !== i) {
@@ -142,7 +190,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       }
       return i;
     });
-  }, []);
+  }, [applyStack]);
 
   // keyboard navigation (desktop)
   useEffect(() => {
@@ -267,7 +315,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
         {items.map((it, i) => {
           const dist = Math.abs(i - index);
           return (
-            <section key={it.key} className="relative h-full w-full overflow-hidden" aria-label={it.kind === "card" ? it.card.concept.term : it.kind}>
+            <section key={it.key} className="relative h-full w-full" style={{ zIndex: items.length - i }} aria-label={it.kind === "card" ? it.card.concept.term : it.kind}>
+              <div
+                ref={(n) => {
+                  layers.current[i] = n;
+                }}
+                className="relative h-full w-full overflow-hidden will-change-transform"
+                style={{ transformOrigin: "50% 50%" }}
+              >
               {it.kind === "card" ? (
                 renderCard(it.card, dist === 0 ? "active" : dist === 1 ? "near" : "far", i)
               ) : it.kind === "pending" ? (
@@ -363,6 +418,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   </div>
                 </div>
               )}
+              </div>
             </section>
           );
         })}
