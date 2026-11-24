@@ -76,9 +76,10 @@ export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer
         })}
       </div>
       {answered ? (
-        /* 해설 바텀 시트 (11/23 확정): 오답 = 연한 빨강, 정답 = 연한 파랑. 다음 버튼까지 시트 안에 */
+        /* 해설 바텀 시트 (11/23 확정): 오답 = 연한 빨강, 정답 = 연한 파랑. 다음 버튼까지 시트 안에.
+           11/24: 화면이 짧으면(앱 안 브라우저) 다음 버튼이 밀려 나가서, 시트를 화면 아래에 겹쳐 띄운다 */
         <div
-          className={`sheet-up -mx-6 mt-auto flex flex-col gap-2 rounded-t-[24px] px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 ${
+          className={`sheet-up absolute inset-x-0 bottom-0 z-10 flex max-h-[78%] flex-col gap-2 overflow-y-auto rounded-t-[24px] px-6 shadow-[0_-2px_0_rgba(35,35,37,0.08)] pb-[max(24px,env(safe-area-inset-bottom))] pt-5 ${
             correct ? "bg-[var(--blue-soft)]" : "bg-[var(--red-soft)]"
           }`}
         >

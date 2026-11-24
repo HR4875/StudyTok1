@@ -89,6 +89,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const [quizMenu, setQuizMenu] = useState(false);
   const [detail, setDetail] = useState<Card | null>(null);
   const [notes, setNotes] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useToast();
   const progressBar = useRef<HTMLDivElement>(null);
 
@@ -98,7 +99,16 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    let lastH = el.clientHeight;
+    const ro = new ResizeObserver(() => {
+      // 화면 높이가 바뀌면(앱 안 브라우저 툴바 등) 보던 장이 어긋나지 않게 다시 맞춘다
+      if (lastH && el.clientHeight !== lastH) {
+        const i = Math.round(el.scrollTop / lastH);
+        el.scrollTop = i * el.clientHeight;
+      }
+      lastH = el.clientHeight;
+      setSize({ w: el.clientWidth, h: el.clientHeight });
+    });
     ro.observe(el);
     setSize({ w: el.clientWidth, h: el.clientHeight });
     return () => ro.disconnect();
@@ -147,7 +157,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   // keyboard navigation (desktop)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (detail || notes) return;
+      if (detail || notes || settingsOpen) return;
       if (["ArrowDown", "PageDown", "j"].includes(e.key)) {
         e.preventDefault();
         scrollTo(index + 1);
@@ -158,7 +168,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, scrollTo, detail, notes]);
+  }, [index, scrollTo, detail, notes, settingsOpen]);
 
   const set = (patch: Partial<Settings>, msg?: string) => {
     onSettings({ ...settings, ...patch });
@@ -248,16 +258,10 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   // 모션 영상은 아주 연한 하늘 바탕(2026-11-23)이라 잉크 글씨 상단 바를 쓴다. 짙은 바탕은 예전 장면(short 없음)만
   const dark = current?.kind === "card" && !current.card.short;
   const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short;
-  const chip = (active: boolean) =>
-    `shrink-0 rounded-full border-2 px-3 py-[5px] text-[12.5px] font-bold transition-colors ${
-      dark
-        ? active
-          ? "border-white bg-white text-[var(--ink)]"
-          : "border-white/60 bg-black/15 text-white"
-        : active
-          ? "border-[var(--ink)] bg-[var(--ink)] text-white"
-          : "border-[var(--ink)] bg-white text-[var(--ink)]"
-    }`;
+  // 각진 작은 조작 버튼 (11/24): 높이 30px, 모서리 8px, 아래 단색 판 2px
+  const ctl = `flex h-[30px] shrink-0 items-center gap-1 rounded-[8px] border-2 px-2.5 text-[12.5px] font-bold transition-transform active:translate-y-[2px] active:shadow-none ${
+    dark ? "border-white bg-white/15 text-white shadow-[0_2px_0_#fff]" : "border-[var(--ink)] bg-white text-[var(--ink)] shadow-[0_2px_0_var(--ink)]"
+  }`;
   const fg = dark ? "#fff" : "var(--ink)";
 
   return (
@@ -310,7 +314,6 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   <span className="self-start rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white">FINISH</span>
                   <h2 ref={finishTitle} className="font-display mt-3 text-[44px] leading-tight">완주했어요!</h2>
                   <p className="mt-1 truncate text-[14px] font-medium text-[var(--muted)]">
-                    {deck.subject ? `${deck.subject} : ` : ""}
                     {deck.title}
                     {deck.range ? ` · ${deck.range.from === deck.range.to ? `${deck.range.from}쪽` : `${deck.range.from}–${deck.range.to}쪽`}` : ""}
                   </p>
@@ -383,15 +386,13 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               <path d="M14 4 L7 11 L14 18" stroke={fg} strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <span className="min-w-0 flex-1">
-            <span className="block max-w-full truncate rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white" style={{ width: "fit-content" }}>
-              {deck.subject ? `${deck.subject} : ` : ""}
-              {deck.title}
-            </span>
+          {/* 제목은 칸 없이 제목만 (11/24) */}
+          <span className="min-w-0 flex-1 truncate pr-1 text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: fg }}>
+            {deck.title}
           </span>
           {deck.sample ? (
-            <span className="shrink-0 rounded-full border-2 border-[var(--ink)] bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--ink)]" title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">
-              예시 · 가상 숫자
+            <span className="shrink-0 text-[11px] font-semibold" style={{ color: dark ? "rgba(255,255,255,.8)" : "var(--muted)" }} title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">
+              예시 자료 · 숫자는 가상
             </span>
           ) : null}
           <span className="mr-2 shrink-0 px-1 text-[14px] font-semibold tabular-nums" style={{ color: fg }}>
@@ -399,67 +400,38 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             {generating ? " · 만드는 중" : ""}
           </span>
         </div>
-        <div
-          className="no-scrollbar pointer-events-auto mt-1.5 flex gap-1.5 overflow-x-auto pb-1 pl-3 pr-10"
-          style={{ maskImage: "linear-gradient(90deg,#000 calc(100% - 36px),transparent)", WebkitMaskImage: "linear-gradient(90deg,#000 calc(100% - 36px),transparent)" }}
-        >
+        {/* 조작 줄 (11/24 C안 확정, 작은 크기): 모션/텍스트 · 퀴즈 · 설정만. 나머지는 설정 시트로 */}
+        <div className="pointer-events-auto mt-1 flex items-center gap-1.5 px-3">
           {hasShorts ? (
-            <button
-              type="button"
-              className={chip(view === "motion")}
-              onClick={() => set({ mode: view === "motion" ? "text" : "motion" }, view === "motion" ? "텍스트 숏츠로 보기" : "같은 카드를 모션으로 보기 · 추가 비용 없음")}
-              aria-pressed={view === "motion"}
-            >
-              {view === "motion" ? "모션" : "텍스트"}
-            </button>
+            <div className={`flex shrink-0 rounded-[9px] p-[3px] ${dark ? "bg-white/20" : "bg-[var(--chip)]"}`} role="group" aria-label="보기 방식">
+              {(["motion", "text"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={view === m}
+                  onClick={() => view !== m && set({ mode: m }, m === "text" ? "텍스트 숏츠로 보기" : "같은 카드를 모션으로 보기 · 추가 비용 없음")}
+                  className={`h-[26px] whitespace-nowrap rounded-[7px] px-2.5 text-[12.5px] font-bold transition-colors ${
+                    view === m ? (dark ? "bg-white text-[var(--ink)]" : "bg-[var(--ink)] text-white") : dark ? "text-white/80" : "text-[var(--muted)]"
+                  }`}
+                >
+                  {m === "motion" ? "모션" : "텍스트"}
+                </button>
+              ))}
+            </div>
           ) : null}
-          <button type="button" className={chip(settings.quizEvery > 0)} onClick={() => setQuizMenu((v) => !v)} aria-expanded={quizMenu}>
+          <button type="button" className={ctl} onClick={() => setQuizMenu((v) => !v)} aria-expanded={quizMenu}>
             {settings.quizEvery > 0 ? `퀴즈 ${settings.quizEvery}장마다` : "퀴즈 끔"} ▾
           </button>
-          <button
-            type="button"
-            className={chip(settings.speed !== 1)}
-            onClick={() => {
-              const next = SPEEDS[(SPEEDS.indexOf(settings.speed) + 1) % SPEEDS.length] ?? 1;
-              set({ speed: next }, `재생 속도 ${next}배`);
-            }}
-          >
-            {settings.speed}x
-          </button>
-          <button
-            type="button"
-            className={chip(settings.sound)}
-            onClick={() => {
-              unlockAudio();
-              set({ sound: !settings.sound }, settings.sound ? "효과음 끔" : "효과음 켬");
-            }}
-            aria-pressed={settings.sound}
-          >
-            {settings.sound ? "소리 켬" : "소리 끔"}
-          </button>
-          <button type="button" className={chip(settings.autoNext)} onClick={() => set({ autoNext: !settings.autoNext }, settings.autoNext ? "한 카드 반복 재생" : "다 보면 자동으로 다음 카드")}>
-            {settings.autoNext ? "자동 넘김" : "반복"}
-          </button>
-          <button type="button" className={chip(settings.captions)} onClick={() => set({ captions: !settings.captions }, settings.captions ? "자막 끔" : "자막 켬")} aria-pressed={settings.captions}>
-            자막
-          </button>
-          <button type="button" className={chip(settings.shuffle)} onClick={() => set({ shuffle: !settings.shuffle }, settings.shuffle ? "원래 순서" : "순서 섞기")} aria-pressed={settings.shuffle}>
-            섞기
-          </button>
-          <button
-            type="button"
-            className={chip(settings.retryWrong)}
-            onClick={() => set({ retryWrong: !settings.retryWrong }, settings.retryWrong ? "틀린 문제 다시 안 내기" : "틀린 문제는 3장 뒤 다시")}
-            aria-pressed={settings.retryWrong}
-          >
-            오답 재출제
-          </button>
-          <button type="button" className={chip(false)} onClick={() => setNotes(true)}>
-            오답노트 {wrongCards.length ? wrongCards.length : ""}
+          <button type="button" className={`${ctl} ml-auto`} onClick={() => setSettingsOpen(true)} aria-label="보기 설정">
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="2.4" fill="none" stroke="currentColor" strokeWidth="2" />
+              <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            설정
           </button>
         </div>
         {quizMenu ? (
-          <div className="pointer-events-auto absolute left-3 top-[calc(100%-4px)] z-30 w-[230px] rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white p-2">
+          <div className="pointer-events-auto absolute left-3 top-[calc(100%-4px)] z-30 w-[220px] rounded-[12px] border-[2.5px] border-[var(--ink)] bg-white p-1.5">
             <p className="px-2 pb-1 pt-1 text-[12px] font-extrabold text-[var(--muted)]">퀴즈를 몇 장마다 낼까요?</p>
             {QUIZ_OPTIONS.map((n) => (
               <button
@@ -469,7 +441,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   set({ quizEvery: n }, n ? `개념 ${n}장마다 퀴즈` : "퀴즈 끔");
                   setQuizMenu(false);
                 }}
-                className={`flex w-full items-center justify-between rounded-[14px] px-3 py-2.5 text-[14.5px] font-bold ${
+                className={`flex w-full items-center justify-between rounded-[8px] px-3 py-2 text-[14px] font-bold ${
                   settings.quizEvery === n ? "bg-[var(--ans)] text-[var(--ocean)]" : "text-[var(--ink)]"
                 }`}
               >
@@ -490,9 +462,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             <button
               type="button"
               onClick={() => setDetail(current.card)}
-              className="flex items-center gap-1.5 rounded-full border-2 border-[var(--ink)] bg-white px-3.5 py-1.5 text-[13px] font-bold text-[var(--ink)]"
+              className="flex h-[30px] items-center gap-1 rounded-[8px] border-2 border-[var(--ink)] bg-white px-2.5 text-[12.5px] font-bold text-[var(--ink)] shadow-[0_2px_0_var(--ink)] transition-transform active:translate-y-[2px] active:shadow-none"
             >
-              해설 보기
+              해설 보기 <span className="font-extrabold">›</span>
             </button>
             {current.card.concept.pages ? (
               <span className="text-[12.5px] font-semibold" style={{ color: fg }}>{current.card.concept.pages}</span>
@@ -566,6 +538,63 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             ) : null}
           </div>
         ) : null}
+      </Sheet>
+
+      {/* 보기 설정 시트 (11/24 C안) */}
+      <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} title="보기 설정">
+        <div className="pb-2">
+          {(
+            [
+              ["재생 속도", null],
+              ["소리", "sound"],
+              ["자막", "captions"],
+              ["다 보면 다음 카드로", "autoNext"],
+              ["순서 섞기", "shuffle"],
+              ["틀린 문제 3장 뒤 다시", "retryWrong"],
+            ] as const
+          ).map(([label, key]) => (
+            <div key={label} className="flex items-center justify-between border-t-[1.5px] border-[var(--ink)]/10 py-3 first:border-t-0">
+              <span className="text-[15px] font-bold text-[var(--ink)]">{label}</span>
+              {key === null ? (
+                <button
+                  type="button"
+                  className="text-[14.5px] font-extrabold text-[var(--ocean)]"
+                  onClick={() => {
+                    const next = SPEEDS[(SPEEDS.indexOf(settings.speed) + 1) % SPEEDS.length] ?? 1;
+                    set({ speed: next });
+                  }}
+                >
+                  {settings.speed}배 ›
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!settings[key]}
+                  aria-label={label}
+                  onClick={() => {
+                    if (key === "sound") unlockAudio();
+                    set({ [key]: !settings[key] } as Partial<Settings>);
+                  }}
+                  className={`relative h-[26px] w-[44px] rounded-full transition-colors ${settings[key] ? "bg-[var(--ocean)]" : "bg-[var(--line)]"}`}
+                >
+                  <span className={`absolute top-[3px] h-5 w-5 rounded-full bg-white transition-all ${settings[key] ? "left-[21px]" : "left-[3px]"}`} />
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(false);
+              setTimeout(() => setNotes(true), 260);
+            }}
+            className="flex w-full items-center justify-between border-t-[1.5px] border-[var(--ink)]/10 py-3"
+          >
+            <span className="text-[15px] font-bold text-[var(--ink)]">오답노트</span>
+            <span className="text-[14.5px] font-extrabold text-[var(--ocean)]">{wrongCards.length}개 ›</span>
+          </button>
+        </div>
       </Sheet>
 
       {/* wrong-answer notes */}
