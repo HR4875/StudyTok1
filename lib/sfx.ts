@@ -148,3 +148,80 @@ export function playSfx(kind: SfxKind | "correct" | "wrong" | "tap" | "swipe", d
       break;
   }
 }
+
+/* ---- 스타일A 배경 사운드: 재생 화면이 만든 WAV를 여기(이미 탭으로 풀린 오디오)에서 튼다 ---- */
+let music: { src: AudioBufferSourceNode; gain: GainNode; id: number } | null = null;
+let musicSeq = 0;
+
+export async function decodeWav(b64: string): Promise<AudioBuffer | null> {
+  if (!ctx) return null;
+  try {
+    const bin = atob(b64);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return await ctx.decodeAudioData(u8.buffer);
+  } catch {
+    return null;
+  }
+}
+
+/** id를 주면 그 재생이 아직 살아 있을 때만 끈다 (다른 카드의 소리를 끄지 않도록) */
+export function stopMusic(id?: number) {
+  if (!music || (id !== undefined && music.id !== id)) return;
+  try {
+    music.src.stop();
+  } catch {
+    /* already stopped */
+  }
+  music = null;
+}
+
+/** offset 초 지점부터 재생. 목소리가 켜져 있으면 소리를 낮춘다 */
+export function playMusic(buf: AudioBuffer, offset: number, rate: number, quiet: boolean) {
+  stopMusic();
+  if (!ctx || !master || !enabled) return 0;
+  const src = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  gain.gain.value = quiet ? 0.28 : 0.9;
+  src.buffer = buf;
+  src.playbackRate.value = rate;
+  src.connect(gain).connect(master);
+  src.start(0, Math.max(0, Math.min(buf.duration - 0.05, offset)));
+  music = { src, gain, id: ++musicSeq };
+  return music.id;
+}
+
+/* ---- 무료 기기 음성 (브라우저 내장 읽어 주기) ---- */
+export const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window;
+
+/** 사용자의 탭 안에서 한 번 불러 두면 이후 자동 재생이 막히지 않는다 */
+export function primeVoice() {
+  if (!canSpeak()) return;
+  try {
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* unavailable */
+  }
+}
+
+export function stopVoice() {
+  if (canSpeak()) window.speechSynthesis.cancel();
+}
+
+export function speak(text: string, rate = 1) {
+  if (!canSpeak() || !text) return;
+  try {
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ko-KR";
+    const ko = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith("ko"));
+    if (ko) u.voice = ko;
+    u.rate = Math.min(2, 1.08 * rate);
+    synth.speak(u);
+  } catch {
+    /* unavailable */
+  }
+}

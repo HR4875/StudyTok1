@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isShowable, paletteOf, quizOf } from "@/lib/cards";
+import { conceptNameOf, isShowable, paletteOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
 import type { Settings } from "@/lib/storage";
-import { playSfx, setSoundEnabled, unlockAudio } from "@/lib/sfx";
+import { canSpeak, playSfx, primeVoice, setSoundEnabled, unlockAudio } from "@/lib/sfx";
 import { burstFrom } from "@/lib/fx";
 import { W } from "@/motion/timeline";
+import ExamTab from "./ExamTab";
 import QuizCard from "./QuizCard";
 import SceneCard, { type MotionSrc } from "./SceneCard";
+import StyleACard from "./StyleACard";
 import TextShortCard from "./TextShortCard";
 import { Sheet, Toast, useToast } from "./ui";
 
@@ -52,6 +54,21 @@ function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId:
   const cards = s.shuffle ? seededShuffle(deck.cards, hash(deck.id)) : deck.cards;
   const items: Item[] = [];
   let window: Card[] = [];
+  // 스타일A 덱: 개념(여러 편이면 마지막 편)이 끝날 때마다 암기 퀴즈가 자동으로 나온다
+  if (deck.cards.some((c) => c.spec)) {
+    cards.forEach((card, i) => {
+      if (isShowable(card)) {
+        items.push({ kind: "card", key: `c-${card.id}`, card });
+        window.push(card);
+      } else items.push({ kind: "pending", key: `p-${card.id}`, card });
+      const nextCard = cards[i + 1];
+      if (s.quizEvery > 0 && window.length && (!nextCard || conceptNameOf(nextCard) !== conceptNameOf(card))) {
+        const q = [...window].reverse().find((c) => quizOf(c));
+        if (q) items.push({ kind: "quiz", key: `q-${q.id}`, card: q, retry: false });
+        window = [];
+      }
+    });
+  } else
   cards.forEach((card, i) => {
     if (isShowable(card)) {
       items.push({ kind: "card", key: `c-${card.id}`, card });
@@ -90,6 +107,38 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const [detail, setDetail] = useState<Card | null>(null);
   const [notes, setNotes] = useState(false);
   const [toast, setToast] = useToast();
+  // 시험문제 탭: 왼쪽으로 넘기면 열린다 (2026-11-25)
+  const [tab, setTab] = useState<"concept" | "exam">("concept");
+  const [examFilter, setExamFilter] = useState<string | null>(null);
+  const problems = deck.problems ?? [];
+  const hasExam = problems.length > 0;
+  const isStyleA = deck.cards.some((c) => c.spec);
+  const openExam = useCallback(
+    (concept: string | null) => {
+      if (!hasExam) return;
+      playSfx("swipe");
+      setExamFilter(concept);
+      setTab("exam");
+    },
+    [hasExam],
+  );
+  const swipe = useRef<{ x: number; y: number; ok: boolean } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    const el = e.target as HTMLElement;
+    swipe.current = { x: t.clientX, y: t.clientY, ok: e.touches.length === 1 && !el.closest("[data-noswipe],input,[role=dialog]") };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const s0 = swipe.current;
+    swipe.current = null;
+    if (!s0?.ok || !hasExam) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s0.x;
+    const dy = t.clientY - s0.y;
+    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+    if (dx < 0 && tab === "concept") openExam(null);
+    else if (dx > 0 && tab === "exam") setTab("concept");
+  };
   const progressBar = useRef<HTMLDivElement>(null);
 
   useEffect(() => setSoundEnabled(settings.sound), [settings.sound]);
@@ -196,6 +245,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (detail || notes) return;
+      if (e.key === "ArrowRight" && tab === "concept") return openExam(null);
+      if (e.key === "ArrowLeft" && tab === "exam" && !(e.target as HTMLElement)?.closest?.("input")) return setTab("concept");
+      if (tab !== "concept") return;
       if (["ArrowDown", "PageDown", "j"].includes(e.key)) {
         e.preventDefault();
         scrollTo(index + 1);
@@ -206,7 +258,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, scrollTo, detail, notes]);
+  }, [index, scrollTo, detail, notes, tab, openExam]);
 
   const set = (patch: Partial<Settings>, msg?: string) => {
     onSettings({ ...settings, ...patch });
@@ -272,6 +324,20 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     const onEnded = () => {
       if (settings.autoNext && live) setTimeout(() => scrollTo(i + 1), 350);
     };
+    if (card.spec) {
+      return (
+        <StyleACard
+          spec={card.spec}
+          mode={mode === "active" && tab !== "concept" ? "near" : mode}
+          speed={settings.speed}
+          sound={settings.sound}
+          voice={settings.voice}
+          loop={!settings.autoNext}
+          onEnded={onEnded}
+          onProgress={onProgress}
+        />
+      );
+    }
     if (card.short && view === "text") {
       return <TextShortCard short={card.short} mode={mode} sound={live && settings.sound} speed={settings.speed} onProgress={onProgress} onEnded={onEnded} />;
     }
@@ -294,7 +360,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
 
   /** 모션 카드(색 바탕) 위에서만 흰 글씨 상단 바, 나머지(종이 바탕)는 잉크 글씨 */
   // 모션 영상은 아주 연한 하늘 바탕(2026-11-23)이라 잉크 글씨 상단 바를 쓴다. 짙은 바탕은 예전 장면(short 없음)만
-  const dark = current?.kind === "card" && !current.card.short;
+  const dark = current?.kind === "card" && !current.card.short && !current.card.spec;
   const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short;
   const chip = (active: boolean) =>
     `shrink-0 rounded-full border-2 px-3 py-[5px] text-[12.5px] font-bold transition-colors ${
@@ -309,7 +375,12 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const fg = dark ? "#fff" : "var(--ink)";
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[var(--paper)]">
+    <div className="relative h-full w-full overflow-hidden bg-[var(--paper)]" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div
+        className="absolute inset-0 transition-transform duration-300 ease-out"
+        style={{ transform: tab === "exam" ? "translateX(-100%)" : "none" }}
+        aria-hidden={tab === "exam"}
+      >
       {/* feed */}
       <div ref={scroller} onScroll={onScroll} className="snap-feed no-scrollbar h-full w-full overflow-y-scroll [overflow-anchor:none]">
         {items.map((it, i) => {
@@ -352,13 +423,15 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               ) : it.kind === "quiz" ? (
                 <QuizCard
                   quiz={quizOf(it.card)!}
-                  term={it.card.concept.term}
+                  term={conceptNameOf(it.card)}
                   palette={paletteOf(it.card) ?? "blue"}
                   retry={it.retry}
                   selected={answers[it.key] ?? null}
                   streak={streak}
                   onAnswer={(sel) => answer(it, sel, i)}
                   onNext={() => scrollTo(i + 1)}
+                  examCount={problems.filter((p) => p.concept === conceptNameOf(it.card)).length}
+                  onExam={() => openExam(conceptNameOf(it.card))}
                 />
               ) : (
                 <div className="flex h-full w-full flex-col bg-[var(--paper)] px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-[112px] text-[var(--ink)]">
@@ -399,6 +472,11 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   ) : null}
                   <div className="min-h-6 flex-1" />
                   <div className="flex w-full flex-col gap-4">
+                    {hasExam ? (
+                      <button type="button" onClick={() => openExam(null)} className="press press-ink font-display h-14 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-[var(--yellow)] text-[19px] text-[var(--ink)]">
+                        시험문제 {problems.length}개 풀러 가기 →
+                      </button>
+                    ) : null}
                     {wrongCards.length ? (
                       <button type="button" onClick={() => redoWrong(i)} className="press font-display h-14 rounded-[18px] bg-[var(--ocean)] text-[19px] text-white">
                         오답노트 다시 풀기 →
@@ -456,9 +534,28 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           </span>
         </div>
         <div
+          data-noswipe
           className="no-scrollbar pointer-events-auto mt-1.5 flex gap-1.5 overflow-x-auto pb-1 pl-3 pr-10"
           style={{ maskImage: "linear-gradient(90deg,#000 calc(100% - 36px),transparent)", WebkitMaskImage: "linear-gradient(90deg,#000 calc(100% - 36px),transparent)" }}
         >
+          {hasExam ? (
+            <button type="button" className={chip(false)} onClick={() => openExam(null)}>
+              시험문제 {problems.length} →
+            </button>
+          ) : null}
+          {isStyleA && canSpeak() ? (
+            <button
+              type="button"
+              className={chip(settings.voice)}
+              onClick={() => {
+                if (!settings.voice) primeVoice();
+                set({ voice: !settings.voice }, settings.voice ? "목소리 끔" : "목소리 켬 · 기기 음성이라 무료예요");
+              }}
+              aria-pressed={settings.voice}
+            >
+              {settings.voice ? "목소리 켬" : "목소리 끔"}
+            </button>
+          ) : null}
           {hasShorts ? (
             <button
               type="button"
@@ -469,9 +566,20 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               {view === "motion" ? "모션" : "텍스트"}
             </button>
           ) : null}
+          {isStyleA ? (
+            <button
+              type="button"
+              className={chip(settings.quizEvery > 0)}
+              onClick={() => set({ quizEvery: settings.quizEvery > 0 ? 0 : 3 }, settings.quizEvery > 0 ? "퀴즈 끔" : "개념이 끝날 때마다 퀴즈")}
+              aria-pressed={settings.quizEvery > 0}
+            >
+              {settings.quizEvery > 0 ? "개념마다 퀴즈" : "퀴즈 끔"}
+            </button>
+          ) : (
           <button type="button" className={chip(settings.quizEvery > 0)} onClick={() => setQuizMenu((v) => !v)} aria-expanded={quizMenu}>
             {settings.quizEvery > 0 ? `퀴즈 ${settings.quizEvery}장마다` : "퀴즈 끔"} ▾
           </button>
+          )}
           <button
             type="button"
             className={chip(settings.speed !== 1)}
@@ -555,7 +663,11 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             ) : null}
             <span className="ml-auto text-[13px] font-medium" style={{ color: dark ? "#fff" : "var(--muted)" }}>
               {index === 0 ? <span className="animate-bob inline-block">↑ 넘기기</span> : "↑ 넘기기"}
-              {settings.quizEvery > 0
+              {isStyleA
+                ? hasExam
+                  ? " · ← 시험문제"
+                  : ""
+                : settings.quizEvery > 0
                 ? (() => {
                     const left = settings.quizEvery - (lastConceptBefore % settings.quizEvery || settings.quizEvery);
                     return left ? ` · 퀴즈까지 ${left}장` : " · 다음은 퀴즈";
@@ -566,6 +678,19 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           <div className={`mt-3 h-[3px] w-full overflow-hidden rounded-full ${dark ? "bg-white/25" : "bg-[var(--line)]"}`}>
             <div ref={progressBar} className={`h-full w-0 rounded-full ${dark ? "bg-white" : "bg-[var(--ocean)]"}`} />
           </div>
+        </div>
+      ) : null}
+
+      </div>
+
+      {/* 시험문제 탭 */}
+      {hasExam ? (
+        <div
+          className="absolute inset-0 transition-transform duration-300 ease-out"
+          style={{ transform: tab === "exam" ? "none" : "translateX(100%)" }}
+          aria-hidden={tab !== "exam"}
+        >
+          <ExamTab deck={deck} active={tab === "exam"} filter={examFilter} onFilter={setExamFilter} settings={settings} onBack={() => setTab("concept")} onDeckChange={onDeckChange} />
         </div>
       ) : null}
 

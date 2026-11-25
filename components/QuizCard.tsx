@@ -14,11 +14,14 @@ interface Props {
   streak: number;
   onAnswer: (i: number) => void;
   onNext: () => void;
+  /** 이 개념에 딸린 교재 문제 수. 있으면 답을 본 뒤 "문제 풀기 / 개념 계속 보기"를 고르게 한다 */
+  examCount?: number;
+  onExam?: () => void;
 }
 
 /* 확정 UI(C안) 퀴즈: 종이 바탕, 잉크 QUIZ 라벨 + 빨간 COMBO, 흰 칸 + 잉크 테두리 선택지.
    정답 = 연파랑 칸 + 블루 테두리 + 오션 블루 글씨 ✓, 오답 = 레드 테두리 + 취소선. */
-export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer, onNext }: Props) {
+export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer, onNext, examCount = 0, onExam }: Props) {
   const answered = selected !== null;
   const correct = answered && selected === quiz.answer;
   return (
@@ -109,15 +112,27 @@ export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer
             </p>
           ) : null}
           {!correct ? <p className="text-[13px] font-semibold text-[var(--muted)]">오답노트에 담았어요</p> : null}
-          <button
-            type="button"
-            onClick={onNext}
-            className={`press font-display mt-2 h-14 w-full rounded-[18px] text-[19px] text-white ${
-              correct ? "bg-[var(--ocean)]" : "press-red bg-[var(--red)]"
-            }`}
-          >
-            {correct ? "다음 카드 →" : "알겠어요, 다음 →"}
-          </button>
+          {examCount > 0 && onExam ? (
+            /* 퀴즈 뒤 선택 (2026-11-25): 바로 문제를 풀지, 개념을 먼저 다 볼지는 학생이 고른다 */
+            <div className="mt-2 flex flex-col gap-3">
+              <button type="button" onClick={onExam} className="press font-display h-14 w-full rounded-[18px] bg-[var(--ocean)] text-[19px] text-white">
+                이 개념 문제 풀기 ({examCount}문제)
+              </button>
+              <button type="button" onClick={onNext} className="press press-ink font-display h-14 w-full rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[19px] text-[var(--ink)]">
+                개념 계속 보기 →
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onNext}
+              className={`press font-display mt-2 h-14 w-full rounded-[18px] text-[19px] text-white ${
+                correct ? "bg-[var(--ocean)]" : "press-red bg-[var(--red)]"
+              }`}
+            >
+              {correct ? "다음 카드 →" : "알겠어요, 다음 →"}
+            </button>
+          )}
         </div>
       ) : (
         <p className="mt-auto pb-[max(28px,env(safe-area-inset-bottom))] pt-4 text-center text-[12.5px] font-semibold text-[var(--muted)]">정답을 골라 보세요 · 넘기면 건너뛰기</p>

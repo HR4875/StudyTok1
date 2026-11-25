@@ -2,12 +2,14 @@
 import type { Card, Palette, Quiz, Scene } from "./schema";
 import type { TextShort } from "./visual";
 
-type Content = { short?: TextShort | null; scene?: Scene | null };
+type Content = { short?: TextShort | null; scene?: Scene | null; quiz?: Quiz | null };
 
-export const quizOf = (c: Content): Quiz | undefined => c.short?.quiz ?? c.scene?.quiz;
+export const quizOf = (c: Content): Quiz | undefined => c.quiz ?? c.short?.quiz ?? c.scene?.quiz;
 export const paletteOf = (c: Content): Palette | undefined => c.short?.palette ?? c.scene?.palette;
 /** 피드에 띄울 수 있는 카드인지 */
-export const isShowable = (c: Card) => c.status === "ready" && !!(c.short || c.scene);
+export const isShowable = (c: Card) => c.status === "ready" && !!(c.short || c.scene || c.spec);
+/** 개념 이름: 여러 편으로 나뉜 개념은 시리즈 이름으로 묶는다 */
+export const conceptNameOf = (c: Card) => c.spec?.series?.name ?? c.concept.term;
 
 /** 카드 내용(short 또는 scene)의 배경색만 바꾼다 */
 export function withPalette<T extends Content>(c: T, p: Palette): T {

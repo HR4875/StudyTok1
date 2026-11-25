@@ -1,8 +1,10 @@
 // 키 없이 바로 보는 예시 덱.
 // 1) 마케팅: 디자인 스레드가 시험용 강의 자료로 실제 생성한 텍스트 숏츠 5장 (모션 보기도 같은 카드로)
+// 0) 스타일A 모션그래픽 + 시험문제 탭 예시 (표준편차와 정규분포)
 // 2) 맛보기 4과목: 처음 시안의 자유 모션 예시
 import { buildShort, checkOutline, spreadShortPalettes } from "./assemble";
 import { SAMPLE_DECK } from "./samples";
+import { STYLEA_DECK } from "./samples-stylea";
 import { MKT_FILLS, MKT_OUTLINE } from "./samples-marketing";
 import type { Card, Deck } from "./schema";
 
@@ -32,4 +34,4 @@ function marketingDeck(): Deck {
 
 export const MARKETING_DECK = marketingDeck();
 /** 홈의 "예시부터 볼래요"는 첫 덱을 연다 */
-export const SAMPLE_DECKS: Deck[] = [MARKETING_DECK, SAMPLE_DECK];
+export const SAMPLE_DECKS: Deck[] = [STYLEA_DECK, MARKETING_DECK, SAMPLE_DECK];
