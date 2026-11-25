@@ -15,6 +15,8 @@ interface Props {
   loop: boolean;
   onEnded?: () => void;
   onProgress?: (p: number) => void;
+  /** 엔진이 이 설계도를 그리지 못했을 때 */
+  onError?: () => void;
   /** 위·아래 바가 가리는 높이(px). 영상은 그 사이에 9:16으로 들어간다 */
   top?: number;
   bottom?: number;
@@ -24,7 +26,7 @@ let voiceOwner = 0;
 let seq = 0;
 
 /* 스타일A 모션그래픽 한 편. 그리는 일은 /player(iframe)가 하고, 소리와 목소리는 여기서 낸다. */
-export default function StyleACard({ spec, mode, speed, sound, voice, loop, onEnded, onProgress, top = 100, bottom = 74 }: Props) {
+export default function StyleACard({ spec, mode, speed, sound, voice, loop, onEnded, onProgress, onError, top = 100, bottom = 74 }: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [booted, setBooted] = useState(false);
   const [ready, setReady] = useState(false);
@@ -38,8 +40,8 @@ export default function StyleACard({ spec, mode, speed, sound, voice, loop, onEn
   const at = useRef(0);
   const dur = useRef(0);
   const live = mode === "active" && !paused && ready;
-  const st = useRef({ live, sound, voice, speed, onEnded, onProgress });
-  st.current = { live, sound, voice, speed, onEnded, onProgress };
+  const st = useRef({ live, sound, voice, speed, onEnded, onProgress, onError });
+  st.current = { live, sound, voice, speed, onEnded, onProgress, onError };
 
   const send = useCallback((m: Record<string, unknown>) => {
     frame.current?.contentWindow?.postMessage({ to: "stylea", ...m }, window.location.origin);
@@ -56,7 +58,11 @@ export default function StyleACard({ spec, mode, speed, sound, voice, loop, onEn
         dur.current = m.dur ?? 0;
         at.current = 0;
         setReady(true);
-      } else if (m.type === "error") setFailed(true);
+      } else if (m.type === "error") {
+        setFailed(true);
+        setReady(false);
+        s.onError?.();
+      }
       else if (m.type === "progress") {
         at.current = (m.p ?? 0) * dur.current;
         if (s.live) s.onProgress?.(m.p ?? 0);

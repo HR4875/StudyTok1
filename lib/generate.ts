@@ -24,6 +24,7 @@ import {
   type RenderMode,
   type Scene,
   type SceneRequest,
+  type StyleAResult,
   type Usage,
 } from "./schema";
 import { findDeckByKey, newId, saveDeck } from "./storage";
@@ -125,8 +126,26 @@ function sceneRequestFor(d: Deck, card: Card, model?: string): SceneRequest {
  * 카드 한 장 만들기: /api/card 가 그림 틀 칸을 채워 텍스트 숏츠(short)를 돌려준다.
  * 모션 보기는 같은 short로 브라우저에서 만든다(추가 AI 호출 없음). 끝내 실패하면 기본 카드(scene).
  */
-async function generateOne(d: Deck, card: Card, signal?: AbortSignal, model?: string): Promise<{ patch: Partial<Card>; usage?: Usage }> {
+async function generateOne(d: Deck, card: Card, signal?: AbortSignal, model?: string, source?: string): Promise<{ patch: Partial<Card>; usage?: Usage }> {
   const req = sceneRequestFor(d, card, model);
+  // 모션그래픽(스타일A): 설계도 1~3편 + 암기 퀴즈 + 자료에 실린 문제. 실패하면 기본 카드(scene)
+  if (d.mode === "motion") {
+    const res = await postStream<StyleAResult>("/api/stylea", { ...req, source }, { signal });
+    const r = res.data;
+    if (!r.parts.length) return { patch: { short: null, scene: r.scene ?? null, spec: null, parts: undefined, problems: [], fallback: true }, usage: res.usage };
+    return {
+      patch: {
+        short: null,
+        scene: null,
+        spec: r.parts[0],
+        parts: r.parts.length > 1 ? r.parts : undefined,
+        quiz: r.quiz,
+        problems: r.problems.map((p, i) => ({ ...p, id: `${card.id}-q${i}` })),
+        fallback: false,
+      },
+      usage: res.usage,
+    };
+  }
   const prev = d.cards[req.index - 1];
   const prevPalette = prev ? paletteOf(prev) : undefined;
   const res = await postStream<CardResult>("/api/card", { ...req, prevPalette }, { signal });
@@ -193,6 +212,20 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
     set({ deck, ready, progress: 0.4 + 0.6 * (settled / Math.max(1, deck.cards.length)) });
   };
 
+  // 개념이 나온 쪽의 원문 (스타일A가 교재 문제를 찾을 때 본다)
+  let sourcePages: { n: number; text: string }[] = [];
+  const sourceFor = (pagesLabel: string): string => {
+    const ns = (pagesLabel.match(/\d+/g) ?? []).map(Number);
+    if (!ns.length || !sourcePages.length) return "";
+    const lo = Math.min(...ns);
+    const hi = Math.max(...ns);
+    return sourcePages
+      .filter((p) => p.n >= lo && p.n <= hi)
+      .map((p) => `[p.${p.n}]\n${p.text}`)
+      .join("\n\n")
+      .slice(0, 6000);
+  };
+
   const runCard = async (id: string) => {
     if (running.has(id)) return;
     running.add(id);
@@ -207,7 +240,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
         }
         putCard(id, { status: "pending", error: undefined });
         try {
-          const res = await generateOne(d, card, ctrl.signal, opts.model);
+          const res = await generateOne(d, card, ctrl.signal, opts.model, sourceFor(card.concept.pages));
           usage = addUsage(usage, res.usage);
           if (deck) deck = { ...deck, usage };
           // 다른 카드도 동시에 만들어지므로, 끝난 시점의 덱을 보고 앞뒤 색 겹침을 피한다
@@ -336,7 +369,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
 
       /* ---------- 같은 자료로 만든 덱이 있으면 다시 만들지 않는다 ---------- */
       // 텍스트·모션은 같은 카드를 다르게 보여 줄 뿐이라 열쇠에 넣지 않는다
-      const key = `${keyBase}:${opts.count}:${opts.model ?? ""}`;
+      const key = `${keyBase}:${opts.count}:${opts.model ?? ""}${opts.mode === "motion" ? ":stylea" : ""}`;
       const cached = findDeckByKey(key);
       if (cached) {
         set({
@@ -351,6 +384,8 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
         });
         return;
       }
+
+      sourcePages = pages;
 
       /* ---------- 2. 개념 뽑기 ---------- */
       set({ phase: "outline", message: "핵심 개념 찾는 중…", progress: 0.16, thinking: true, found: [], templates: [] });

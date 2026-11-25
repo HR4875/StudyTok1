@@ -1,10 +1,11 @@
 // MOCK_AI=1 일 때: AI를 부르지 않고 화면 흐름만 시험한다 (키 없이 E2E 테스트용, 로컬 전용).
 // 디자인 스레드가 시험용 마케팅 강의 자료로 실제 생성한 결과(lib/samples-marketing.ts)를 돌려준다.
+import { STYLEA_DECK } from "../samples-stylea";
 import { checkOutline } from "../assemble";
 import { fallbackScene } from "../fallback";
 import { SAMPLE_DECK } from "../samples";
 import { MKT_FILLS, MKT_FREE, MKT_OUTLINE } from "../samples-marketing";
-import type { CardResult, Concept, Outline, OutlineRequest, SceneRequest, SceneResult } from "../schema";
+import type { CardResult, Concept, Outline, OutlineRequest, SceneRequest, SceneResult, StyleAResult, StyleASpec } from "../schema";
 import { clip } from "../text";
 import { checkCard, plannedConcept } from "./card";
 import { checkScene } from "./checks";
@@ -102,4 +103,21 @@ export async function mockScene(req: SceneRequest): Promise<{ result: SceneResul
     if (!chk.severe.length) return { result: { scene: chk.scene, fallback: false, issues: chk.issues }, usage: zeroUsage() };
   }
   return { result: { scene: fallbackScene(req.concept, req.others ?? [], req.index), fallback: true, issues: ["mock"] }, usage: zeroUsage() };
+}
+
+/** 키 없이 흐름만 볼 때: 예시 덱의 표준편차 영상과 문제를 그대로 돌려준다 */
+export async function mockStyleA(req: SceneRequest): Promise<{ result: StyleAResult; usage: ReturnType<typeof zeroUsage> }> {
+  await wait(500 + Math.random() * 900);
+  const cards = STYLEA_DECK.cards;
+  const pick = cards[req.index % cards.length];
+  const series = pick.spec?.series?.name;
+  const parts = (series ? cards.filter((c) => c.spec?.series?.name === series) : [pick]).map((c) => JSON.parse(JSON.stringify(c.spec)) as StyleASpec);
+  const term = req.concept.term;
+  if (parts.length > 1) parts.forEach((p, i) => (p.series = { ...p.series!, name: term, index: i + 1, total: parts.length }));
+  const quiz = cards.find((c) => (c.spec?.series?.name ?? c.concept.term) === (series ?? pick.concept.term) && c.quiz)?.quiz;
+  const problems = (STYLEA_DECK.problems ?? []).filter((p) => p.concept === (series ?? pick.concept.term)).map(({ id: _id, ...p }) => ({ ...p, concept: term }));
+  return {
+    result: { parts, quiz: quiz ?? fallbackScene(req.concept, req.others ?? [], req.index).quiz, problems, fallback: false, issues: ["mock"] },
+    usage: zeroUsage(),
+  };
 }

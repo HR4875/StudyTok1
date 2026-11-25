@@ -184,6 +184,10 @@ export interface Card {
   spec?: StyleASpec | null;
   /** 스타일A 카드의 암기용 퀴즈 (short·scene이 없을 때) */
   quiz?: Quiz | null;
+  /** 어려운 개념을 여러 편으로 나눈 경우 전체 편(2~3개). 피드가 편마다 한 장으로 펼친다. spec은 첫 편 */
+  parts?: StyleASpec[];
+  /** 이 개념에 딸린 교재 문제 (시험문제 탭에 모인다) */
+  problems?: ExamProblem[];
 }
 
 /** 스타일A 설계도: 장면 목록 + 선택 값(series 등). 엔진이 해석하므로 여기서는 모양만 느슨하게 잡는다 */
@@ -267,6 +271,16 @@ export interface CardResult {
   /** 마지막으로 쓴 그림 틀 (재시도 중 바뀔 수 있다) */
   template: VisualTemplate;
   short: TextShort | null;
+  fallback: boolean;
+  issues: string[];
+  scene?: Scene;
+}
+
+/** /api/stylea 결과: 개념 영상 설계도(1~3편), 암기 퀴즈, 자료에 실린 문제. 실패하면 parts가 비고 scene(기본 카드)이 온다 */
+export interface StyleAResult {
+  parts: StyleASpec[];
+  quiz: Quiz;
+  problems: Omit<ExamProblem, "id">[];
   fallback: boolean;
   issues: string[];
   scene?: Scene;

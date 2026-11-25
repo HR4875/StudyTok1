@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { problemsOf } from "@/lib/cards";
 import { burstFrom } from "@/lib/fx";
 import type { Deck, ExamProblem } from "@/lib/schema";
 import type { Settings } from "@/lib/storage";
@@ -35,7 +36,7 @@ function sameAnswer(mine: string, answer: string) {
 /* 시험문제 탭 (2026-11-25): 교재에 실린 문제를 개념별로 모아 학생이 먼저 풀고,
    해설은 모션그래픽(스타일A 풀이 장면)으로 본다. 시간 제한은 없다. */
 export default function ExamTab({ deck, active, filter, onFilter, settings, onBack, onDeckChange }: Props) {
-  const all = useMemo(() => deck.problems ?? [], [deck.problems]);
+  const all = useMemo(() => problemsOf(deck), [deck]);
   const list = useMemo(() => (filter ? all.filter((p) => p.concept === filter) : all), [all, filter]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, number>>({});

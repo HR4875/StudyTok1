@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { conceptNameOf, isShowable, paletteOf, quizOf } from "@/lib/cards";
+import { conceptNameOf, expandParts, isShowable, paletteOf, problemsOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
 import type { Settings } from "@/lib/storage";
 import { canSpeak, playSfx, primeVoice, setSoundEnabled, unlockAudio } from "@/lib/sfx";
+import { fallbackScene } from "@/lib/fallback";
 import { burstFrom } from "@/lib/fx";
 import { W } from "@/motion/timeline";
 import ExamTab from "./ExamTab";
@@ -51,11 +52,13 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 }
 
 function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId: string; n: number }[], showEnd: boolean): Item[] {
-  const cards = s.shuffle ? seededShuffle(deck.cards, hash(deck.id)) : deck.cards;
+  const isA = deck.cards.some((c) => c.spec);
+  // 스타일A 덱은 여러 편으로 나뉜 개념을 편마다 한 장으로 펼치고, 편 순서가 깨지지 않게 섞지 않는다
+  const cards = isA ? expandParts(deck.cards) : s.shuffle ? seededShuffle(deck.cards, hash(deck.id)) : deck.cards;
   const items: Item[] = [];
   let window: Card[] = [];
   // 스타일A 덱: 개념(여러 편이면 마지막 편)이 끝날 때마다 암기 퀴즈가 자동으로 나온다
-  if (deck.cards.some((c) => c.spec)) {
+  if (isA) {
     cards.forEach((card, i) => {
       if (isShowable(card)) {
         items.push({ kind: "card", key: `c-${card.id}`, card });
@@ -81,7 +84,7 @@ function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId:
     }
   });
   for (const ex of extras) {
-    const card = deck.cards.find((c) => c.id === ex.cardId);
+    const card = cards.find((c) => c.id === ex.cardId) ?? deck.cards.find((c) => c.id === ex.cardId);
     if (!card || !quizOf(card)) continue;
     const at = items.findIndex((it) => it.key === ex.afterKey);
     const item: Item = { kind: "quiz", key: `r-${ex.cardId}-${ex.n}`, card, retry: true };
@@ -110,7 +113,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   // 시험문제 탭: 왼쪽으로 넘기면 열린다 (2026-11-25)
   const [tab, setTab] = useState<"concept" | "exam">("concept");
   const [examFilter, setExamFilter] = useState<string | null>(null);
-  const problems = deck.problems ?? [];
+  const problems = useMemo(() => problemsOf(deck), [deck]);
   const hasExam = problems.length > 0;
   const isStyleA = deck.cards.some((c) => c.spec);
   const openExam = useCallback(
@@ -122,6 +125,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     },
     [hasExam],
   );
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
   const swipe = useRef<{ x: number; y: number; ok: boolean } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -324,7 +328,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     const onEnded = () => {
       if (settings.autoNext && live) setTimeout(() => scrollTo(i + 1), 350);
     };
-    if (card.spec) {
+    if (card.spec && !broken[card.id]) {
       return (
         <StyleACard
           spec={card.spec}
@@ -335,13 +339,16 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           loop={!settings.autoNext}
           onEnded={onEnded}
           onProgress={onProgress}
+          onError={() => setBroken((b) => (b[card.id] ? b : { ...b, [card.id]: true }))}
         />
       );
     }
     if (card.short && view === "text") {
       return <TextShortCard short={card.short} mode={mode} sound={live && settings.sound} speed={settings.speed} onProgress={onProgress} onEnded={onEnded} />;
     }
-    const src: MotionSrc = card.short ? { kind: "template", short: card.short, plan: card.concept.plan } : { kind: "scene", scene: card.scene! };
+    // 스타일A 영상을 그리지 못한 카드는 AI 없이 만드는 기본 카드로 대신 보여 준다
+    const plain = card.scene ?? fallbackScene(card.concept, deck.cards.filter((c) => c.id !== card.id).map((c) => ({ term: c.concept.term, definition: c.concept.definition })), i);
+    const src: MotionSrc = card.short ? { kind: "template", short: card.short, plan: card.concept.plan } : { kind: "scene", scene: plain };
     return (
       <SceneCard
         src={src}
@@ -360,7 +367,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
 
   /** 모션 카드(색 바탕) 위에서만 흰 글씨 상단 바, 나머지(종이 바탕)는 잉크 글씨 */
   // 모션 영상은 아주 연한 하늘 바탕(2026-11-23)이라 잉크 글씨 상단 바를 쓴다. 짙은 바탕은 예전 장면(short 없음)만
-  const dark = current?.kind === "card" && !current.card.short && !current.card.spec;
+  const dark = current?.kind === "card" && !current.card.short && (!current.card.spec || !!broken[current.card.id]);
   const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short;
   const chip = (active: boolean) =>
     `shrink-0 rounded-full border-2 px-3 py-[5px] text-[12.5px] font-bold transition-colors ${

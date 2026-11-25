@@ -123,7 +123,7 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
           <span className="rounded-[8px] bg-[var(--red)] px-2 py-1 text-[12px] font-extrabold leading-none text-white">NEW</span>
         </div>
         <p className="mt-2 text-[12.5px] font-medium text-[var(--muted)]">
-          {mode === "motion" ? "같은 카드로 영상을 만들어서 생성 비용은 그대로예요." : "보는 중에도 언제든 모션으로 바꿀 수 있어요."}
+          {mode === "motion" ? "개념마다 모션그래픽과 퀴즈를 만들고, 교재 문제는 시험문제 탭에 모아요." : "보는 중에도 언제든 모션으로 바꿀 수 있어요."}
         </p>
 
         <div className="mt-4 flex items-center gap-2">

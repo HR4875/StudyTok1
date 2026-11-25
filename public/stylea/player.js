@@ -18,7 +18,7 @@
       if (!loop) { t = info.DUR - 0.001; seek(t); playing = false; post({ type: 'progress', p: 1 }); post({ type: 'ended' }); return; }
       t = 0; scene = -1; post({ type: 'loop' });
     }
-    seek(t);
+    try { seek(t); } catch (err) { playing = false; post({ type: 'error', message: String(err && err.message || err) }); return; }
     const i = sceneAt(t);
     if (i !== scene) { scene = i; post({ type: 'scene', index: i, line: line(spec.scenes[i]) }); }
     if (now - sentAt > 120) { sentAt = now; post({ type: 'progress', p: t / info.DUR }); }
@@ -32,6 +32,8 @@
       const mine = ++token; playing = false; info = null; spec = m.spec;
       try {
         const got = await loadSpec(spec); if (mine !== token) return;
+        // dry run: a spec the engine cannot draw is reported instead of freezing mid-play
+        for (let k = 0; k <= 30; k++) seek(got.DUR * k / 30.5);
         info = got; t = 0; scene = -1; seek(Math.min(1.2, info.DUR / 2));
         post({ type: 'ready', dur: info.DUR, T: info.T });
       } catch (err) { post({ type: 'error', message: String(err && err.message || err) }); }
