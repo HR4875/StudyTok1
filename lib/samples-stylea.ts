@@ -117,7 +117,7 @@ const SD2: StyleASpec = {
       ],
       "unit": "점",
       "deviation": true,
-      "sdLabel": "평균 거리",
+      "sdLabel": "표준편차",
       "say": "각 점에서 평균까지 선을 긋는다",
       "say2": "선이 길수록 많이 퍼진 것"
     },
@@ -149,8 +149,8 @@ const SD2: StyleASpec = {
     {
       "type": "end",
       "term": "표준편차",
-      "takeaway": "평균에서 떨어진 거리의 평균이다",
-      "mark": "거리의 평균"
+      "takeaway": "평균까지의 거리로 퍼짐을 잰다",
+      "mark": "거리로"
     }
   ],
   "series": {
@@ -445,8 +445,8 @@ const SOL_COMPARE: StyleASpec = {
       ],
       "unit": "점",
       "deviation": true,
-      "sdLabel": "평균 거리",
-      "say": "표준편차는 평균까지의 거리",
+      "sdLabel": "표준편차",
+      "say": "표준편차는 평균에서 떨어진 정도",
       "say2": "선이 짧은 A반이 더 모여 있다"
     },
     {
