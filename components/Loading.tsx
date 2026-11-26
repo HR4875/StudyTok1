@@ -67,7 +67,7 @@ function CardStack({ label }: { label?: string }) {
         >
           {i === 1 ? (
             <>
-              <span className="h-12 w-12 rounded-[12px] border-[2.5px] border-[var(--ink)] bg-[var(--yellow)]" />
+              <span className="h-12 w-12 rounded-[16px] border-[2.5px] border-[var(--ink)] bg-[var(--yellow)]" />
               <span className="mt-3 max-w-[96px] truncate text-center text-[14px] font-bold text-[var(--ink)]">{label ?? "개념 찾는 중"}</span>
             </>
           ) : null}
@@ -195,9 +195,9 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
                 ) : (
                   <div className="h-full w-full animate-pulse bg-[var(--chip)]" />
                 )}
-                <span className="absolute bottom-1 right-1.5 text-[12px] font-bold text-[var(--ink)]">{n}</span>
+                <span className="absolute bottom-1 right-1.5 text-[13px] font-bold text-[var(--ink)]">{n}</span>
                 {badge ? (
-                  <span className="absolute left-1 top-1 rounded-[6px] bg-[var(--ink)] px-1 py-0.5 text-[10.5px] font-bold text-white">{badge}</span>
+                  <span className="absolute left-1 top-1 rounded-[6px] bg-[var(--ink)] px-1 py-0.5 text-[12px] font-bold text-white">{badge}</span>
                 ) : null}
               </button>
             );
@@ -280,8 +280,8 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
 
       {job.phase === "error" ? (
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-7 text-center">
-          <h2 className="mt-3 font-display text-[27px]">{noKey ? "아직 AI 연결 전이에요" : "앗, 만들지 못했어요"}</h2>
-          <p className="mt-2 text-[14.5px] font-semibold leading-relaxed text-white/90">{job.error}</p>
+          <h2 className="mt-3 font-display text-[28px]">{noKey ? "아직 AI 연결 전이에요" : "앗, 만들지 못했어요"}</h2>
+          <p className="mt-2 text-[15px] font-semibold leading-relaxed text-white/90">{job.error}</p>
           <div className="mt-6 flex w-full flex-col gap-2.5">
             {!noKey ? (
               <button type="button" onClick={onRetry} className="press press-onblue h-14 rounded-[18px] bg-white font-display text-[19px] text-[var(--ocean)]">
@@ -313,7 +313,7 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
             </p>
           </div>
 
-          <div className="mb-4 space-y-3 rounded-[20px] border-[2px] border-white/40 p-4">
+          <div className="mb-4 space-y-3 rounded-[22px] border-[2px] border-white/40 p-4">
             <Step state={st(0)} label="자료 읽기" />
             <Step
               state={st(1)}
@@ -329,14 +329,14 @@ export default function Loading({ job, count, onCancel, onOpenEarly, onChooseRan
                   return (
                     <span
                       key={`${t}${i}`}
-                      className={`animate-pop-in inline-flex items-center gap-1 rounded-full py-1 pl-2.5 pr-1 text-[12.5px] font-bold ${
+                      className={`animate-pop-in inline-flex items-center gap-1 rounded-full py-1 pl-2.5 pr-1 text-[13px] font-bold ${
                         status === "ready" ? "bg-white text-[var(--ink)]" : status === "error" ? "bg-[var(--red)] text-white" : "bg-white/20 text-white"
                       }`}
                     >
                       {status === "ready" ? "✓ " : status === "error" ? "! " : ""}
                       {t}
                       {tpl && TEMPLATE_LABEL[tpl] ? (
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10.5px] font-extrabold ${status === "ready" ? "bg-[var(--ans)] text-[var(--ocean)]" : "bg-white/20"}`}>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[12px] font-extrabold ${status === "ready" ? "bg-[var(--ans)] text-[var(--ocean)]" : "bg-white/20"}`}>
                           {TEMPLATE_LABEL[tpl]}
                         </span>
                       ) : (
