@@ -72,6 +72,137 @@ export function createDirector(svg, opts = {}) {
   const onFill = (hex) => (lum(hex) > 0.62 ? (SK.dark ? SK.bg : SK.ink) : "#FFFFFF");
   const softOf = (hex) => mixHex(hex, SK.bg, SK.dark ? 0.72 : 0.8);
 
+  // ---------- pillars: Design F's bars ----------
+  // Bars on one seat row (same y, lives that overlap) are one stage: they share a floor tile and a small camera of their own that pivots on
+  // the middle of the row, so only the row turns 3D and the rest of the picture stays flat. The stage shows itself from straight above for a
+  // moment (the bars land on the tile as squares), then tilts, and the squares stand up as pillars.
+  // Yaw: a row's pillars stand on one line, so yaw tips the whole line and lifts one end. The binding limit is not the 40 px a seat may
+  // wander but the room over the raised end: its number's pill reaches 95 px over the top, and that is all the room a row keeps (a caption
+  // of the row above sits just over it). So each stage takes the largest yaw that lifts its end seats by at most LIFT px, and never more
+  // than F's 22 + 12 degrees (kept here at 24 so a lone pillar's turned floor does not push its name down): a lone bar turns like F's pillars,
+  // two bars (seats 250 px from the middle) get 3.5 degrees, a full row of three (340 px) 2.6; the perspective still shows the inner sides.
+  // Two thirds of it arrive with the tilt, the last third is a slow drift, as F's 22 + 12.
+  const PIL = { tilt: 58, yawMax: 24, lift: 8, foc: 2400, foot: 0.95, mx: 40, mz: 26, look: 0.7, drop: 1280, chip: 38 };
+  const pilExpo = (x) => (x >= 1 ? 1 : x <= 0 ? 0 : 1 - Math.pow(2, -10 * x));
+  const pilProg = (t, a, d) => clamp((t - a) / d);
+  const pilSpring = (t, a, w) => { const s = t - a; return s <= 0 ? 0 : 1 - (1 + w * s) * Math.exp(-w * s); }; // critically damped, no overshoot
+  const pilStages = new WeakMap(); // model -> (bar -> its stage); derived from the model once, not state between frames
+  function pilStageOf(m, o) {
+    let map = pilStages.get(m);
+    if (!map) {
+      map = new Map(); pilStages.set(m, map);
+      const bars = m.list.filter((b) => b.type === "bar"), up = new Map(bars.map((b) => [b, b])), seat = (b) => b.keys[0].p;
+      const root = (b) => { while (up.get(b) !== b) b = up.get(b); return b; };
+      for (let i = 0; i < bars.length; i++) for (let j = i + 1; j < bars.length; j++) {
+        const a = bars[i], b = bars[j];
+        if (Math.abs((Number(seat(a).y) || 0) - (Number(seat(b).y) || 0)) < 2 && a.tAdd < b.tDel && b.tAdd < a.tDel) up.set(root(a), root(b));
+      }
+      const groups = new Map();
+      bars.forEach((b) => { const r = root(b); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(b); });
+      groups.forEach((mem) => {
+        const first = mem.reduce((a, b) => (b.tAdd < a.tAdd ? b : a)), xs = mem.map((b) => Number(seat(b).x) || 0), px = (Math.min(...xs) + Math.max(...xs)) / 2;
+        const half = Math.max(...xs.map((x) => Math.abs(x - px))), RAD = Math.PI / 180;
+        const yaw = Math.min(PIL.yawMax * RAD, Math.asin(Math.min(1, PIL.lift / Math.max(1e-6, half * Math.cos(PIL.tilt * RAD)))));
+        // a turned square looks wider (cos + sin of the yaw): the footprint shrinks so the pillar fills about its column
+        const foot = PIL.foot / (Math.cos(yaw) + Math.sin(yaw)), rs = mem.map((b) => ((seat(b).w || 120) * foot) / 2);
+        const x0 = Math.min(...xs.map((x, k) => x - rs[k])) - PIL.mx, x1 = Math.max(...xs.map((x, k) => x + rs[k])) + PIL.mx;
+        const st = { t0: first.tAdd, px, py: Number(seat(first).y) || 0, x0, x1, fx: Number(seat(first).x) || 0, dz: Math.max(...rs) + PIL.mz, yaw, foot };
+        mem.forEach((b) => map.set(b, st));
+      });
+    }
+    return map.get(o);
+  }
+  function pilCam(st, t) {
+    const a1 = pilSpring(t, st.t0 + PIL.look, 9), d = pilProg(t, st.t0 + PIL.look + 0.6, 12), RAD = Math.PI / 180;
+    const tilt = a1 * PIL.tilt * RAD, yaw = st.yaw * ((2 / 3) * a1 + (1 / 3) * d * d * (3 - 2 * d));
+    return { a1, px: st.px, py: st.py, cy: Math.cos(yaw), sy: Math.sin(yaw), ca: Math.cos(tilt), sa: Math.sin(tilt) };
+  }
+  /** x along the row from its middle, y up, z away from the viewer -> [screen x, screen y, depth (larger is nearer)] */
+  function pilP(c, x, y, z) {
+    const xr = x * c.cy - z * c.sy, zr = x * c.sy + z * c.cy, Y = -zr * c.ca - y * c.sa, D = -zr * c.sa + y * c.ca, k = PIL.foc / (PIL.foc - D);
+    return [c.px + xr * k, c.py + Y * k, D];
+  }
+  /** the 3D height whose top shows hf px above its base once the row has tilted: bars still compare at a glance and keep to their column */
+  function pilH(c, x, hf) {
+    if (!(hf > 0)) return 0;
+    const F = PIL.foc, s = Math.sin((PIL.tilt * Math.PI) / 180), co = Math.cos((PIL.tilt * Math.PI) / 180), zr = x * c.sy, a = zr * co, b = -zr * s, T = (-a * F) / (F - b) - hf;
+    return Math.max(0, (T * (F - b) + a * F) / (T * co - s * F));
+  }
+  const pilPts = (arr) => arr.map((q) => n1(q[0]) + "," + n1(q[1])).join(" ");
+  /** F's box(): a square footprint of half size r at x, height h, base lifted by y0; returns the projected top centre */
+  function pilBox(parent, c, x, r, h, y0, top, side) {
+    const v = (dx, dy, dz) => pilP(c, x + dx * r, y0 + dy * h, dz * r);
+    const faces = [
+      [[v(-1, 0, -1), v(1, 0, -1), v(1, 1, -1), v(-1, 1, -1)], 0, -1], [[v(1, 0, -1), v(1, 0, 1), v(1, 1, 1), v(1, 1, -1)], 1, 0],
+      [[v(1, 0, 1), v(-1, 0, 1), v(-1, 1, 1), v(1, 1, 1)], 0, 1], [[v(-1, 0, 1), v(-1, 0, -1), v(-1, 1, -1), v(-1, 1, 1)], -1, 0],
+    ];
+    if (h > 0.5) for (const [p4, nx, nz] of faces) {
+      const [a, b, q] = p4;
+      if ((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0]) >= 0) continue; // back face
+      const fc = mixHex(side, "#000000", nx * 0.6 - nz * 0.8 > 0 ? 0.18 : 0.34); // F's light: from the front right
+      el("polygon", { points: pilPts(p4), fill: fc, stroke: fc, "stroke-width": 1, "stroke-linejoin": "round" }, parent);
+    }
+    el("polygon", { points: pilPts([v(-1, 1, -1), v(1, 1, -1), v(1, 1, 1), v(-1, 1, 1)]), fill: top, stroke: top, "stroke-width": 1, "stroke-linejoin": "round" }, parent);
+    return v(0, 1, 0);
+  }
+  // What the stages have drawn in this frame, keyed by the frame's own world group, so nothing carries over to the next frame.
+  const pilFrames = new WeakMap();
+  function pilFrame(world, st) { let fm = pilFrames.get(world); if (!fm) pilFrames.set(world, (fm = new Map())); let f = fm.get(st); if (!f) fm.set(st, (f = { tile: null, op: 0, kids: [] })); return f; }
+  /** the floor of a stage: drawn once per frame behind everything, as strong as the strongest of its bars; it unfolds from the first bar's seat */
+  function pilTile(world, st, c, t, op) {
+    const f = pilFrame(world, st);
+    if (!f.tile) {
+      const u = pilSpring(t, st.t0, 16), fx = st.fx - st.px, x0 = lerp(fx - 10, st.x0 - st.px, u), x1 = lerp(fx + 10, st.x1 - st.px, u), d = lerp(10, st.dz, u);
+      f.tile = el("polygon", { points: pilPts([pilP(c, x0, 0, -d), pilP(c, x1, 0, -d), pilP(c, x1, 0, d), pilP(c, x0, 0, d)]), fill: SK.card, stroke: SK.line, "stroke-width": 3, "stroke-linejoin": "round" }, world);
+      world.insertBefore(f.tile, world.firstChild);
+    }
+    f.op = Math.max(f.op, op * clamp((t - st.t0) * 8)); f.tile.setAttribute("opacity", f.op.toFixed(3));
+  }
+  /** farther pillars of a stage first: a bar's group moves in front of the first nearer pillar already drawn */
+  function pilSort(world, st, g, depth) {
+    const f = pilFrame(world, st), k = f.kids.findIndex((q) => q.d > depth);
+    if (k >= 0) { world.insertBefore(g, f.kids[k].g); f.kids.splice(k, 0, { g, d: depth }); } else f.kids.push({ g, d: depth });
+  }
+  /** F's chip: a pill on a short leader line above (ax, ay), wiping open from its middle */
+  function pilChip(parent, str, ax, ay, e, fill, ink, maxW) {
+    e = pilExpo(e); if (e <= 0.001) return;
+    const size = PIL.chip, h = size + 22, dy = 28, w = Math.min(maxW, numW(str, size, 800) + 44), y = ay - dy - h;
+    el("line", { x1: ax, y1: ay, x2: ax, y2: y + h, stroke: SK.ink, "stroke-width": 3, "stroke-dasharray": `${n1((dy + 4) * Math.min(1, e * 1.6))} 999` }, parent);
+    const id = PID + "c" + uid++, cp = el("clipPath", { id }, defs);
+    el("rect", { x: ax - (w / 2 + 4) * e, y: y - 4, width: (w + 8) * e, height: h + 8 }, cp);
+    const cg = G(parent, { "clip-path": `url(#${id})` });
+    rr(cg, ax - w / 2, y, w, h, h / 2, { fill, stroke: SK.ink, "stroke-width": 3 });
+    number(str, ax, y + h / 2, size, 800, ink, cg, w - 32);
+  }
+  /** a bar as a pillar on its stage's floor. hv: its height in px now (it glides when "set" changes it); slot: the room it keeps */
+  function pilBar(o, p, t, world, g, op, c, hv, slot) {
+    const st = pilStageOf(M, o); if (!st) return false;
+    const cam = pilCam(st, t), x = (Number(p.x) || 0) - st.px, r = ((p.w || 120) * st.foot) / 2, base = pilP(cam, x, 0, 0);
+    pilTile(world, st, cam, t, op);
+    pilSort(world, st, g, base[2]);
+    const land = pilExpo(pilProg(t, o.tAdd, 0.35)), late = p.scale != null && o.keys[0].p.value == null; // late: it gets its number in a later scene
+    const kv = p.scale == null ? null : o.keys.find((k) => k.p.value != null), tVal = p.scale == null ? o.tAdd : kv ? kv.t : Infinity;
+    const has = p.scale == null || p.value != null, tilted = st.t0 + PIL.look + 0.3, rise0 = Math.max(late ? tVal : o.tAdd + 0.35, tilted);
+    const stand = has ? pilSpring(t, rise0, 11) : 0, H = pilH(cam, x, Math.max(0, hv)) * stand;
+    if (land > 0 && has) {
+      const side = c === SK.ink && !SK.dark ? "#4A4A4F" : c, top = pilBox(g, cam, x, r, H, lerp(PIL.drop, 0, land), c, side);
+      if (p.value != null) { const prim = c === SK.primary; pilChip(g, String(shownValue(o, p)), top[0], top[1], pilProg(t, rise0 + 0.3, 0.25), prim ? c : SK.card, prim ? onFill(c) : SK.ink, (p.w || 120) + 160); }
+    }
+    // F's ghost: the yellow dashed pillar that could stand here; the real one rises inside it and the ghost lets go when it reaches the top
+    const Hs = late ? pilH(cam, x, Math.abs(slot)) : 0;
+    if (Hs > 0 && stand < 0.96) {
+      const gw = pilExpo(pilProg(t, Math.max(o.tAdd + 0.2, tilted - 0.1), 0.45)), gq = G(g, { opacity: (land * clamp((0.96 - stand) * 8)).toFixed(3) });
+      const v = (dx, dy, dz) => pilP(cam, x + dx * r, lerp(H, Hs * gw, dy), dz * r), dash = { stroke: SK.accent, "stroke-width": 6, "stroke-dasharray": "14 12", "stroke-linecap": "round", fill: "none" };
+      if (gw > 0.01) [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([dx, dz]) => { const a = v(dx, 1, dz), b = v(dx, 0, dz); el("line", Object.assign({ x1: a[0], y1: a[1], x2: b[0], y2: b[1] }, dash), gq); });
+      el("polygon", Object.assign({ points: pilPts([v(-1, 1, -1), v(1, 1, -1), v(1, 1, 1), v(-1, 1, 1)]) }, dash), gq);
+    }
+    // the name stays plain text under the base, just clear of the floor's front edge, so it rides along as the floor tilts
+    // (under the lowest point of the floor's front edge near it: a turned lone tile shows a corner there)
+    const ex = (dx) => pilP(cam, clamp(x + dx, st.x0 - st.px, st.x1 - st.px), 0, -st.dz)[1];
+    if (p.str) { const ny = Math.max(ex(-r - PIL.mx), ex(r + PIL.mx)); label(p.str, base[0], ny + 26, 42, 700, SK.sub, G(g, { opacity: clamp(land * 1.5).toFixed(3) }), "middle", (p.w || 120) + 120, true); }
+    return true;
+  }
+
   // ---------- one object ----------
   function shownValue(o, p) { // while a number counts, it shows as many decimals as the values it moves between
     if (p.value == null) return p.str;
@@ -124,9 +255,11 @@ export function createDirector(svg, opts = {}) {
         break;
       }
       case "bar": {
-        // a column that gets its number later stands as an empty slot first, and fills when the number arrives
-        const w = p.w || 120, hv = p.scale != null && p.value != null ? p.value * p.scale : p.h || 0, filling = p._prev && p._prev.value == null && p.value != null ? clamp(p._u) : 1;
-        const h = Math.abs(hv) * clamp(ap) * filling, neg = hv < 0, q = G(g), cc = neg && !p.color ? SK.bad : c, slot = barSlot(o, p), sh = Math.abs(slot);
+        // a pillar on its row's floor (see pilBar); a bar that hangs below zero stays a flat column, as before
+        const w = p.w || 120, hv = p.scale != null && p.value != null ? p.value * p.scale : p.h || 0, slot = barSlot(o, p);
+        if (hv >= 0 && slot >= 0 && pilBar(o, p, t, world, g, op, c, hv, slot)) break;
+        const filling = p._prev && p._prev.value == null && p.value != null ? clamp(p._u) : 1, grow = pilExpo(pilProg(t, o.tAdd, 0.4));
+        const h = Math.abs(hv) * grow * filling, neg = hv < 0, q = G(g), cc = neg && !p.color ? SK.bad : c, sh = Math.abs(slot);
         if (sh > h + 2) rr(q, p.x - w / 2 + 2, slot < 0 ? p.y : p.y - sh, w - 4, sh, Math.min(14, SK.radius), { fill: "none", stroke: SK.sub, "stroke-opacity": 0.55, "stroke-width": 4, "stroke-dasharray": "16 12", "stroke-linecap": "round" });
         rr(q, p.x - w / 2, neg ? p.y : p.y - h, w, h, Math.min(14, SK.radius), { fill: cc });
         if (p.str) label(p.str, p.x, p.y + (neg ? -44 : 50), 42, 700, SK.sub, q, "middle", w + 120, true);
