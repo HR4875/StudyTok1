@@ -178,7 +178,14 @@ export default function HomeView({ paused }: { paused: boolean }) {
           ))}
         </div>
       </Section>
-      <Section title="한 편짜리 맛보기" hint="그릴 수 있는 그림의 종류를 보여 주려고 사람이 직접 쓴 본보기예요.">
+      <Section
+        title="한 편짜리 맛보기"
+        hint={
+          sampleList().some((x) => x.note)
+            ? "그릴 수 있는 그림의 종류를 보여 주는 본보기예요. 사람이 직접 썼거나, AI가 쓴 대본의 연출을 사람이 다듬었어요."
+            : "그릴 수 있는 그림의 종류를 보여 주려고 사람이 직접 쓴 본보기예요."
+        }
+      >
         <div className="strip">
           {sampleList().map((x) => (
             <a key={x.k} className="tcard" href={"#w-ex-" + x.k}>

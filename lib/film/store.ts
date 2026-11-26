@@ -58,7 +58,7 @@ export interface MadeShort {
 export type ShortEntry =
   | { from: "built"; raw: string; cost: BuiltShort["cost"]; edited?: boolean }
   | { from: "mine"; raw: string; made: MadeShort }
-  | { from: "ex"; raw: string; label: string; kind: string };
+  | { from: "ex"; raw: string; label: string; kind: string; note?: string };
 
 export interface Series {
   id: string;
@@ -224,7 +224,7 @@ function build(made: Made): Map<string, Series> {
   }
   const ex: Series = { id: "ex", kind: "ex", kicker: "맛보기", title: "한 편짜리 맛보기", plan: null, planText: "", planShare: 0, cut: false, shorts: {} };
   SAMPLES.forEach((x, i) => {
-    ex.shorts[i + 1] = { from: "ex", raw: x.raw, label: x.label, kind: x.kind };
+    ex.shorts[i + 1] = { from: "ex", raw: x.raw, label: x.label, kind: x.kind, note: x.note };
   });
   series.set("ex", ex);
   for (const d of made.series) {
@@ -311,7 +311,7 @@ export function listSeries(kind: "built" | "mine"): Series[] {
 }
 export const getSeries = (id: string): Series | null => init().series.get(id) ?? null;
 /** 맛보기 목록 (홈 화면용) */
-export const sampleList = (): { k: number; label: string; kind: string }[] => SAMPLES.map((x, i) => ({ k: i + 1, label: x.label, kind: x.kind }));
+export const sampleList = (): { k: number; label: string; kind: string; note?: string }[] => SAMPLES.map((x, i) => ({ k: i + 1, label: x.label, kind: x.kind, note: x.note }));
 /** 계획된 편 수 (맛보기 묶음은 들어 있는 편 수) */
 export const totalOf = (s: Series): number => (s.plan ? s.plan.shorts.length : Object.keys(s.shorts).length);
 export const entryOf = (sid: string, k: number): ShortEntry | null => getSeries(sid)?.shorts[k] ?? null;

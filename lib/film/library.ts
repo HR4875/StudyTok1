@@ -25,6 +25,8 @@ export interface Sample {
   label: string;
   /** 그림의 종류 */
   kind: string;
+  /** 누가 어떻게 쓴 편인지 끝 화면에 적는 한 줄. 없으면 사람이 직접 쓴 본보기라고 적는다 */
+  note?: string;
   raw: string;
 }
 

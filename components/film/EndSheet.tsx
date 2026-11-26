@@ -20,7 +20,7 @@ const reduced = () => {
 /** 이 편을 누가 어떻게 썼고 AI 비용이 얼마였는지 */
 export function costLine(e: ShortEntry, s: Series | null): string {
   const share = s ? s.planShare : 0;
-  if (e.from === "ex") return "사람이 직접 쓴 본보기 대본이에요. AI 비용은 들지 않았습니다.";
+  if (e.from === "ex") return e.note || "사람이 직접 쓴 본보기 대본이에요. AI 비용은 들지 않았습니다.";
   if (e.from === "built") {
     const c = e.cost;
     const fix = c.fix === "rewrite" ? " (자동 점검 뒤 한 번 다시 쓴 것)" : c.fix === "patch" ? " (자동 점검에 걸린 장면 하나만 고친 것)" : "";
