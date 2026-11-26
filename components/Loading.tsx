@@ -112,8 +112,8 @@ function RangePicker({ range, count, onChoose }: { range: RangeInfo; count: numb
   const next = useMemo(() => (hi >= range.maxPage ? null : { from: hi + 1, to: fitRange(range.chars, hi + 1, range.scanned) }), [hi, range.maxPage, range.chars, range.scanned]);
 
   const chips: { label: string; from: number; to: number }[] = [];
-  chips.push({ label: range.to >= range.maxPage ? `전체 ${range.maxPage}쪽` : `추천 ${range.from}–${range.to}쪽`, from: range.from, to: range.to });
-  if (range.to < range.maxPage) chips.push({ label: `전체 1–${range.maxPage}쪽`, from: 1, to: range.maxPage });
+  chips.push({ label: range.from === 1 && range.to >= range.maxPage ? `전체 ${range.maxPage}쪽` : `${range.from > 1 ? "이어서" : "추천"} ${range.from}–${range.to}쪽`, from: range.from, to: range.to });
+  if (range.from > 1 || range.to < range.maxPage) chips.push({ label: `전체 1–${range.maxPage}쪽`, from: 1, to: range.maxPage });
   if (next && !(next.from === range.from && next.to === range.to)) chips.push({ label: `다음 ${next.from}–${next.to}쪽`, from: next.from, to: next.to });
 
   // 두 번 눌러 고르기: 첫 탭이 시작 쪽, 둘째 탭이 끝 쪽

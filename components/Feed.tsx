@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isShowable, paletteOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
-import type { Settings } from "@/lib/storage";
+import { clockOffsetDays, recordReview, setClockOffsetDays, type Settings } from "@/lib/storage";
 import { playSfx, setSoundEnabled, unlockAudio } from "@/lib/sfx";
 import { burstFrom } from "@/lib/fx";
 import { W } from "@/motion/timeline";
@@ -15,7 +15,7 @@ import { Sheet, Toast, useToast } from "./ui";
 type Item =
   | { kind: "card"; key: string; card: Card }
   | { kind: "pending"; key: string; card: Card }
-  | { kind: "quiz"; key: string; card: Card; retry: boolean }
+  | { kind: "quiz"; key: string; card: Card; retry: boolean; review?: boolean }
   | { kind: "end"; key: string };
 
 interface Props {
@@ -26,6 +26,16 @@ interface Props {
   onBack: () => void;
   onDeckChange: (d: Deck) => void;
   onRetryCard: (cardId: string) => void;
+  /** 이어보기: 이 항목부터 연다 (없으면 처음부터) */
+  resumeKey?: string | null;
+  /** 오늘 복습할 퀴즈 카드 id. 여는 자리 바로 앞에 '복습' 태그로 넣는다 */
+  reviewIds?: string[];
+  /** 보던 자리 저장 (연습용 덱은 부르지 않는다) */
+  onPosition?: (p: { key: string; n: number; total: number; done: boolean }) => void;
+  /** 완주 화면: 틀린 문제만 모은 짧은 피드 열기 */
+  onDrillWrong?: () => void;
+  /** 완주 화면: 같은 PDF 다음 쪽 범위로 새로 만들기 */
+  onNextRange?: () => void;
 }
 
 function hash(s: string) {
@@ -48,9 +58,32 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return a;
 }
 
-function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId: string; n: number }[], showEnd: boolean): Item[] {
-  const cards = s.shuffle ? seededShuffle(deck.cards, hash(deck.id)) : deck.cards;
+/** 이어보기 key가 지금 피드에서 몇 번째인지 (만드는 중이던 카드는 c-/p- 가 바뀔 수 있다) */
+function findKey(items: Item[], key: string | null | undefined): number {
+  if (!key) return -1;
+  const at = items.findIndex((it) => it.key === key);
+  if (at >= 0) return at;
+  const id = key.replace(/^[cp]-/, "");
+  return /^[cp]-/.test(key) ? items.findIndex((it) => (it.kind === "card" || it.kind === "pending") && it.card.id === id) : -1;
+}
+
+function buildItems(
+  deck: Deck,
+  s: Settings,
+  extras: { afterKey: string; cardId: string; n: number }[],
+  showEnd: boolean,
+  lead: { ids: string[]; beforeKey: string | null },
+): Item[] {
   const items: Item[] = [];
+  // 연습용 덱(틀린 문제만 · 오늘의 복습)은 퀴즈만 짧게
+  if (deck.drill) {
+    for (const card of deck.cards) {
+      if (isShowable(card) && quizOf(card)) items.push({ kind: "quiz", key: `d-${card.id}`, card, retry: deck.drill === "wrong", review: deck.drill === "review" });
+    }
+    if (items.length) items.push({ kind: "end", key: "end" });
+    return items;
+  }
+  const cards = s.shuffle ? seededShuffle(deck.cards, hash(deck.id)) : deck.cards;
   let window: Card[] = [];
   cards.forEach((card, i) => {
     if (isShowable(card)) {
@@ -71,6 +104,16 @@ function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId:
     if (at >= 0) items.splice(at + 1, 0, item);
     else items.push(item);
   }
+  // 오늘 복습할 퀴즈: 여는 자리(이어보기 위치 또는 맨 앞) 바로 앞에
+  if (lead.ids.length) {
+    const reviews: Item[] = [];
+    for (const id of lead.ids) {
+      const card = deck.cards.find((c) => c.id === id);
+      if (card && isShowable(card) && quizOf(card)) reviews.push({ kind: "quiz", key: `v-${id}`, card, retry: false, review: true });
+    }
+    const at = Math.max(0, findKey(items, lead.beforeKey));
+    items.splice(at, 0, ...reviews);
+  }
   if (showEnd) items.push({ kind: "end", key: "end" });
   return items;
 }
@@ -80,9 +123,12 @@ const SPEEDS = [0.75, 1, 1.25, 1.5];
 /** 모션으로 보여 줄 그림 틀: 단계·순환·원인→결과·시간·주고받기·그래프 (11/26 기획 피드백, 디자인 확정 B안) */
 const MOTION_TEMPLATES = new Set<string>(["flow", "cycle", "chain", "timeline", "exchange", "chart"]);
 
-export default function Feed({ deck, generating, settings, onSettings, onBack, onDeckChange, onRetryCard }: Props) {
+export default function Feed({ deck, generating, settings, onSettings, onBack, onDeckChange, onRetryCard, resumeKey, reviewIds, onPosition, onDrillWrong, onNextRange }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 390, h: 844 });
+  // 여는 순간의 복습 목록을 고정한다 (풀어서 일정이 바뀌어도 피드에서 사라지지 않게)
+  const [lead] = useState(() => ({ ids: settings.spacedReview ? (reviewIds ?? []) : [], beforeKey: resumeKey ?? null }));
+  const [clockDays, setClockDays] = useState(() => clockOffsetDays());
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<{ afterKey: string; cardId: string; n: number }[]>([]);
@@ -118,7 +164,25 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   const compHeight = Math.round(Math.min(2400, Math.max(1700, (W * size.h) / Math.max(1, size.w))));
 
   const allSettled = !generating && deck.cards.every((c) => c.status !== "pending");
-  const items = useMemo(() => buildItems(deck, settings, extras, allSettled), [deck, settings, extras, allSettled]);
+  const items = useMemo(() => buildItems(deck, settings, extras, allSettled, lead), [deck, settings, extras, allSettled, lead]);
+  const leadCount = useMemo(() => items.filter((it) => it.key.startsWith("v-")).length, [items]);
+
+  // 이어보기: 처음 한 번만, 복습(있으면) 또는 보던 카드 자리로 바로 맞춘다
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current) return;
+    opened.current = true;
+    const firstReview = items.findIndex((it) => it.key.startsWith("v-"));
+    const at = firstReview >= 0 ? firstReview : findKey(items, resumeKey);
+    if (at > 0) {
+      const el = scroller.current;
+      if (el) el.scrollTop = at * el.clientHeight;
+      setIndex(at);
+    }
+    if (leadCount) setToast(`오늘 복습 ${leadCount}개 먼저 풀어요`);
+    else if (at > 0) setToast("보던 카드부터 이어서 봐요");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const current = items[Math.min(index, items.length - 1)];
   // 완주 화면에 도착하면 제목에서 파티클이 한 번 터짐 (정답·완료 순간 = 팡 파티클)
   const finishTitle = useRef<HTMLHeadingElement | null>(null);
@@ -133,6 +197,20 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     for (let i = 0; i <= Math.min(index, items.length - 1); i++) if (items[i].kind === "card" || items[i].kind === "pending") n++;
     return n;
   }, [items, index]);
+
+  const skipFirstSave = useRef(true);
+  // 보던 자리 저장 (복습·다시 도전 카드는 key가 그때만 있어서 건너뛴다)
+  useEffect(() => {
+    if (!onPosition || deck.drill || !opened.current || !current) return;
+    if (skipFirstSave.current) {
+      // 첫 그림은 아직 0번이라, 저장된 자리를 덮어쓰지 않는다
+      skipFirstSave.current = false;
+      return;
+    }
+    if (current.kind === "end") onPosition({ key: "end", n: deck.cards.length, total: deck.cards.length, done: true });
+    else if (/^[cpq]-/.test(current.key)) onPosition({ key: current.key, n: Math.max(1, lastConceptBefore), total: deck.cards.length, done: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.key, lastConceptBefore, deck.cards.length]);
 
   const scrollTo = useCallback(
     (i: number) => {
@@ -189,9 +267,12 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       setBestStreak((b) => Math.max(b, n));
       return n;
     });
+    // 간격 복습 일정: 처음 푼 퀴즈는 1일 뒤, 복습을 맞히면 1→3→7일→졸업, 틀리면 1일부터
+    if (settings.spacedReview) recordReview(deck.parentId ?? deck.id, item.card.id, ok, !!item.review);
+    if (item.review && !settings.reviewIntroSeen) onSettings({ ...settings, reviewIntroSeen: true });
     const wrong = new Set(deck.wrong ?? []);
     if (ok) {
-      if (item.retry) wrong.delete(item.card.id);
+      if (item.retry || item.review) wrong.delete(item.card.id);
     } else {
       wrong.add(item.card.id);
       if (settings.retryWrong) {
@@ -201,23 +282,6 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       }
     }
     onDeckChange({ ...deck, wrong: [...wrong] });
-  };
-
-  /** 완주 화면에서 오답 퀴즈를 끝 바로 앞에 다시 넣는다. 화면 위치는 그대로라 첫 오답 퀴즈가 바로 보인다 */
-  const redoWrong = (endAt: number) => {
-    playSfx("tap");
-    const before = items[endAt - 1]?.key;
-    if (!before) return;
-    setExtras((x) => {
-      const ids = deck.cards.filter((c) => deck.wrong?.includes(c.id) && quizOf(c)).map((c) => c.id);
-      // 같은 자리에 넣으면 나중 것이 앞에 오므로 거꾸로 넣어 원래 순서를 지킨다
-      return [...x, ...ids.reverse().map((cardId, k) => ({ afterKey: before, cardId, n: x.length + k + 1 }))];
-    });
-    // 브라우저가 완주 화면을 붙잡고 같이 내려가지 않도록, 새로 들어온 첫 퀴즈 자리로 바로 맞춘다
-    requestAnimationFrame(() => {
-      const el = scroller.current;
-      if (el) el.scrollTop = endAt * el.clientHeight;
-    });
   };
 
   const quizItems = items.filter((i) => i.kind === "quiz");
@@ -312,6 +376,8 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   term={it.card.concept.term}
                   palette={paletteOf(it.card) ?? "blue"}
                   retry={it.retry}
+                  label={it.retry ? "다시 도전" : it.review ? "복습" : "QUIZ"}
+                  note={it.review && !settings.reviewIntroSeen ? "1·3·7일 간격 복습이에요 · 설정에서 끌 수 있어요" : undefined}
                   selected={answers[it.key] ?? null}
                   streak={streak}
                   onAnswer={(sel) => answer(it, sel, i)}
@@ -320,14 +386,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               ) : (
                 <div className="flex h-full w-full flex-col bg-[var(--paper)] px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-[112px] text-[var(--ink)]">
                   <span className="self-start rounded-[8px] bg-[var(--ocean)] px-2.5 py-1 text-[13px] font-bold text-white">FINISH</span>
-                  <h2 ref={finishTitle} className="font-display mt-3 text-[44px] leading-tight">완주했어요!</h2>
+                  <h2 ref={finishTitle} className="font-display mt-3 text-[44px] leading-tight">{deck.drill ? "다 풀었어요!" : "완주했어요!"}</h2>
                   <p className="mt-1 truncate text-[14px] font-medium text-[var(--muted)]">
                     {deck.title}
-                    {deck.range ? ` · ${deck.range.from === deck.range.to ? `${deck.range.from}쪽` : `${deck.range.from}–${deck.range.to}쪽`}` : ""}
+                    {deck.range && !deck.drill ? ` · ${deck.range.from === deck.range.to ? `${deck.range.from}쪽` : `${deck.range.from}–${deck.range.to}쪽`}` : ""}
                   </p>
                   <div className="mt-6 grid w-full grid-cols-3 gap-2">
                     {[
-                      { k: "개념", v: `${readyCount}개`, hi: false },
+                      deck.drill ? { k: "문제", v: `${quizItems.length}개`, hi: false } : { k: "개념", v: `${readyCount}개`, hi: false },
                       { k: "퀴즈 정답", v: answered.length ? `${correctCount}/${answered.length}` : "-", hi: true },
                       { k: "최고 콤보", v: bestStreak ? `×${bestStreak}` : "-", hi: false },
                     ].map((s) => (
@@ -337,13 +403,18 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                       </div>
                     ))}
                   </div>
+                  {deck.drill === "review" ? (
+                    <p className="mt-4 rounded-[16px] bg-[var(--blue-soft)] px-4 py-3 text-[14px] font-bold leading-relaxed text-[var(--ink)]">
+                      맞힌 문제는 3일·7일 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.
+                    </p>
+                  ) : null}
                   {wrongCards.length ? (
                     <div className="mt-4 overflow-hidden rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white">
                       <div className="flex items-center bg-[var(--red-soft)] px-4 py-2 text-[14px] font-bold text-[var(--red)]">
-                        <span>오답노트 {wrongCards.length}개</span>
-                        <span className="ml-auto text-[13px]">다시 풀면 사라져요</span>
+                        <span>{deck.drill === "wrong" ? `아직 틀린 문제 ${wrongCards.length}개` : `오답노트 ${wrongCards.length}개`}</span>
+                        <span className="ml-auto text-[13px]">맞히면 사라져요</span>
                       </div>
-                      <div className="no-scrollbar max-h-[132px] overflow-y-auto">
+                      <div className="no-scrollbar max-h-[96px] overflow-y-auto">
                         {wrongCards.map((c) => (
                           <div key={c.id} className="flex items-center gap-2 border-t-[2.5px] border-[var(--ink)]/10 px-4 py-2.5 first:border-t-0">
                             <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{c.concept.term}</span>
@@ -354,24 +425,35 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                     </div>
                   ) : null}
                   <div className="min-h-6 flex-1" />
-                  <div className="flex w-full flex-col gap-4">
-                    {wrongCards.length ? (
-                      <button type="button" onClick={() => redoWrong(i)} className="press font-display h-14 rounded-[18px] bg-[var(--ocean)] text-[19px] text-white">
-                        오답노트 다시 풀기 →
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => scrollTo(0)}
-                      className={
-                        wrongCards.length
-                          ? "press press-ink font-display h-14 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[19px] text-[var(--ink)]"
-                          : "press font-display h-14 rounded-[18px] bg-[var(--ocean)] text-[19px] text-white"
-                      }
-                    >
-                      처음부터 다시 보기
-                    </button>
-                  </div>
+                  {(() => {
+                    const primary = "press font-display h-14 rounded-[18px] bg-[var(--ocean)] text-[19px] text-white";
+                    const secondary = "press press-ink font-display h-14 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white text-[19px] text-[var(--ink)]";
+                    const buttons: { label: string; onClick: () => void }[] = [];
+                    if (wrongCards.length && onDrillWrong && deck.drill !== "review")
+                      buttons.push({ label: deck.drill === "wrong" ? `남은 ${wrongCards.length}개 다시 풀기 →` : `틀린 문제만 다시 풀기 (${wrongCards.length}) →`, onClick: onDrillWrong });
+                    const nextFrom = deck.range ? deck.range.to + 1 : 0;
+                    if (!deck.drill && !deck.sample && deck.range && onNextRange && (!deck.pages || nextFrom <= deck.pages))
+                      buttons.push({ label: `다음 범위 이어서 만들기 · ${nextFrom}쪽~`, onClick: onNextRange });
+                    if (deck.drill) buttons.push({ label: "홈으로", onClick: onBack });
+                    else buttons.push({ label: "처음부터 다시 보기", onClick: () => scrollTo(0) });
+                    return (
+                      <div className="flex w-full flex-col gap-3">
+                        {buttons.map((b, k) => (
+                          <button
+                            key={b.label}
+                            type="button"
+                            onClick={() => {
+                              playSfx("tap");
+                              b.onClick();
+                            }}
+                            className={k === 0 ? primary : secondary}
+                          >
+                            {b.label}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </section>
@@ -579,6 +661,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               ["다 보면 다음 카드로", "autoNext"],
               ["순서 섞기", "shuffle"],
               ["틀린 문제 3장 뒤 다시", "retryWrong"],
+              ["간격 복습 (1·3·7일)", "spacedReview"],
             ] as const
           ).map(([label, key]) => (
             <div key={label} className="flex items-center justify-between border-t-[1.5px] border-[var(--ink)]/10 py-3 first:border-t-0">
@@ -611,6 +694,41 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               )}
             </div>
           ))}
+          {settings.spacedReview ? (
+            <div className="flex items-center justify-between gap-2 border-t-[1.5px] border-[var(--ink)]/10 py-3">
+              <span className="min-w-0 text-[15px] font-bold text-[var(--ink)]">
+                시연용 가상 날짜
+                <span className="block text-[12px] font-semibold text-[var(--muted)]">{clockDays ? `지금 +${clockDays}일 (가상)` : "복습을 미리 보려면 하루씩 넘겨요"}</span>
+              </span>
+              <span className="flex shrink-0 gap-2">
+                {clockDays ? (
+                  <button
+                    type="button"
+                    className="text-[13.5px] font-extrabold text-[var(--muted)]"
+                    onClick={() => {
+                      setClockOffsetDays(0);
+                      setClockDays(0);
+                      setToast("오늘 날짜로 되돌렸어요");
+                    }}
+                  >
+                    되돌리기
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="text-[14.5px] font-extrabold text-[var(--ocean)]"
+                  onClick={() => {
+                    const n = clockDays + 1;
+                    setClockOffsetDays(n);
+                    setClockDays(n);
+                    setToast(`가상 날짜 +${n}일 · 홈에서 오늘 복습을 확인해요`);
+                  }}
+                >
+                  하루 뒤로 ›
+                </button>
+              </span>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={() => {

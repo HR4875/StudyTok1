@@ -197,6 +197,12 @@ export interface Deck {
   /** 같은 파일·범위·개수·방식이면 다시 만들지 않고 이 덱을 연다 */
   key?: string;
   range?: { from: number; to: number };
+  /** PDF 전체 쪽 수 ('다음 범위 이어서 만들기'에 쓴다) */
+  pages?: number;
+  /** 저장하지 않는 연습용 덱: 틀린 문제만(wrong) 또는 오늘의 복습(review). 퀴즈만 나온다 */
+  drill?: "wrong" | "review";
+  /** drill 덱이 나온 원래 덱 */
+  parentId?: string;
 }
 
 /** Request bodies */

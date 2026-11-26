@@ -84,6 +84,8 @@ export interface JobOptions {
   count: number;
   mode: RenderMode;
   model?: string;
+  /** PDF 쪽 범위 화면에서 처음 골라 둘 시작 쪽 ('다음 범위 이어서 만들기') */
+  startFrom?: number;
 }
 
 export const MAX_CHARS = LIMITS.maxChars;
@@ -249,6 +251,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
       const images: OutlineRequest["images"] = [];
       let keyBase = "";
       let range: { from: number; to: number } | undefined;
+      let pageCount: number | undefined;
 
       if (files.some(isPdf)) {
         const file = files.find(isPdf)!;
@@ -267,13 +270,16 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
           const totalChars = chars.reduce((a, b) => a + b, 0);
           const scanned = isScannedDoc(chars);
           const thumbs: (string | null)[] = Array(all.length).fill(null);
+          pageCount = all.length;
+          // '다음 범위 이어서 만들기'로 왔으면 그 쪽부터 고르게 해 둔다
+          const start = opts.startFrom && opts.startFrom <= all.length ? Math.max(1, Math.round(opts.startFrom)) : 1;
           set({
             phase: "range",
             message: "",
             progress: 0.1,
             range: {
-              from: 1,
-              to: fitRange(chars, 1, scanned),
+              from: start,
+              to: fitRange(chars, start, scanned),
               maxPage: all.length,
               chars,
               totalChars,
@@ -395,6 +401,7 @@ export function startJob(files: File[], opts: JobOptions, onState: (s: JobState)
         usage,
         key,
         range,
+        pages: pageCount,
       };
       saveDeck(deck);
       set({
