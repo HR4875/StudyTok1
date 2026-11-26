@@ -118,6 +118,23 @@ export function timeSeats(line: string, reach: Reach = dict()): Record<string, [
   at.forEach((a) => { if (/^[A-Za-z_]\w*$/.test(a.id)) out[a.id] = [xs[a.c], Math.round(yAt(a.f))]; });
   return out;
 }
+/** The same picture when GRID has more groups than TIME has stages: then a group cannot be a stage, so each group is a row from the top
+ *  and its k-th seat stands in the k-th stage ("-" leaves a seat empty). A model that writes straight through often lays a time picture out this way. */
+export function timeRowSeats(line: string, stages: number, reach: Reach = dict()): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = dict(), xs = TIME_XS[stages] || TIME_XS[4];
+  let y = 0, prevDown = 0, r = 0;
+  for (const row of String(line || "").split("/")) {
+    const ids = row.trim().split(/[\s,]+/).filter(Boolean).slice(0, xs.length), real = ids.filter((id) => id !== "-");
+    if (!ids.length) continue;
+    if (r >= 6) break;
+    if (r > 0 && prevDown > DOWN && !real.length) continue; // an empty row left under a tall thing: the tall row already took that room
+    const up = Math.max(UP, ...real.map((id) => (reach[id] ? reach[id].up : UP))), down = Math.max(DOWN, ...real.map((id) => (reach[id] ? reach[id].down : DOWN)));
+    y = r === 0 ? TOP + up : y + prevDown + up;
+    ids.forEach((id, k) => { if (/^[A-Za-z_]\w*$/.test(id)) out[id] = [xs[k], y]; });
+    prevDown = down; r++;
+  }
+  return out;
+}
 /** How far under its row line a thing reaches with its caption: the line of the time axis goes 40 under the lowest of these.
  *  A bar with no name under it stands on its row line, so the axis goes right there and the bar stands on the axis. */
 const footOf = (type: string, reachDown: number, named: boolean) => (type === "bar" ? (named ? 84 : -40) : type === "node" || type === "icon" || type === "box" || type === "num" || type === "text" ? Math.min(reachDown, DOWN) : reachDown);
@@ -344,10 +361,13 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       if (W === "PICTURE") { plan.picture = rest; has.picture = true; continue; }
       if (W === "GRID") {
         plan.grid = rest; has.grid = true;
-        const groups = rest.split("/").filter((g) => g.trim()).length;
-        if (stages && groups !== stages.length) errT(`TIME names ${stages.length} stages but GRID has ${groups} group${groups === 1 ? "" : "s"}. With TIME every group of GRID (the part between "/") is one stage, from left to right: give one group per label.`);
-        timeOn = !!stages && groups === stages.length;
-        Object.assign(grid, timeOn ? timeSeats(rest, reach) : gridSeats(rest, reach));
+        const parts = rest.split("/").map((g) => g.trim().split(/[\s,]+/).filter(Boolean)).filter((g) => g.length), groups = parts.length;
+        // more groups than stages cannot be stages: they are rows, and a row may hold one seat per stage. Fewer groups than stages stays an error: which stage is missing cannot be known.
+        const byRow = !!stages && groups > stages.length && parts.every((g) => g.length <= stages!.length);
+        if (stages && groups !== stages.length && !byRow) errT(`TIME names ${stages.length} stages but GRID has ${groups} group${groups === 1 ? "" : "s"}. With TIME every group of GRID (the part between "/") is one stage, from left to right: give one group per label.`);
+        if (byRow) warnH(`TIME names ${stages!.length} stages but GRID has ${groups} groups, so GRID was read row by row: the k-th seat of each row stands in the k-th stage.`, "time");
+        timeOn = !!stages && (groups === stages.length || byRow);
+        Object.assign(grid, timeOn ? (byRow ? timeRowSeats(rest, stages!.length, reach) : timeSeats(rest, reach)) : gridSeats(rest, reach));
         continue;
       }
       if (W === "TIME") { has.time = true; continue; } // read before the scenes
@@ -492,6 +512,22 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       const words = [a.str, a.cap, a.sub, a.badge, a.left, a.right].filter((x): x is string => typeof x === "string" && x !== ""), was = units[id];
       if (a.value != null) units[id] = { pre: a.pre, suf: a.suf, v: typeof a.value === "number" ? a.value : undefined, texts: words.concat((was && was.texts) || []) };
       else if (words.length) units[id] = Object.assign({}, was, { texts: words.concat((was && was.texts) || []) });
+    }
+    // Under a time axis a thing without a seat joins the column of what its scene last worked with (else of the newest thing on screen): every seat
+    // there is a column of a stage, and the rows of two groups can be half a row apart, so the "free row" of the plain picture below would land on a neighbour.
+    // It takes the nearest place under that thing that stays free for as long as it is on screen, else the nearest above, else the foot of the column.
+    if (!isSet && !gotPos && !grid[id] && PLACED_T.includes(type) && timeOn) {
+      const me = life[id] || { a: n, b: Infinity, ord: 0 };
+      const upOf = (k: string) => Math.max(UP, reach[k] ? reach[k].up : UP), downOf = (k: string) => Math.max(DOWN, reach[k] ? reach[k].down : DOWN);
+      const worked = acts.flatMap((x) => [x.id, x.from, x.to]).filter((k): k is string => typeof k === "string" && !!grid[k]);
+      const near = worked.length ? worked[worked.length - 1] : Array.from(live.keys()).filter((k) => grid[k]).pop();
+      const x = near ? grid[near][0] : (TIME_XS[(stages || []).length] || TIME_XS[4])[0], yNear = near ? grid[near][1] : 0;
+      const inCol = Object.keys(grid).filter((k) => grid[k][0] === x && life[k] && life[k].a <= me.b && me.a <= life[k].b);
+      const free = (y: number) => inCol.every((k) => y + downOf(id) <= grid[k][1] - upOf(k) || y - upOf(id) >= grid[k][1] + downOf(k));
+      const cand = Array.from(new Set(Object.keys(grid).map((k) => grid[k][1]).concat(inCol.map((k) => grid[k][1] + downOf(k) + upOf(id))))).filter((y) => y >= TOP + upOf(id) && free(y));
+      const under = cand.filter((y) => y > yNear).sort((p, q) => p - q), over = cand.filter((y) => y < yNear).sort((p, q) => q - p);
+      grid[id] = [x, under.length ? under[0] : over.length ? over[0] : Math.max(TOP, ...inCol.map((k) => grid[k][1] + downOf(k))) + upOf(id)];
+      unseated.push(id);
     }
     // not in the GRID line and no place given: the engine seats it. The whole short is known, so nothing lands on a seat that is taken later,
     // and the picture keeps reading from the top down in the order things appear.
