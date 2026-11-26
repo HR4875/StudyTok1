@@ -5,10 +5,8 @@ import { SubTop } from "./parts";
 function Plan({ best, name, won, per, items, chip }: { best?: boolean; name: string; won: string; per: string; items: string[]; chip?: string }) {
   return (
     <div className={"plan" + (best ? " best" : "")}>
-      <h3>
-        {name}
-        {chip ? <span className="chip">{chip}</span> : null}
-      </h3>
+      {chip ? <span className="tab">{chip}</span> : null}
+      <h3>{name}</h3>
       <div className="won">
         {won}
         <small>{per}</small>
@@ -27,6 +25,7 @@ export default function PriceView() {
     <>
       <SubTop />
       <div className="shead">
+        <span className="label">계획 중인 가격</span>
         <h1>요금제 계획</h1>
       </div>
       <p className="note">아직 결제 기능은 없고, 여기서는 돈이 나가지 않아요. 출시할 때 적용하려는 요금 계획입니다.</p>
@@ -36,6 +35,7 @@ export default function PriceView() {
         <Plan name="월 구독" won="9,900원" per=" / 월" items={["매달 100편까지 만들기", "과목 수 제한 없음"]} />
       </div>
       <p className="fine mt16">한 편을 만드는 AI 비용은 계획 몫까지 합쳐 약 0.04달러로 쟀습니다. 환율 1,400원으로 55원쯤이에요.</p>
+      <p className="fine mt8">위 가격은 계획일 뿐이라 바뀔 수 있고, 지금은 어떤 결제도 할 수 없어요.</p>
     </>
   );
 }

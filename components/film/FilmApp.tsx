@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { initGen } from "@/lib/film/gen";
 import { entryOf, getSeries, unsavedMade, useFilmStore } from "@/lib/film/store";
+import { installPressFx } from "./fx";
 import HomeView from "./HomeView";
 import MakeView from "./MakeView";
 import Player from "./Player";
@@ -66,6 +67,7 @@ export default function FilmApp() {
 
   useEffect(() => {
     initGen();
+    installPressFx();
     const on = () => setRoute((prev) => routeOf(window.location.hash, prev));
     window.addEventListener("hashchange", on);
     // 이 화면이 뜨기 전에 주소가 바뀌었을 수도 있다

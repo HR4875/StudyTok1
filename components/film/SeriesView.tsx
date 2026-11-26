@@ -1,12 +1,12 @@
 "use client";
-// 시리즈 한 개: 편 목록. 있는 편은 바로 보고, 없는 편은 그 자리에서 만든다.
+// 시리즈 한 개: 트랙 라벨, 제목, 편 목록. 있는 편은 바로 보고, 없는 편은 그 자리에서 만든다.
 import { useEffect, useState } from "react";
 import { initGen, makeShort, stopGen, useGen, type GenState } from "@/lib/film/gen";
 import { HOST } from "@/lib/film/host";
 import { loadShort, madeKs, removeSeries, seenOf, titleOf, totalOf, useFilmStore, getSeries, type Series } from "@/lib/film/store";
 import { secs } from "./format";
 import { Icon } from "./icons";
-import { SubTop, busyLine, useNow } from "./parts";
+import { Check, SubTop, busyLine, trackLabel, useNow } from "./parts";
 
 function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: boolean; gen: GenState; now: number }) {
   const sid = s.id;
@@ -58,7 +58,7 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
     );
   else action = <span className="chip">미공개</span>;
   return (
-    <div className="row locked">
+    <div className={"row locked" + (busy ? " making" : "")}>
       <span className="num">{String(k)}</span>
       <span>
         <span className="t">{title}</span>
@@ -108,10 +108,51 @@ function noteOf(gen: GenState, id: string): string {
   return HOST.seriesNone;
 }
 
+/** 이 시리즈의 편을 만드는 동안 목록 위에 뜨는 칸: 확정안 로딩 화면과 같은 말 (단계, 편 이름 칩, 준비된 편부터 보기) */
+function Making({ s, k, message, t0, have }: { s: Series; k: number; message: string; t0: number; have: number[] }) {
+  const now = useNow(true);
+  const n = totalOf(s);
+  const gone = Math.max(0, (now - t0) / 1000);
+  // 한 편은 보통 15초 안팎: 그 시간에 맞춰 차고, 끝까지 차지는 않는다
+  const progress = Math.min(0.92, gone / 20);
+  const first = have.find((x) => !seenOf(s.id, x)?.done) ?? have[0];
+  return (
+    <section className="mk" aria-label={`${k}편 만드는 중`}>
+      <h2>{`${k}편 만드는 중 ${have.length}/${n}`}</h2>
+      <div className="pbar" aria-hidden="true">
+        <i style={{ width: Math.round(progress * 100) + "%" }} />
+      </div>
+      <p className="tip">{busyLine(message, t0, now)}</p>
+      <div className="checks">
+        <Check state="done" label="자료 읽기" />
+        <Check state="done" label="개념 찾고 그림 고르기" detail={`${n}개`} />
+        <Check state="doing" label="쇼츠 만들기" detail={`${have.length} / ${n}`} />
+        <div className="tchips">
+          {Array.from({ length: n }, (_, i) => i + 1).map((x) => (
+            <span key={x} className={have.includes(x) ? "ok" : x === k ? "now" : ""}>
+              {(have.includes(x) ? "✓ " : "") + titleOf(s.id, x)}
+            </span>
+          ))}
+        </div>
+      </div>
+      {first ? (
+        <a className="btn onblue" href={`#w-${s.id}-${first}`}>
+          {`준비된 ${have.length}편부터 보기 →`}
+        </a>
+      ) : (
+        <button className="btn onblue" type="button" disabled>
+          1편이 준비되면 바로 볼 수 있어요
+        </button>
+      )}
+    </section>
+  );
+}
+
 export default function SeriesView({ id }: { id: string }) {
   useFilmStore();
   const gen = useGen();
-  const now = useNow(!!gen.busy && gen.busy.kind === "short" && gen.busy.sid === id);
+  const mine = !!gen.busy && gen.busy.kind === "short" && gen.busy.sid === id ? gen.busy : null;
+  const now = useNow(!!mine);
   // 서버 확인이 앞에서 실패했으면 이 화면에 들어올 때 다시 묻는다
   useEffect(() => {
     initGen();
@@ -122,12 +163,23 @@ export default function SeriesView({ id }: { id: string }) {
   const have = madeKs(s);
   const ks = Array.from({ length: n }, (_, i) => i + 1);
   const next = ks.find((k) => !have.includes(k));
+  const done = have.filter((k) => seenOf(id, k)?.done).length;
+  // 이어 보기: 아직 다 보지 않은 첫 편 (모두 봤으면 첫 편)
+  const cont = have.find((k) => !seenOf(id, k)?.done) ?? have[0];
   return (
     <>
       <SubTop />
       <div className="shead">
-        <div className="kick">{s.kicker}</div>
+        <span className="label">{trackLabel(s)}</span>
         <h1>{s.title || "이름 없는 시리즈"}</h1>
+        <p className="sub">{s.kicker}</p>
+      </div>
+      <div className="seen">
+        <span>본 편</span>
+        <div className="bar" aria-hidden="true">
+          <i style={{ width: (n ? Math.round((done / n) * 100) : 0) + "%" }} />
+        </div>
+        <b>{`${done} / ${n}`}</b>
       </div>
       {s.plan.after ? (
         <div className="after">
@@ -136,6 +188,7 @@ export default function SeriesView({ id }: { id: string }) {
         </div>
       ) : null}
       {s.plan.example ? <p className="fine ex">{"시리즈 내내 쓰는 예시: " + s.plan.example}</p> : null}
+      {mine ? <Making s={s} k={mine.k} message={mine.message} t0={mine.t0} have={have} /> : null}
       <div className="list">
         {ks.map((k) => (
           <ShortRow key={k} s={s} k={k} first={k === next} gen={gen} now={now} />
@@ -147,6 +200,13 @@ export default function SeriesView({ id }: { id: string }) {
           {s.cut ? <p className="fine ex">계획이 길어서 끝까지 받지 못한 편은 뺐어요.</p> : null}
           <DeleteSeries key={id} id={id} />
         </>
+      ) : null}
+      {cont ? (
+        <div className="dock">
+          <a className="btn primary" href={`#w-${id}-${cont}`}>
+            {done && done < have.length ? "이어 보기 →" : done ? "처음부터 다시 보기 →" : `${cont}편부터 보기 →`}
+          </a>
+        </div>
       ) : null}
     </>
   );

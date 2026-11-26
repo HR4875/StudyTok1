@@ -1,10 +1,10 @@
 "use client";
-// 홈: 움직이는 미리보기, 시리즈 목록, 맛보기, 지금 되는 것
+// 홈: 제목 띠, 업로드 트랙, 움직이는 미리보기, 시리즈 트랙, 맛보기, 지금 되는 것
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createDirector, type Director, type FilmInfo } from "@/lib/film";
 import { HOST } from "@/lib/film/host";
 import { listSeries, loadShort, madeKs, sampleList, seenOf, totalOf, useFilmStore, type Series } from "@/lib/film/store";
-import { Logo, Section } from "./parts";
+import { Section, trackLabel } from "./parts";
 import Still, { STILL_OPTS, posterTime } from "./Still";
 
 const reducedMotion = () => {
@@ -78,15 +78,15 @@ function SeriesCard({ s }: { s: Series }) {
   const done = have.filter((k) => seenOf(s.id, k)?.done).length;
   return (
     <a className="scard" href={"#s-" + s.id}>
-      <div className="poster">{have.length ? <Still sid={s.id} k={have[0]} /> : null}</div>
+      <span className="tab">{trackLabel(s)}</span>
       <div>
-        <div className="kick">{s.kicker}</div>
         <h3>{s.title || "이름 없는 시리즈"}</h3>
-        <div className="meta">{`${have.length}편 볼 수 있음 · 계획 ${n}편` + (done ? ` · ${done}편 봄` : "")}</div>
-        <div className="bar">
+        <div className="meta">{`쇼츠 ${n}편 · 볼 수 있음 ${have.length}편` + (done ? ` · ${done}편 봄` : "")}</div>
+        <div className="bar" role="img" aria-label={`${n}편 중 ${done}편 봄`}>
           <i style={{ width: (n ? Math.round((done / n) * 100) : 0) + "%" }} />
         </div>
       </div>
+      <div className="poster">{have.length ? <Still sid={s.id} k={have[0]} /> : null}</div>
     </a>
   );
 }
@@ -104,20 +104,45 @@ export default function HomeView({ paused }: { paused: boolean }) {
   const built = listSeries("built");
   return (
     <>
-      <header className="top">
-        <Logo />
+      {/* 제목 띠: 오션 블루 + 흰 글씨 STUDY T@K (확정안 시작 화면) */}
+      <header className="band">
+        <h1>
+          <span className="kick">어려운 전공도 60초 그림으로</span>
+          <span className="big">
+            STUDY
+            <br />
+            T@K
+          </span>
+          <span className="tagline">: 자료만 올리면 숏폼 강의 완성</span>
+        </h1>
         <a className="toplink" href="#price">
-          요금제
+          <span>요금제</span>
         </a>
       </header>
-      <section className="hero">
-        <h1>
-          어려운 전공도 <mark>60초 그림</mark>으로 이해해요
-        </h1>
-        <p className="lead">전공책이나 자격증 교재를 올리면 한 편에 한 가지씩, 그림이 움직이며 설명해요. 보다가 직접 답하고, 끝나면 문제로 확인합니다.</p>
+      <a className="upcard" href="#make">
+        <span className="tab">Track #1 : 업로드</span>
+        <b>PDF 올리기</b>
+        <span>전공책 PDF · 강의자료 · 주제 한 줄도 돼요</span>
+      </a>
+      <div className="tags">
+        <span className="tagchip">60초 모션 쇼츠</span>
+        <span className="tagchip">보다가 직접 답해요</span>
+        <span className="label red">NEW</span>
+      </div>
+      <div className="home-cta">
+        <a className="btn primary" href="#make">
+          자료 올리기 →
+        </a>
+        <a className="btn ghost" href="#w-bino-1">
+          예시로 둘러보기
+        </a>
+      </div>
+      <Section title="이렇게 보여요" hint="전공책이나 자격증 교재를 올리면 한 편에 한 가지씩, 그림이 움직이며 설명해요.">
         <div className="heroplay">
           <a className="phone" href="#w-bino-1" aria-label="이항모형 1편 보기">
-            <HeroStage sid="bino" k={1} paused={paused} />
+            <span className="in">
+              <HeroStage sid="bino" k={1} paused={paused} />
+            </span>
             <span className="tag">
               <b />
               <span>
@@ -125,24 +150,13 @@ export default function HomeView({ paused }: { paused: boolean }) {
               </span>
             </span>
           </a>
-          <div className="heroside">
-            <ul className="facts">
-              <Fact b="60초">한 편에 딱 한 가지</Fact>
-              <Fact b="3문제">보는 중 한 번, 끝나고 두 번</Fact>
-              <Fact b="내 자료">전공 PDF도 자격증 교재도</Fact>
-            </ul>
-            <a className="btn ghost small" href="#w-bino-1">
-              1편 바로 보기
-            </a>
-          </div>
+          <ul className="facts">
+            <Fact b="60초">한 편에 딱 한 가지</Fact>
+            <Fact b="3문제">보는 중 한 번, 끝나고 두 번</Fact>
+            <Fact b="내 자료">전공 PDF도 자격증 교재도</Fact>
+          </ul>
         </div>
-        <div className="cta">
-          <a className="btn primary" href="#make">
-            내 자료로 만들기
-          </a>
-          <p className="fine">아래 시리즈는 지금 바로 볼 수 있어요.</p>
-        </div>
-      </section>
+      </Section>
       {mine.length ? (
         <Section title="내가 만든 시리즈" hint="이 기기에만 저장돼요.">
           <div className="cards">

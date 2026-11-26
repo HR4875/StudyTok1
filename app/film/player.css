@@ -1,75 +1,160 @@
-/* 모션 쇼츠 재생기와 끝 화면의 스타일 (.film .watch 아래). 색 이름은 film.css의 .film 에 있다. */
+/* 모션 쇼츠 재생기와 끝 화면의 스타일 (.film .watch 아래). 색 이름과 버튼 손맛은 film.css의 .film 에 있다.
+   위쪽은 확정안의 "C" 줄(뒤로 · 라벨 · 쪽수, 그 아래 한 줄짜리 칩), 가운데 영상, 아래 얇은 오션 블루 진행 막대. */
 
 /* player */
-.film .watch { position: fixed; inset: 0; z-index: 20; background: var(--w-bg); color: var(--w-fg); display: flex; flex-direction: column; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
-.film .wbar { display: flex; align-items: center; gap: 4px; height: 52px; padding: 0 8px; flex: none; }
-.film .wbar .ttl { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--w-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
-.film .ib { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--w-fg); flex: none; }
-.film .ib:active { background: rgba(255, 255, 255, .1); }
-.film .ib svg { width: 22px; height: 22px; }
-.film .stagewrap { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; padding: 0 8px; }
-.film .stagebox { position: relative; border-radius: 20px; overflow: hidden; background: #F4F3EF; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
-.film .cover { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 22px 20px 26px; background: linear-gradient(180deg, rgba(10, 11, 15, .16) 0%, rgba(10, 11, 15, .16) 46%, rgba(10, 11, 15, .88) 72%, rgba(10, 11, 15, .97) 100%); color: #fff; text-align: left; width: 100%; }
-.film .cover .pl { position: absolute; left: 50%; top: 40%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: #fff; color: #111; display: grid; place-items: center; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
-.film .cover .pl svg { width: 28px; height: 28px; margin-left: 4px; }
-.film .cover b { font-size: 22px; font-weight: 800; line-height: 1.3; letter-spacing: -0.02em; text-wrap: balance; }
-.film .cover span { font-size: 13.5px; line-height: 1.45; color: rgba(255, 255, 255, .78); }
-.film .flash { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: rgba(15, 16, 20, .55); color: #fff; display: grid; place-items: center; pointer-events: none; opacity: 0; }
+.film .watch { position: fixed; inset: 0; z-index: 20; background: var(--paper); color: var(--ink); padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+.film .watch:focus { outline: none; }
+/* 넓은 화면에서도 휴대폰 너비의 한 줄로 가운데에 선다 */
+.film .wcol { --barh: 104px; position: relative; height: 100%; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; }
+@media (min-width: 560px) { .film .wcol { box-shadow: -2.5px 0 0 var(--rule), 2.5px 0 0 var(--rule); } }
+.film .wbar { display: flex; align-items: center; gap: 4px; height: 52px; padding: 0 8px 0 6px; flex: none; }
+.film .wbar .ttl { flex: 1; min-width: 0; display: flex; padding: 0 4px; }
+.film .wbar .count { flex: none; padding: 0 4px; font: 700 15px/1 var(--f-body); font-variant-numeric: tabular-nums; }
+.film .ib { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; color: var(--ink); flex: none; }
+.film .ib:active { background: var(--chip); }
+.film .ib svg { width: 24px; height: 24px; }
+.film .wchips { position: relative; display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 16px; flex: none; overflow-x: auto; scrollbar-width: none; }
+.film .wchips::-webkit-scrollbar { display: none; }
+/* 칩 단추: 40px로 보이지만 누르는 영역은 44px */
+.film .pill { position: relative; flex: none; height: 40px; padding: 0 14px; border-radius: 999px; border: 2.5px solid var(--ink); background: var(--white); color: var(--ink); font: 700 14px/1 var(--f-body); font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.film .pill::after { content: ""; position: absolute; inset: -2px 0; }
+.film .pill[aria-expanded="true"] { background: var(--ink); color: var(--white); }
+.film .pill.set { margin-left: auto; }
+.film .pill svg { width: 16px; height: 16px; }
+.film .sw { position: relative; width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--ink); overflow: hidden; flex: none; }
+.film .sw i { position: absolute; left: 4px; right: 4px; bottom: 3px; height: 5px; border-radius: 999px; }
+.film .pill .sw { width: 18px; height: 18px; border-radius: 999px; border-width: 2px; }
+.film .pill .sw i { left: 2px; right: 2px; bottom: 2px; height: 4px; }
+/* 칩을 누르면 바로 아래에 펼쳐지는 고르기 칸 */
+.film .pop { position: absolute; left: 16px; top: var(--barh); z-index: 30; min-width: 208px; padding: 6px; display: grid; gap: 2px; border-radius: 16px; border: 2.5px solid var(--ink); background: var(--white); }
+.film .pop .ph { padding: 6px 10px 4px; font: 700 13px/1.3 var(--f-body); color: var(--muted); }
+.film .pop button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; font: 700 15px/1 var(--f-body); color: var(--ink); text-align: left; }
+.film .pop button[aria-pressed="true"] { background: var(--ink); color: var(--white); }
+.film .pop button[aria-pressed="true"] .sw { border-color: var(--white); }
+/* 엔진이 이 칸의 너비에서 16px을 빼 무대 크기를 정하므로, 좌우 여백은 안쪽 여백이 아닌 바깥 여백으로 둔다 (무대 양옆 16px) */
+.film .stagewrap { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; padding: 0; margin: 0 8px; }
+.film .stagebox { position: relative; border-radius: 16px; overflow: hidden; background: #F5F9FF; box-shadow: 0 0 0 2.5px var(--ink); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+/* 표지: 영상의 한 장면 위에 제목과 큰 재생 단추 */
+.film .cover { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; width: 100%; padding: 22px 20px 24px; text-align: left; color: var(--ink); background: linear-gradient(180deg, rgba(244, 243, 239, 0) 0%, rgba(244, 243, 239, 0) 44%, rgba(244, 243, 239, .94) 70%, #F4F3EF 100%); }
+.film .cover .pl { position: absolute; left: 50%; top: 40%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 999px; background: var(--ocean); color: var(--white); display: grid; place-items: center; box-shadow: 0 6px 0 var(--ocean-deep); }
+.film .cover .pl svg { width: 30px; height: 30px; margin-left: 4px; }
+.film .cover:active .pl { transform: translateY(6px) scale(1.03, .88); box-shadow: 0 0 0 var(--ocean-deep); }
+.film .cover b { font: 800 24px/1.3 var(--f-title); letter-spacing: -0.02em; text-wrap: balance; }
+.film .cover span { font-size: 14px; line-height: 1.45; font-weight: 600; color: var(--muted); }
+.film .flash { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 999px; background: rgba(35, 35, 37, .72); color: var(--white); display: grid; place-items: center; pointer-events: none; opacity: 0; }
 .film .flash.on { animation: film-flash .5s ease-out; }
 .film .flash svg { width: 30px; height: 30px; }
 @keyframes film-flash { 0% { opacity: .95; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.15); } }
-.film .wctl { flex: none; padding: 5px 14px 10px; display: grid; gap: 3px; }
+.film .wctl { flex: none; padding: 4px 16px 8px; display: grid; gap: 0; }
+/* 얇은 오션 블루 진행 막대 (장면마다 한 칸, 질문이 있는 장면은 노랑 바탕) */
 .film .segs { display: flex; gap: 3px; height: 28px; align-items: center; cursor: pointer; touch-action: none; }
-.film .seg { height: 4px; border-radius: 2px; background: var(--w-seg); overflow: hidden; min-width: 3px; }
-.film .seg i { display: block; height: 100%; width: 0; background: #fff; }
-.film .seg.ask { background: rgba(255, 212, 59, .45); }
-.film .seg.ask i { background: #FFD43B; }
+.film .seg { height: 4px; border-radius: 999px; background: var(--rule); overflow: hidden; min-width: 3px; }
+.film .seg i { display: block; height: 100%; width: 0; background: var(--ocean); }
+.film .seg.ask { background: var(--sun); }
 .film .wrow { display: flex; align-items: center; gap: 6px; }
-.film .wrow .time { flex: 1; font-size: 12.5px; color: var(--w-sub); font-variant-numeric: tabular-nums; padding-left: 6px; }
-.film .pill { position: relative; height: 40px; padding: 0 14px; border-radius: 99px; background: var(--w-card); color: var(--w-fg); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 6px; }
-.film .pop { position: absolute; right: 10px; bottom: 6px; z-index: 5; background: var(--w-card); border: 1px solid var(--w-line); border-radius: 16px; padding: 10px; display: grid; gap: 4px; min-width: 168px; box-shadow: 0 18px 40px rgba(0, 0, 0, .45); }
-.film .pop button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 10px; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--w-fg); text-align: left; }
-.film .pop button[aria-pressed="true"] { background: rgba(255, 255, 255, .1); }
-.film .sw { width: 24px; height: 24px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .25); position: relative; overflow: hidden; flex: none; }
-.film .sw i { position: absolute; left: 5px; right: 5px; bottom: 4px; height: 5px; border-radius: 3px; }
-.film .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; max-height: 92%; overflow: auto; overscroll-behavior: contain; background: var(--w-card); color: var(--w-fg); border-radius: 22px 22px 0 0; padding: 20px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px)); display: grid; gap: 14px; box-shadow: 0 -14px 40px rgba(0, 0, 0, .35); animation: film-up .32s cubic-bezier(.2, .8, .2, 1); }
-@keyframes film-up { from { transform: translateY(30%); opacity: 0; } }
-.film .sheet .lbl { font-size: 12.5px; font-weight: 800; color: #FFD43B; }
-.film .sheet .take { font-size: 18px; font-weight: 800; line-height: 1.4; letter-spacing: -0.01em; }
-.film .sheet .q { font-size: 15.5px; font-weight: 700; line-height: 1.45; }
-.film .opts { display: grid; gap: 8px; }
-.film .opt { min-height: 46px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid var(--w-line); font-weight: 700; font-size: 15px; text-align: left; color: var(--w-fg); }
-.film .opt.right { background: #178055; border-color: #178055; color: #fff; }
-.film .opt.wrong { background: #D2343B; border-color: #D2343B; color: #fff; }
-.film .opt.dim { opacity: .6; }
-.film .why { font-size: 14px; color: var(--w-sub); line-height: 1.5; }
-.film .sheet .btn.primary { background: #fff; color: #111; }
-.film .sheet .btn.ghost { background: rgba(255, 255, 255, .1); color: #fff; }
-.film .sheet .rowb { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.film .sheet .cost { font-size: 12px; color: var(--w-sub); line-height: 1.5; }
-@media (prefers-reduced-motion: reduce) { .film .sheet, .film .flash.on { animation: none; } }
-
-/* additions */
-.film .terms { display: grid; gap: 6px; }
-.film .terms div { font-size: 14px; line-height: 1.45; color: var(--w-sub); padding: 9px 12px; border-radius: 12px; background: rgba(255, 255, 255, .06); }
-.film .terms b { color: var(--w-fg); margin-right: 8px; }
-.film .qz { display: grid; gap: 18px; }
-.film .qb { display: grid; gap: 10px; }
-.film .opt[aria-disabled="true"] { cursor: default; }
 .film .wrow .ib { margin-left: -10px; }
-.film .wrow .time { padding-left: 0; }
-.film .pill .sw { width: 18px; height: 18px; border-radius: 6px; }
-.film .pill .sw i { left: 3px; right: 3px; bottom: 3px; height: 4px; }
-.film .cover { border-radius: 0; }
-.film .wbar, .film .wctl { width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; }
-.film .sheet { max-width: 600px; margin: 0 auto; }
-/* 알약 단추는 40px로 보이지만 누르는 영역은 44px */
-.film .pill::after { content: ""; position: absolute; inset: -2px 0; }
+.film .wrow .time { flex: 1; font: 600 13px/1 var(--f-body); color: var(--muted); font-variant-numeric: tabular-nums; }
+.film .wrow .hintline { font: 600 13px/1.3 var(--f-body); color: var(--muted); text-align: right; }
 /* 영상 속 질문의 보기 위에 겹쳐 두는 진짜 단추: 그림은 무대(SVG)가 그리고, 누르기와 초점은 이 단추가 받는다 */
 .film .askbtns { position: absolute; inset: 0; pointer-events: none; }
-.film .askbtn { position: absolute; pointer-events: auto; border-radius: 14px; }
-.film .askbtn:focus-visible { outline-offset: 3px; border-radius: 14px; }
-/* 끝 화면은 올라올 때 초점을 받지만 테두리는 그리지 않는다 (화면의 큰 부분이라 테두리가 뜻이 없다) */
+.film .askbtn { position: absolute; pointer-events: auto; border-radius: 16px; }
+.film .askbtn:focus-visible { outline-offset: 3px; border-radius: 16px; }
+
+/* ---------- 보기 설정 바텀 시트 (속도·디자인·소리) ---------- */
+.film .setwrap { position: absolute; inset: 0; z-index: 40; }
+.film .scrim { position: absolute; inset: 0; width: 100%; background: rgba(35, 35, 37, .4); animation: film-fade .2s ease-out; }
+.film .setsheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 86%; overflow: auto; overscroll-behavior: contain; padding: 12px var(--gut) calc(20px + env(safe-area-inset-bottom, 0px)); border-radius: 22px 22px 0 0; background: var(--white); animation: film-up .38s cubic-bezier(.2, .9, .3, 1.1) both; }
+.film .setsheet:focus { outline: none; }
+.film .grip { width: 48px; height: 6px; margin: 0 auto 12px; border-radius: 999px; background: var(--rule); }
+.film .setsheet h2 { font-size: 21px; line-height: 1.3; }
+.film .sgroup { margin-top: 20px; }
+.film .sgroup .glabel { margin-bottom: 10px; }
+.film .sgroup .chips { gap: 10px 8px; }
+.film .setsheet .btn { margin-top: 24px; }
+@keyframes film-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes film-fade { from { opacity: 0; } }
+
+/* ---------- 끝 화면: 개념 카드 → 퀴즈 두 개 → 완주 ---------- */
+/* 위쪽 줄(뒤로·라벨·칩)은 끝 화면 위에도 남는다. 무대의 잉크 테두리가 비치지 않게 몇 px 더 위에서 시작한다 */
+.film .sheet { position: absolute; left: 0; right: 0; top: calc(var(--barh) - 6px); bottom: 0; z-index: 8; overflow: auto; overscroll-behavior: contain; padding: 14px var(--gut) calc(32px + env(safe-area-inset-bottom, 0px)); background: var(--paper); color: var(--ink); animation: film-fade .3s ease-out; }
 .film .sheet:focus { outline: none; }
-/* 문제의 풀이 자리는 답하기 전에도 있다 (답하면 화면 낭독기가 읽게). 비어 있는 동안은 칸 사이 틈을 없앤다 */
-.film .qb .why:empty { margin-top: -10px; }
+.film .sheet.xopen { padding-bottom: 340px; scroll-padding-bottom: 320px; }
+/* 개념 카드 */
+.film .cpic { position: relative; width: 100%; aspect-ratio: 1 / 1; margin-top: 12px; border-radius: 22px; border: 5px solid var(--blue); overflow: hidden; transform: rotate(-1.5deg); background-color: var(--white); background-image: radial-gradient(rgba(35, 35, 37, .16) 1.1px, transparent 1.4px); background-size: 11px 11px; }
+.film .cpic .in { position: absolute; inset: -4%; transform: rotate(1.5deg); }
+.film .cname { margin-top: 28px; font-size: 44px; line-height: 1.08; }
+.film .cname.m { font-size: 38px; }
+.film .cname.s { font-size: 32px; }
+.film .csum { margin-top: 16px; font: 700 18px/1.55 var(--f-body); }
+.film .csum.long { font-size: 17px; }
+.film .terms { margin-top: 16px; padding: 4px 16px; border-radius: 16px; border: 2.5px solid var(--ink); background: var(--white); }
+.film .terms div { padding: 12px 0; font-size: 14px; line-height: 1.5; font-weight: 600; color: var(--muted); }
+.film .terms div + div { border-top: 2.5px solid var(--rule); }
+.film .terms b { display: block; font: 800 16px/1.3 var(--f-title); letter-spacing: -0.02em; color: var(--ink); margin-bottom: 2px; }
+/* 퀴즈 */
+.film .qz { display: grid; gap: 40px; margin-top: 40px; }
+.film .qb { display: block; scroll-margin-top: 12px; }
+.film .qhead { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.film .combo { margin-left: auto; display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 8px; background: var(--red); color: var(--white); font: 800 18px/1 var(--f-title); letter-spacing: -0.01em; transform: rotate(-3deg); animation: film-popin .45s cubic-bezier(.2, .9, .3, 1.2) both; }
+.film .qb .q { margin-top: 16px; font: 800 28px/1.3 var(--f-title); letter-spacing: -0.02em; }
+.film .qb .q.long { font-size: 24px; }
+.film .opts { display: grid; gap: 12px; margin-top: 20px; }
+.film .opt { --plate: var(--ink); display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 12px 14px; margin-bottom: 5px; border-radius: 16px; border: 2.5px solid var(--ink); background: var(--white); color: var(--ink); font: 700 17px/1.4 var(--f-body); text-align: left; box-shadow: 0 5px 0 var(--plate); transition: transform .06s, box-shadow .06s, background-color .15s, border-color .15s, color .15s; }
+.film .opt .n { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--chip); color: var(--ink); font: 800 15px/1 var(--f-title); flex: none; }
+.film .opt .t { min-width: 0; }
+.film .opt .tick { display: inline-block; margin-left: 6px; animation: film-tick .35s cubic-bezier(.3, 1.6, .5, 1); }
+.film .opt:active:not([aria-disabled="true"]) { transform: translateY(5px); box-shadow: 0 0 0 var(--plate); }
+.film .opt[aria-disabled="true"] { cursor: default; }
+.film .opt.right { --plate: var(--blue); background: var(--pale); border-color: var(--blue); color: var(--ocean); }
+.film .opt.right .n { background: var(--white); color: var(--ocean); }
+.film .opt.right.picked { animation: film-spring .5s cubic-bezier(.3, 1.6, .5, 1); }
+.film .opt.wrong { --plate: var(--red); border-color: var(--red); color: var(--red); animation: film-shake .45s ease-in-out; }
+.film .opt.wrong .n { background: var(--red); color: var(--white); }
+.film .opt.wrong .t { text-decoration: line-through; }
+.film .opt.dim { opacity: .5; box-shadow: none; }
+@keyframes film-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
+@keyframes film-tick { from { transform: scale(0); } }
+/* 풀이: 시트가 내려가 있을 때 선택지 아래에 남는 칸 (시트가 떠 있는 동안은 화면 낭독기만 읽는다) */
+.film .why:not(:empty) { margin-top: 16px; padding: 14px 16px; border-radius: 16px; border: 2.5px solid var(--ink); background: var(--white); font-size: 15px; line-height: 1.6; font-weight: 600; }
+.film .why b { font: 800 17px/1 var(--f-title); margin-right: 6px; }
+.film .why b.ok { color: var(--blue); }
+.film .why b.no { color: var(--red); }
+/* 해설 바텀 시트: 정답 = 연한 파랑, 오답 = 연한 빨강. 아래에서 0.38초 동안 올라온다 */
+.film .xsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 12; max-width: 480px; margin: 0 auto; max-height: 72%; overflow: auto; padding: 20px var(--gut) calc(24px + env(safe-area-inset-bottom, 0px)); border-radius: 22px 22px 0 0; background: var(--blue-soft); display: grid; gap: 8px; animation: film-up .38s cubic-bezier(.2, .9, .3, 1.1) both; }
+.film .xsheet.no { background: var(--red-soft); }
+.film .xsheet .xt { display: flex; align-items: center; gap: 10px; font: 800 24px/1.2 var(--f-title); letter-spacing: -0.02em; color: var(--ocean); }
+.film .xsheet.no .xt { color: var(--red); }
+.film .xsheet .xi { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--blue); color: var(--white); flex: none; animation: film-tick .35s cubic-bezier(.3, 1.6, .5, 1); }
+.film .xsheet.no .xi { background: var(--red); }
+.film .xsheet .xi svg { width: 16px; height: 16px; }
+.film .xsheet .xa { font: 700 15px/1.5 var(--f-body); }
+.film .xsheet .xw { font: 500 15px/1.6 var(--f-body); }
+.film .xsheet .xs { font: 600 13px/1.4 var(--f-body); color: var(--muted); }
+.film .xsheet .btn { margin-top: 8px; }
+/* 완주 */
+.film .fin { margin-top: 48px; scroll-margin-top: 12px; }
+.film .fin h2 { margin-top: 12px; font-size: 44px; line-height: 1.15; }
+.film .fin .sub { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.film .stats { margin-top: 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.film .stats div { padding: 12px 4px; border-radius: 16px; border: 2.5px solid var(--ink); background: var(--white); text-align: center; }
+.film .stats div.hi { background: var(--sun); }
+.film .stats b { display: block; font: 800 28px/1.2 var(--f-title); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.film .stats span { display: block; font: 700 13px/1.3 var(--f-body); }
+.film .wnote { margin-top: 16px; border-radius: 16px; border: 2.5px solid var(--ink); background: var(--white); overflow: hidden; }
+.film .wnote .wh { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--red-soft); color: var(--red); font: 700 14px/1.3 var(--f-body); }
+.film .wnote .wh span { margin-left: auto; font-size: 13px; }
+.film .wnote .wr { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 2.5px solid var(--rule); font: 700 15px/1.4 var(--f-body); }
+.film .wnote .wr span:first-child { min-width: 0; flex: 1; }
+.film .wnote .wr span:last-child { flex: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+.film .fin .cta { margin-top: 32px; gap: 14px; }
+.film .fin .cost { margin-top: 20px; font-size: 12px; line-height: 1.5; font-weight: 600; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  .film .sheet, .film .flash.on, .film .setsheet, .film .scrim, .film .xsheet, .film .xsheet .xi, .film .combo, .film .opt, .film .opt.right.picked, .film .opt.wrong, .film .opt .tick { animation: none !important; transition: none !important; }
+}
+@media (max-width: 359px) {
+  .film .wrow .hintline { display: none; }
+  .film .cname { font-size: 36px; }
+  .film .cname.m, .film .cname.s { font-size: 32px; }
+  .film .qb .q { font-size: 24px; }
+  .film .stats b { font-size: 24px; }
+}

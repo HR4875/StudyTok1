@@ -1,9 +1,10 @@
 "use client";
 // 재생기: 한 편을 9:16 무대에 틀고, 영상 속 질문에서 멈춰 답을 받고, 끝나면 끝 화면을 올린다.
+// 모양은 확정안의 위쪽 줄 "C"(뒤로 · 라벨 · 쪽수 · 칩 한 줄 · 설정 시트)와 아래 얇은 진행 막대.
 // 편마다 새로 마운트된다 (FilmApp이 sid-k를 key로 준다).
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { H, SKINS, SKIN_LIST, W } from "@/lib/film";
-import { SPEEDS, getPrefs, getSeries, loadShort, titleOf, useFilmStore, type LoadedShort } from "@/lib/film/store";
+import { SPEEDS, getPrefs, getSeries, loadShort, titleOf, totalOf, useFilmStore, type LoadedShort } from "@/lib/film/store";
 import EndSheet from "./EndSheet";
 import { secs } from "./format";
 import { Icon } from "./icons";
@@ -57,6 +58,9 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
   const skinRef = useRef<HTMLButtonElement>(null);
   const speedRef = useRef<HTMLButtonElement>(null);
   const askRef = useRef<HTMLDivElement>(null);
+  const setRef = useRef<HTMLButtonElement>(null);
+  // 보기 설정 시트가 열려 있는지 (재생 엔진 밖에서 이 화면이 다룬다)
+  const [sets, setSets] = useState(false);
   const script = sh.script;
 
   useEffect(() => {
@@ -140,6 +144,18 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
     (was === "skin" ? skinRef : speedRef).current?.focus({ preventScroll: true });
   }, [view.menu]);
 
+  // 보기 설정이 닫히면 그것을 연 단추로 초점을 돌려준다
+  const setsWas = useRef(false);
+  useLayoutEffect(() => {
+    if (sets) {
+      setsWas.current = true;
+      return;
+    }
+    if (!setsWas.current) return;
+    setsWas.current = false;
+    setRef.current?.focus({ preventScroll: true });
+  }, [sets]);
+
   // 진행 막대의 칸은 React가 그리고, 채우는 것은 엔진이 한다
   useLayoutEffect(() => {
     api.current?.refreshFills();
@@ -148,6 +164,8 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
   const info = view.info;
   const ser = getSeries(sid);
   const ttl = (ser?.kind === "ex" ? "맛보기" : k + "편") + " · " + titleOf(sid, k);
+  const label = (ser?.kind === "ex" ? "맛보기 · " : "") + titleOf(sid, k);
+  const total = ser ? totalOf(ser) : 0;
   const asks = script.beats.filter((b) => b.ask).length;
   const meta = secs(sh.dur) + (asks ? " · 보다가 질문에 직접 답해요" : "") + " · 화면 양옆을 누르면 장면을 넘겨요";
   const askBeats = useMemo(() => new Set(info ? info.asks.map((a) => a.beat) : []), [info]);
@@ -155,70 +173,55 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
   // 그림은 화면 낭독기에 보이지 않으니, 지금 장면의 문장을 글로도 알린다
   const caption = info && view.started && !view.ended && view.beat >= 0 ? (info.beats[view.beat]?.say ?? "") : "";
   const ask = view.ask;
+  // 고르기 칸은 그것을 연 칩 바로 아래에 편다
+  const popLeft = (view.menu === "skin" ? skinRef : speedRef).current?.offsetLeft ?? 16;
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const popX = Math.max(8, popLeft - (chipsRef.current?.scrollLeft ?? 0));
+
+  const openSets = () => {
+    if (view.menu) api.current?.toggleMenu(view.menu);
+    setSets(true);
+  };
 
   return (
     <div className="watch" ref={rootRef} role="dialog" aria-modal="true" aria-label={ttl} tabIndex={-1}>
-      <div className="wbar">
-        <a className="ib" href={closeHref(sid)} aria-label="닫기">
-          <Icon name="back" />
-        </a>
-        <div className="ttl">{ttl}</div>
-        <button type="button" className="ib" aria-label={prefs.sound ? "소리 끄기" : "소리 켜기"} onClick={() => api.current?.toggleSound()}>
-          <Icon name={prefs.sound ? "sound" : "mute"} />
-        </button>
-      </div>
-      <p className="sr" aria-live="polite">
-        {caption}
-      </p>
-      <div className="stagewrap" ref={wrapRef} inert={view.ended}>
-        <div className="stagebox" ref={boxRef} onClick={(e) => api.current?.onStage(e.clientX, e.clientY)}>
-          <svg className="st" aria-hidden="true" ref={svgRef} />
-          {!view.started && (
-            <button
-              type="button"
-              className="cover"
-              aria-label="재생"
-              ref={coverRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                api.current?.play();
-              }}
-            >
-              <span className="pl">
-                <Icon name="play" />
-              </span>
-              <b>{script.title || titleOf(sid, k)}</b>
-              <span>{meta}</span>
-            </button>
-          )}
-          <div key={view.flash ? view.flash.n : 0} className={view.flash ? "flash on" : "flash"}>
-            {view.flash && <Icon name={view.flash.name} />}
+      <div className="wcol">
+        {/* 위쪽 줄 (확정안 C): 뒤로 · 라벨 · 몇 편째 · 소리 */}
+        <div className="wbar" inert={sets}>
+          <a className="ib" href={closeHref(sid)} aria-label="닫기">
+            <Icon name="back" />
+          </a>
+          <div className="ttl">
+            <span className="label">
+              <span>{label}</span>
+            </span>
           </div>
-          {ask && (
-            <div className="askbtns" ref={askRef} role="group" aria-label="답을 골라 주세요">
-              {ask.choices.map((c, i) => {
-                const r = ask.rects[i];
-                if (!r) return null;
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    className="askbtn"
-                    style={{ left: pct(r.x / W), top: pct(r.y / H), width: pct(r.w / W), height: pct(r.h / H) }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      api.current?.answer(ask.n, i);
-                    }}
-                  >
-                    <span className="sr">{`${i + 1}번: ${c}`}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {total ? <span className="count" aria-label={`${total}편 중 ${k}편`}>{`${k} / ${total}`}</span> : null}
+          <button type="button" className="ib" aria-label={prefs.sound ? "소리 끄기" : "소리 켜기"} onClick={() => api.current?.toggleSound()}>
+            <Icon name={prefs.sound ? "sound" : "mute"} />
+          </button>
+        </div>
+        {/* 그 아래 한 줄짜리 칩: 디자인, 속도, 보기 설정 */}
+        <div className="wchips" ref={chipsRef} inert={sets}>
+          <button type="button" className="pill" ref={skinRef} aria-haspopup="true" aria-expanded={view.menu === "skin"} aria-label={`디자인 바꾸기, 지금 ${sk.name}`} onClick={() => api.current?.toggleMenu("skin")}>
+            <span className="sw" style={{ background: sk.bg }}>
+              <i style={{ background: sk.primary }} />
+            </span>
+            {sk.name}
+          </button>
+          <button type="button" className="pill" ref={speedRef} aria-haspopup="true" aria-expanded={view.menu === "speed"} aria-label={`속도 바꾸기, 지금 ${prefs.speed}배`} onClick={() => api.current?.toggleMenu("speed")}>
+            {prefs.speed + "×"}
+          </button>
+          <button type="button" className="pill set" ref={setRef} aria-haspopup="dialog" aria-expanded={sets} aria-label="보기 설정" onClick={openSets}>
+            <Icon name="gear" />
+            설정
+          </button>
         </div>
         {view.menu === "skin" && (
-          <div className="pop" ref={popRef} role="group" aria-label="디자인 고르기" onKeyDown={popKey}>
+          <div className="pop" ref={popRef} role="group" aria-label="디자인 고르기" onKeyDown={popKey} style={{ left: popX }}>
+            <p className="ph" aria-hidden="true">
+              영상 디자인
+            </p>
             {SKIN_LIST.map((s) => (
               <button key={s.id} type="button" aria-pressed={prefs.skin === s.id} onClick={() => api.current?.pick({ skin: s.id })}>
                 <span className="sw" style={{ background: SKINS[s.id].bg }}>
@@ -230,7 +233,10 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
           </div>
         )}
         {view.menu === "speed" && (
-          <div className="pop" ref={popRef} role="group" aria-label="속도 고르기" onKeyDown={popKey}>
+          <div className="pop" ref={popRef} role="group" aria-label="속도 고르기" onKeyDown={popKey} style={{ left: popX }}>
+            <p className="ph" aria-hidden="true">
+              재생 속도
+            </p>
             {SPEEDS.map((v) => (
               <button key={v} type="button" aria-pressed={prefs.speed === v} onClick={() => api.current?.pick({ speed: v })}>
                 {v + "×" + (v === 1.1 ? "  기본" : "")}
@@ -238,41 +244,170 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
             ))}
           </div>
         )}
-      </div>
-      <div className="wctl" inert={view.ended}>
-        <div
-          className="segs"
-          ref={segsRef}
-          role="slider"
-          aria-label="재생 위치"
-          tabIndex={0}
-          aria-valuemin={0}
-          aria-valuemax={info ? Math.round(info.dur) : 0}
-          onPointerDown={(e) => api.current?.scrubStart(e.nativeEvent)}
-        >
-          {info?.beats.map((b, i) => (
-            <div key={i} className={askBeats.has(i) ? "seg ask" : "seg"} style={{ flex: `${Math.max(0.4, b.dur).toFixed(2)} 1 0` }}>
-              <i />
+        <p className="sr" aria-live="polite">
+          {caption}
+        </p>
+        <div className="stagewrap" ref={wrapRef} inert={view.ended || sets}>
+          <div className="stagebox" ref={boxRef} onClick={(e) => api.current?.onStage(e.clientX, e.clientY)}>
+            <svg className="st" aria-hidden="true" ref={svgRef} />
+            {!view.started && (
+              <button
+                type="button"
+                className="cover"
+                aria-label="재생"
+                ref={coverRef}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  api.current?.play();
+                }}
+              >
+                <span className="pl">
+                  <Icon name="play" />
+                </span>
+                <b>{script.title || titleOf(sid, k)}</b>
+                <span>{meta}</span>
+              </button>
+            )}
+            <div key={view.flash ? view.flash.n : 0} className={view.flash ? "flash on" : "flash"}>
+              {view.flash && <Icon name={view.flash.name} />}
             </div>
-          ))}
+            {ask && (
+              <div className="askbtns" ref={askRef} role="group" aria-label="답을 골라 주세요">
+                {ask.choices.map((c, i) => {
+                  const r = ask.rects[i];
+                  if (!r) return null;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      className="askbtn"
+                      style={{ left: pct(r.x / W), top: pct(r.y / H), width: pct(r.w / W), height: pct(r.h / H) }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        api.current?.answer(ask.n, i);
+                      }}
+                    >
+                      <span className="sr">{`${i + 1}번: ${c}`}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="wrow">
-          <button type="button" className="ib" ref={ppRef} aria-label="재생 또는 멈춤" onClick={() => api.current?.playPause()}>
-            <Icon name={view.playing ? "pause" : "play"} />
-          </button>
-          <span className="time" ref={timeRef} />
-          <button type="button" className="pill" ref={skinRef} aria-haspopup="true" aria-expanded={view.menu === "skin"} aria-label={`디자인 바꾸기, 지금 ${sk.name}`} onClick={() => api.current?.toggleMenu("skin")}>
-            <span className="sw" style={{ background: sk.bg }}>
-              <i style={{ background: sk.primary }} />
+        {/* 영상 아래: 얇은 오션 블루 진행 막대와 재생 단추 */}
+        <div className="wctl" inert={view.ended || sets}>
+          <div
+            className="segs"
+            ref={segsRef}
+            role="slider"
+            aria-label="재생 위치"
+            tabIndex={0}
+            aria-valuemin={0}
+            aria-valuemax={info ? Math.round(info.dur) : 0}
+            onPointerDown={(e) => api.current?.scrubStart(e.nativeEvent)}
+          >
+            {info?.beats.map((b, i) => (
+              <div key={i} className={askBeats.has(i) ? "seg ask" : "seg"} style={{ flex: `${Math.max(0.4, b.dur).toFixed(2)} 1 0` }}>
+                <i />
+              </div>
+            ))}
+          </div>
+          <div className="wrow">
+            <button type="button" className="ib" ref={ppRef} aria-label="재생 또는 멈춤" onClick={() => api.current?.playPause()}>
+              <Icon name={view.playing ? "pause" : "play"} />
+            </button>
+            <span className="time" ref={timeRef} />
+            <span className="hintline" aria-hidden="true">
+              양옆을 누르면 장면 넘기기
             </span>
-            {sk.name}
-          </button>
-          <button type="button" className="pill" ref={speedRef} aria-haspopup="true" aria-expanded={view.menu === "speed"} aria-label={`속도 바꾸기, 지금 ${prefs.speed}배`} onClick={() => api.current?.toggleMenu("speed")}>
-            {prefs.speed + "×"}
-          </button>
+          </div>
         </div>
+        {sets && <Settings api={api} onClose={() => setSets(false)} />}
+        {view.ended && <EndSheet sid={sid} k={k} script={script} entry={sh.entry} onReplay={() => api.current?.replay()} />}
       </div>
-      {view.ended && <EndSheet sid={sid} k={k} script={script} entry={sh.entry} onReplay={() => api.current?.replay()} />}
+    </div>
+  );
+}
+
+/** 보기 설정 바텀 시트: 속도, 영상 디자인, 소리를 칩으로 고른다 (확정안의 설정 시트) */
+function Settings({ api, onClose }: { api: RefObject<PlayerApi | null>; onClose: () => void }) {
+  useFilmStore();
+  const prefs = getPrefs();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // 열리면 지금 고른 속도로 초점을 옮긴다
+  useLayoutEffect(() => {
+    const el = sheetRef.current;
+    (el?.querySelector<HTMLElement>('.chipbtn[aria-pressed="true"]') ?? el)?.focus({ preventScroll: true });
+  }, []);
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    // 재생기 전체의 글쇠(Escape로 닫기, 화살표로 장면 넘기기, 숫자로 답하기)가 이 시트 안에서는 움직이지 않게 막는다
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (/^Arrow/.test(e.key)) {
+      e.preventDefault();
+      const group = (document.activeElement as HTMLElement | null)?.closest(".chips");
+      if (!group) return;
+      const items = Array.from(group.querySelectorAll<HTMLElement>(".chipbtn"));
+      const i = items.indexOf(document.activeElement as HTMLElement);
+      const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;
+      if (i >= 0) items[(i + d + items.length) % items.length].focus();
+      return;
+    }
+    if (/^[1-4k]$/.test(e.key)) e.preventDefault();
+  };
+  return (
+    <div className="setwrap" onKeyDown={onKey}>
+      <div className="scrim" aria-hidden="true" onClick={onClose} />
+      <div className="setsheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label="보기 설정" tabIndex={-1}>
+        <div className="grip" aria-hidden="true" />
+        <h2>보기 설정</h2>
+        <div className="sgroup">
+          <p className="glabel" id="set-speed">
+            재생 속도
+          </p>
+          <div className="chips" role="group" aria-labelledby="set-speed">
+            {SPEEDS.map((v) => (
+              <button key={v} type="button" className="chipbtn" aria-pressed={prefs.speed === v} onClick={() => api.current?.pick({ speed: v })}>
+                {v + "×" + (v === 1.1 ? " 기본" : "")}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sgroup">
+          <p className="glabel" id="set-skin">
+            영상 디자인
+          </p>
+          <div className="chips" role="group" aria-labelledby="set-skin">
+            {SKIN_LIST.map((s) => (
+              <button key={s.id} type="button" className="chipbtn" aria-pressed={prefs.skin === s.id} onClick={() => api.current?.pick({ skin: s.id })}>
+                <span className="sw" style={{ background: SKINS[s.id].bg }}>
+                  <i style={{ background: SKINS[s.id].primary }} />
+                </span>
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sgroup">
+          <p className="glabel" id="set-sound">
+            소리
+          </p>
+          <div className="chips" role="group" aria-labelledby="set-sound">
+            {[true, false].map((on) => (
+              <button key={String(on)} type="button" className="chipbtn" aria-pressed={prefs.sound === on} onClick={() => prefs.sound !== on && api.current?.toggleSound()}>
+                {on ? "소리 켬" : "소리 끔"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button type="button" className="btn ghost" onClick={onClose}>
+          완료
+        </button>
+      </div>
     </div>
   );
 }
