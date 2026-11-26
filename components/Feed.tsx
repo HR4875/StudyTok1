@@ -97,6 +97,8 @@ function buildItems(deck: Deck, s: Settings, extras: { afterKey: string; cardId:
 
 const QUIZ_OPTIONS = [0, 1, 2, 3, 5];
 const SPEEDS = [0.75, 1, 1.25, 1.5];
+/** 모션으로 보여 줄 그림 틀: 단계·순환·원인→결과·시간·주고받기·그래프 (11/26 기획 피드백, 디자인 확정 B안) */
+const MOTION_TEMPLATES = new Set<string>(["flow", "cycle", "chain", "timeline", "exchange", "chart"]);
 
 export default function Feed({ deck, generating, settings, onSettings, onBack, onDeckChange, onRetryCard }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -285,7 +287,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     const quiz = quizOf(item.card)!;
     setAnswers((a) => ({ ...a, [item.key]: i }));
     const ok = i === quiz.answer;
-    playSfx(ok ? "correct" : "wrong");
+    playSfx(ok ? "correct" : "wrong", ok ? streak + 1 : 1);
     setStreak((s) => {
       const n = ok ? s + 1 : 0;
       setBestStreak((b) => Math.max(b, n));
@@ -335,8 +337,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
     const onProgress = (p: number) => {
       if (progressBar.current && live) progressBar.current.style.width = `${Math.round(p * 1000) / 10}%`;
     };
+    // 모션은 과정·순서·변화를 보여 주는 6가지 그림 틀에만 (11/26 확정 B안). 나머지는 모션 보기에서도 텍스트 카드
+    const asText = !!card.short && (view === "text" || !MOTION_TEMPLATES.has(card.short.visual.type));
     const onEnded = () => {
-      if (settings.autoNext && live) setTimeout(() => scrollTo(i + 1), 350);
+      if (!settings.autoNext || !live) return;
+      // 모션이 끝난 뒤 화면 글자 수만큼 더 읽을 시간 (11/26 확정 B안): 1자당 0.06초, 1.5~4초
+      const chars = card.short ? Array.from(card.short.term + card.short.definition).length : 0;
+      const wait = asText ? 350 : Math.round(Math.max(1.5, Math.min(4, chars * 0.06)) * 1000 / Math.max(0.5, settings.speed));
+      setTimeout(() => scrollTo(i + 1), wait);
     };
     if (card.spec && !broken[card.id]) {
       return (
@@ -353,7 +361,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
         />
       );
     }
-    if (card.short && view === "text") {
+    if (card.short && asText) {
       return <TextShortCard short={card.short} mode={mode} sound={live && settings.sound} speed={settings.speed} onProgress={onProgress} onEnded={onEnded} />;
     }
     // 스타일A 영상을 그리지 못한 카드는 AI 없이 만드는 기본 카드로 대신 보여 준다
@@ -378,7 +386,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   /** 모션 카드(색 바탕) 위에서만 흰 글씨 상단 바, 나머지(종이 바탕)는 잉크 글씨 */
   // 모션 영상은 아주 연한 하늘 바탕(2026-11-23)이라 잉크 글씨 상단 바를 쓴다. 짙은 바탕은 예전 장면(short 없음)만
   const dark = current?.kind === "card" && !current.card.short && (!current.card.spec || !!broken[current.card.id]);
-  const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short;
+  const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short && MOTION_TEMPLATES.has(current.card.short.visual.type);
   // 각진 작은 조작 버튼 (11/24): 높이 30px, 모서리 8px, 아래 단색 판 2px
   const ctl = `flex h-[30px] shrink-0 items-center gap-1 rounded-[8px] border-2 px-2.5 text-[12.5px] font-bold transition-transform active:translate-y-[2px] active:shadow-none ${
     dark ? "border-white bg-white/15 text-white shadow-[0_2px_0_#fff]" : "border-[var(--ink)] bg-white text-[var(--ink)] shadow-[0_2px_0_var(--ink)]"
@@ -581,7 +589,27 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               시험문제 {problems.length} →
             </button>
           ) : null}
-          <button type="button" className={`${ctl} ml-auto`} onClick={() => setSettingsOpen(true)} aria-label="보기 설정">
+          {/* 소리 켜기: 기본이 무음이라 설정 옆에 아이콘으로 바로 (11/26 확정 1안) */}
+          <button
+            type="button"
+            className={`${ctl} ml-auto w-[30px] justify-center px-0 ${settings.sound ? (dark ? "!bg-white !text-[var(--ink)]" : "!bg-[var(--ink)] !text-white") : ""}`}
+            onClick={() => {
+              unlockAudio();
+              set({ sound: !settings.sound, soundSet: true }, settings.sound ? "효과음 끔" : "효과음 켬");
+            }}
+            aria-pressed={settings.sound}
+            aria-label={settings.sound ? "효과음 끄기" : "효과음 켜기"}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0">
+              <path d="M2 6h3l4-3v10L5 10H2z" fill="currentColor" />
+              {settings.sound ? (
+                <path d="M11.5 5.5c1.2 1.4 1.2 3.6 0 5M13.5 3.8c2.2 2.4 2.2 6 0 8.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              ) : (
+                <path d="M11 5.5l4 5M15 5.5l-4 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              )}
+            </svg>
+          </button>
+          <button type="button" className={ctl} onClick={() => setSettingsOpen(true)} aria-label="보기 설정">
             <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="8" cy="8" r="2.4" fill="none" stroke="currentColor" strokeWidth="2" />
               <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -755,7 +783,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   onClick={() => {
                     if (key === "sound") unlockAudio();
                     if (key === "voice" && !settings.voice) primeVoice();
-                    set({ [key]: !settings[key] } as Partial<Settings>);
+                    set({ [key]: !settings[key], ...(key === "sound" ? { soundSet: true } : {}) } as Partial<Settings>);
                   }}
                   className={`relative h-[26px] w-[44px] rounded-full transition-colors ${settings[key] ? "bg-[var(--ocean)]" : "bg-[var(--line)]"}`}
                 >

@@ -9,6 +9,8 @@ export interface Settings {
   quizEvery: number; // 0 = off
   speed: number; // playback rate
   sound: boolean;
+  /** 사용자가 직접 소리를 켜거나 끈 적이 있는지. 없으면 기본값(꺼짐)을 따른다 (11/26) */
+  soundSet?: boolean;
   autoNext: boolean; // false = loop each card
   captions: boolean;
   shuffle: boolean;
@@ -21,7 +23,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   quizEvery: 3,
   speed: 1,
-  sound: true,
+  sound: false, // 기본 무음 + 자막 켜짐 (11/26 기획 피드백 확정): 지하철·도서관에서 갑자기 소리 나지 않게
   autoNext: false,
   captions: true,
   shuffle: false,
@@ -72,6 +74,8 @@ export function deleteDeck(id: string) {
 export function loadSettings(): Settings {
   const s = { ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(SETTINGS_KEY, {}) };
   if (s.mode !== "text" && s.mode !== "motion") s.mode = DEFAULT_SETTINGS.mode;
+  // 예전 기본값(켜짐)이 저장돼 있던 사람도, 직접 고른 적이 없으면 무음으로 시작
+  if (!s.soundSet) s.sound = false;
   return s;
 }
 
