@@ -2,6 +2,7 @@
 // 홈: 움직이는 미리보기, 시리즈 목록, 맛보기, 지금 되는 것
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createDirector, type Director, type FilmInfo } from "@/lib/film";
+import { HOST } from "@/lib/film/host";
 import { listSeries, loadShort, madeKs, sampleList, seenOf, totalOf, useFilmStore, type Series } from "@/lib/film/store";
 import { Logo, Section } from "./parts";
 import Still, { STILL_OPTS, posterTime } from "./Still";
@@ -119,7 +120,9 @@ export default function HomeView({ paused }: { paused: boolean }) {
             <HeroStage sid="bino" k={1} paused={paused} />
             <span className="tag">
               <b />
-              AI가 쓴 그대로 재생 중
+              <span>
+                AI가 쓴 그대로<span className="long"> 재생 중</span>
+              </span>
             </span>
           </a>
           <div className="heroside">
@@ -177,7 +180,7 @@ export default function HomeView({ paused }: { paused: boolean }) {
           </li>
           <li>
             <b>만들 때 쓰는 것</b>
-            Sonnet 5.5가 계획을 한 번 세우고(1분쯤), 한 편마다 대본을 써요(15초 안팎). 쓴 대본은 자동 점검을 거치고, 걸린 곳이 있으면 한 번만 고칩니다.
+            {HOST.howMade}
           </li>
           <li>
             <b>아직 없는 것</b>

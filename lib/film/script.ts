@@ -3,6 +3,7 @@
 // parseScript() turns it into the Script the engine plays, toText() writes a Script back, applyPatch() merges a repair.
 import type { Script, Beat, Action, Plan, Issue, Props, Quiz } from "./core";
 import { COLS, ROWS, hangOf, dotsDims } from "./core";
+import { dict } from "./ease";
 import { ICONS } from "./icons";
 
 export interface Ctx { grid?: Record<string, [number, number]>; units?: Record<string, { pre?: string; suf?: string }> }
@@ -15,7 +16,7 @@ const BAR_TOP = 300;
 const barUnit = (values: number[]) => { const top = Math.max(0, ...values.map((v) => Math.abs(v) || 0)); return top > 0 ? BAR_TOP / top : 1; };
 /** The largest value each bar ever takes (the line that adds it and every "set" after). */
 export function barValues(text: string): Record<string, number> {
-  const out: Record<string, number> = {};
+  const out: Record<string, number> = dict();
   for (const raw of String(text || "").split("\n")) {
     const m = /^\s*(bar|set)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
     if (!m || (m[1] === "set" && out[m[2]] == null)) continue;
@@ -26,7 +27,7 @@ export function barValues(text: string): Record<string, number> {
 }
 /** Read every line once to learn which ids are tall, before any seat is given out. */
 export function reachOf(text: string): Reach {
-  const out: Reach = {}, bars: Record<string, { v: number; scale: number }> = {};
+  const out: Reach = dict(), bars: Record<string, { v: number; scale: number }> = dict();
   for (const raw of String(text || "").split("\n")) {
     const m = /^\s*(scale|dots|plot|table|bar|set)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
     if (!m) continue;
@@ -58,7 +59,7 @@ export function reachOf(text: string): Reach {
 const PLACED_T = ["node", "box", "icon", "num", "bar", "text", "table", "plot", "scale", "dots"];
 /** Read every line once to learn in which scenes each placed thing is on screen (first scene, last scene), before any seat is given out. */
 export function lifeOf(text: string): Record<string, { a: number; b: number; ord: number }> {
-  const out: Record<string, { a: number; b: number; ord: number }> = {};
+  const out: Record<string, { a: number; b: number; ord: number }> = dict();
   let n = 0, ord = 0;
   for (const raw of String(text || "").split("\n")) {
     const line = raw.trim();
@@ -77,8 +78,8 @@ export function lifeOf(text: string): Record<string, { a: number; b: number; ord
   return out;
 }
 /** "GRID s / u d / fu fd / k": the seats of the picture, row by row from the top. One thing in a row sits in the middle, two sit left and right, three across; "-" leaves a seat empty. A row with a tall thing takes the room it needs and the rows under it move down. */
-export function gridSeats(line: string, reach: Reach = {}): Record<string, [number, number]> {
-  const out: Record<string, [number, number]> = {};
+export function gridSeats(line: string, reach: Reach = dict()): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = dict();
   let y = 0, prevDown = 0, r = 0;
   for (const row of String(line || "").split("/")) {
     const ids = row.trim().split(/[\s,]+/).filter(Boolean), cols = ids.length === 1 ? ["M"] : ids.length === 2 ? ["L", "R"] : ["A", "B", "C"];
@@ -92,7 +93,7 @@ export function gridSeats(line: string, reach: Reach = {}): Record<string, [numb
   return out;
 }
 
-const ICON_ALIAS: Record<string, string> = { stock: "trendup", share: "trendup", shares: "trendup", graph: "chart", option: "ticket", call: "ticket", put: "ticket", coupon: "ticket", voucher: "ticket", bond: "receipt", loan: "handshake", cash: "money", bill: "money", bills: "money", safe: "vault", deposit: "piggy", savings: "piggy", exporter: "factory", importer: "store", seller: "person", buyer: "person", customer: "person", user: "person", man: "person", woman: "person", worker: "person", investor: "person", team: "people", group: "people", crowd: "people", company: "office", firm: "office", corp: "office", court: "gavel", law: "gavel", judge: "gavel", insurance: "shield", insurer: "umbrella", port: "anchor", vessel: "ship", boat: "ship", cargo: "container", goods: "box", package: "box", parcel: "box", product: "box", letter: "mail", email: "mail", document: "doc", paper: "doc", file: "doc", invoice: "receipt", time: "clock", date: "calendar", home: "house", shop: "store", market: "store", world: "globe", earth: "globe", location: "pin", question: "q", warning: "warn", alert: "warn", ok: "check", no: "x", cross: "x", light: "idea", bulb: "idea", lightbulb: "idea", calculator: "calc", school: "cap", graduation: "cap", pen: "pencil", computer: "laptop", pc: "laptop", mobile: "phone", smartphone: "phone", message: "chat", speech: "chat", thumbsup: "like", thumbsdown: "dislike", happy: "smile", unhappy: "sad", food: "burger", drink: "coffee", clothes: "shirt", fruit: "apple", water: "drop", rain: "cloud", temperature: "thermo", hospital: "medical", doctor: "medical", medicine: "pill", test: "flask", lab: "flask", science: "atom", cpu: "chip", database: "db", server: "db", setting: "gear", settings: "gear", tool: "wrench", tools: "wrench", layers: "stack", energy: "bolt", power: "plug", sport: "ball", photo: "camera", gold: "medal", prize: "trophy", win: "trophy", present: "gift", random: "dice", chance: "dice", probability: "dice", balance: "scale", weight: "scale", security: "lock", protect: "shield", risk: "warn", profit: "trendup", loss: "trenddown", rise: "up", fall: "down", increase: "up", decrease: "down", tax: "percent", rate: "percent", interest: "percent", discount: "tag", price: "tag", sale: "tag", shopping: "cart", delivery: "truck", transport: "truck", flight: "plane", airplane: "plane", rail: "train", bicycle: "bike", launch: "rocket", goal: "target", aim: "target", award: "medal", love: "heart", hot: "fire", fast: "bolt", identity: "id", passport: "id", license: "cert", certificate: "cert", seal: "stamp", approve: "stamp", signature: "sign", agreement: "handshake", deal: "handshake", trade: "handshake", exchange: "handshake", deadline: "hourglass", wait: "hourglass", stopwatch: "timer", apartment: "building", tower: "building", town: "city", country: "flag", nation: "flag", government: "building", customs: "building", account: "wallet", pay: "card", payment: "card", credit: "card", atm: "bank", piggybank: "piggy", treasure: "vault", krw: "won", usd: "dollar", currency: "coins", weather: "cloud", ice: "snow", cold: "snow", gene: "dna", cell: "atom", molecule: "atom", chemistry: "flask", ai: "robot", bot: "robot", mind: "brain", think: "brain", view: "eye", look: "eye", find: "search", magnifier: "search", newspaper: "news", announce: "megaphone", ad: "megaphone", song: "music", sound: "music", charge: "battery", block: "cube", piece: "puzzle", attract: "magnet", study: "book", textbook: "book", read: "book", write: "pencil", exam: "pencil", learner: "student", teacher: "person", professor: "person" };
+const ICON_ALIAS: Record<string, string> = dict({ stock: "trendup", share: "trendup", shares: "trendup", graph: "chart", option: "ticket", call: "ticket", put: "ticket", coupon: "ticket", voucher: "ticket", bond: "receipt", loan: "handshake", cash: "money", bill: "money", bills: "money", safe: "vault", deposit: "piggy", savings: "piggy", exporter: "factory", importer: "store", seller: "person", buyer: "person", customer: "person", user: "person", man: "person", woman: "person", worker: "person", investor: "person", team: "people", group: "people", crowd: "people", company: "office", firm: "office", corp: "office", court: "gavel", law: "gavel", judge: "gavel", insurance: "shield", insurer: "umbrella", port: "anchor", vessel: "ship", boat: "ship", cargo: "container", goods: "box", package: "box", parcel: "box", product: "box", letter: "mail", email: "mail", document: "doc", paper: "doc", file: "doc", invoice: "receipt", time: "clock", date: "calendar", home: "house", shop: "store", market: "store", world: "globe", earth: "globe", location: "pin", question: "q", warning: "warn", alert: "warn", ok: "check", no: "x", cross: "x", light: "idea", bulb: "idea", lightbulb: "idea", calculator: "calc", school: "cap", graduation: "cap", pen: "pencil", computer: "laptop", pc: "laptop", mobile: "phone", smartphone: "phone", message: "chat", speech: "chat", thumbsup: "like", thumbsdown: "dislike", happy: "smile", unhappy: "sad", food: "burger", drink: "coffee", clothes: "shirt", fruit: "apple", water: "drop", rain: "cloud", temperature: "thermo", hospital: "medical", doctor: "medical", medicine: "pill", test: "flask", lab: "flask", science: "atom", cpu: "chip", database: "db", server: "db", setting: "gear", settings: "gear", tool: "wrench", tools: "wrench", layers: "stack", energy: "bolt", power: "plug", sport: "ball", photo: "camera", gold: "medal", prize: "trophy", win: "trophy", present: "gift", random: "dice", chance: "dice", probability: "dice", balance: "scale", weight: "scale", security: "lock", protect: "shield", risk: "warn", profit: "trendup", loss: "trenddown", rise: "up", fall: "down", increase: "up", decrease: "down", tax: "percent", rate: "percent", interest: "percent", discount: "tag", price: "tag", sale: "tag", shopping: "cart", delivery: "truck", transport: "truck", flight: "plane", airplane: "plane", rail: "train", bicycle: "bike", launch: "rocket", goal: "target", aim: "target", award: "medal", love: "heart", hot: "fire", fast: "bolt", identity: "id", passport: "id", license: "cert", certificate: "cert", seal: "stamp", approve: "stamp", signature: "sign", agreement: "handshake", deal: "handshake", trade: "handshake", exchange: "handshake", deadline: "hourglass", wait: "hourglass", stopwatch: "timer", apartment: "building", tower: "building", town: "city", country: "flag", nation: "flag", government: "building", customs: "building", account: "wallet", pay: "card", payment: "card", credit: "card", atm: "bank", piggybank: "piggy", treasure: "vault", krw: "won", usd: "dollar", currency: "coins", weather: "cloud", ice: "snow", cold: "snow", gene: "dna", cell: "atom", molecule: "atom", chemistry: "flask", ai: "robot", bot: "robot", mind: "brain", think: "brain", view: "eye", look: "eye", find: "search", magnifier: "search", newspaper: "news", announce: "megaphone", ad: "megaphone", song: "music", sound: "music", charge: "battery", block: "cube", piece: "puzzle", attract: "magnet", study: "book", textbook: "book", read: "book", write: "pencil", exam: "pencil", learner: "student", teacher: "person", professor: "person" });
 interface Tok { s: string; q: boolean; k?: string }
 const POS = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/;
 const NUM = /^-?\d+(?:\.\d+)?$/;
@@ -107,7 +108,7 @@ const COLORS = new Set(["ink", "blue", "yellow", "pale", "grey", "gray", "green"
 const SIDES = new Set(["left", "right", "top", "bottom"]);
 const TONES = new Set(["solid", "soft"]);
 const OPEN = '"“', CLOSE = '"”';
-const ALIAS: Record<string, string> = { c: "color", v: "value", col: "color", colour: "color", text: "str", caption: "cap" };
+const ALIAS: Record<string, string> = dict({ c: "color", v: "value", col: "color", colour: "color", text: "str", caption: "cap" });
 const TEXTKEYS = new Set(["cap", "sub", "badge", "str", "why", "next", "xl", "yl", "suf", "pre", "q", "left", "right"]);
 
 function tokens(line: string): Tok[] {
@@ -133,7 +134,8 @@ function tokens(line: string): Tok[] {
       while (a + 1 < out.length && !out[a + 1].k && !out[a + 1].q && !POS.test(out[a + 1].s) && !ASCII.test(out[a + 1].s)) { t.s += " " + out[a + 1].s; out.splice(a + 1, 1); }
     }
   }
-  return out;
+  // key=value pairs land on a plain object of properties, where this one key would replace the object's prototype
+  return out.filter((t) => t.k !== "__proto__");
 }
 
 const num = (s: string) => parseFloat(s.replace(/,/g, ""));
@@ -222,12 +224,12 @@ const TYPES = new Set(["node", "box", "text", "num", "bar", "icon", "arrow", "li
 const OPS = new Set(["set", "del", "keep", "clear", "pulse", "send", "focus", "ask", "cam", "pline", "pmark"]);
 
 export function parseScript(text: string, ctx: Ctx = {}): Parsed {
-  const issues: Issue[] = [], script: Script = { beats: [] }, plan: Plan = {}, labels: string[] = [], dels: string[] = [], has: Record<string, boolean> = {};
+  const issues: Issue[] = [], script: Script = { beats: [] }, plan: Plan = {}, labels: string[] = [], dels: string[] = [], has: Record<string, boolean> = dict();
   const err = (beat: number, msg: string) => issues.push({ level: "error", beat, code: "syntax", msg });
   const steps: Record<number, Props> = {}, quiz: Quiz[] = [];
-  const plots: Record<string, { lines: Props[]; marks: Props[] }> = {};
-  const units: Record<string, { pre?: string; suf?: string }> = Object.assign({}, ctx.units || {}); // the unit each object's number carries, so a term that flies out of it keeps it
-  const grid: Record<string, [number, number]> = Object.assign({}, ctx.grid || {});
+  const plots: Record<string, { lines: Props[]; marks: Props[] }> = dict();
+  const units: Record<string, { pre?: string; suf?: string }> = dict(ctx.units); // the unit each object's number carries, so a term that flies out of it keeps it
+  const grid: Record<string, [number, number]> = dict(ctx.grid);
   const unseated: string[] = [], seenIds = new Set<string>(), live = new Map<string, number>(); // live: the row of each placed thing now on screen
   const reach = reachOf(String(text || "")), life = lifeOf(String(text || "")), barV = barValues(String(text || "")), barPx = barUnit(Object.keys(barV).map((k) => barV[k]));
   let beat: Beat | null = null, n = 0;

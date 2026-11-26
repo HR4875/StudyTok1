@@ -27,8 +27,10 @@ export function costLine(e: ShortEntry, s: Series | null): string {
   const m = e.made;
   if (m.model === "mock") return "예시 모드에서 만든 편이에요. AI를 부르지 않고 준비된 대본을 가져왔습니다.";
   const fix = m.fix === "rewrite" ? ", 자동 점검 뒤 한 번 다시 씀" : m.fix === "patch" ? ", 자동 점검 뒤 걸린 장면만 고침" : "";
+  // 정해 둔 모델이 아닌 다른 모델이 답했으면 그 이름을 그대로 알린다
+  const other = m.model && !/sonnet-5-5/.test(m.model) ? m.model.replace(/^claude-/, "") : "";
   return (
-    `Sonnet 5.5가 ${m.secs}초 만에 쓴 편이에요 (호출 ${m.calls}번${fix}). ` +
+    (other ? `${m.secs}초 만에 쓴 편이에요 (${other}, 호출 ${m.calls}번${fix}). ` : `Sonnet 5.5가 ${m.secs}초 만에 쓴 편이에요 (호출 ${m.calls}번${fix}). `) +
     (m.errs > 0 ? `자동 점검에서 ${m.errs}곳이 남아 있어요.` : "자동 점검을 통과했어요.") +
     (m.usd > 0 ? ` AI 비용은 대본 ${usd(m.usd)}에 시리즈 계획 몫 ${usd(share)}를 더해 ${usd(m.usd + share)}였습니다.` : "")
   );
@@ -54,6 +56,11 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
   const [picks, setPicks] = useState<number[]>([]);
   const picksRef = useRef<number[]>([]);
   const qzRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // 끝 화면이 올라오면 초점을 여기로 옮긴다: 아래에 가려진 재생 단추에 남아 있으면 키보드와 화면 낭독기가 길을 잃는다
+  useEffect(() => {
+    sheetRef.current?.focus({ preventScroll: true });
+  }, []);
   const shown = Math.min(quiz.length, picks.length + 1);
   const shownBefore = useRef(shown);
 
@@ -116,7 +123,7 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
 
   const cost = costLine(entry, s);
   return (
-    <div className="sheet">
+    <div className="sheet" ref={sheetRef} tabIndex={-1} role="region" aria-label="한 줄 정리와 확인 문제">
       <div>
         <div className="lbl">한 줄 정리</div>
         <div className="take">{script.takeaway || script.plan?.goal || ""}</div>
@@ -147,14 +154,17 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
                       key={m}
                       type="button"
                       className={"opt" + (done ? (m === q.answer ? " right" : m === pick ? " wrong" : " dim") : "")}
-                      disabled={done}
+                      // 답한 뒤에도 초점이 사라지지 않게 disabled 대신 aria-disabled를 쓴다 (answer가 두 번째 누름을 무시한다)
+                      aria-disabled={done}
                       onClick={() => answer(i, m)}
                     >
                       {c}
                     </button>
                   ))}
                 </div>
-                {done && <div className="why">{(right ? "정답! " : "아쉬워요. ") + (q.why || "")}</div>}
+                <div className="why" role="status">
+                  {done ? (right ? "정답! " : "아쉬워요. ") + (q.why || "") : ""}
+                </div>
               </div>
             );
           })}

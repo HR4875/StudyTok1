@@ -11,7 +11,8 @@ export interface Skin {
 
 const FONT = "'Wanted Sans Variable', 'Wanted Sans', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif";
 
-export const SKINS: Record<string, Skin> = {
+// No inherited keys: a skin id comes from saved settings or from a script, and "constructor" must not find a member of Object.
+export const SKINS: Record<string, Skin> = Object.assign(Object.create(null) as Record<string, Skin>, {
   // Design F: warm paper, near-black ink, one blue, a yellow marker
   paper: {
     id: "paper", name: "페이퍼", dark: false, bg: "#F4F3EF", card: "#FFFFFF", ink: "#232325", sub: "#55555B", grey: "#B9B8B2", line: "#DEDCD5",
@@ -42,7 +43,7 @@ export const SKINS: Record<string, Skin> = {
     primary: "#E3256B", soft: "#FFD3E2", accent: "#FFD43B", good: "#0FA36B", bad: "#E5484D", white: "#FFFFFF",
     font: FONT, radius: 40, stroke: 9, deco: "none", audio: { bpm: 112, root: 65, mode: "major", lead: "pluck", drums: "full" },
   },
-};
+});
 
 export const skinOf = (id?: string): Skin => SKINS[String(id || "paper")] || SKINS.paper;
 export const SKIN_LIST = Object.values(SKINS).map((s) => ({ id: s.id, name: s.name }));

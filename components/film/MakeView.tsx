@@ -1,16 +1,34 @@
 "use client";
 // 내 자료로 만들기: 주제, 파일, 붙여 넣은 글로 시리즈를 계획하고 1편까지 만든다.
-import type { DragEvent, FormEvent } from "react";
-import { makePlan, stopGen, useGen } from "@/lib/film/gen";
+import { useEffect, type DragEvent, type FormEvent } from "react";
+import { initGen, makePlan, stopGen, useGen } from "@/lib/film/gen";
+import { HOST } from "@/lib/film/host";
+import { pagesIn } from "@/lib/film/plan";
 import { FILM_LIMITS } from "@/lib/film/types";
 import { Icon } from "./icons";
-import { getDraft, setDraft, sourceOf, takeFile, useDraft } from "./makeDraft";
+import { getDraft, setDraft, sourceOf, takeFile, useDraft, type MakeDraft } from "./makeDraft";
 import { SubTop, busyLine, useNow } from "./parts";
 
 const FILE_HINT = "글자가 들어 있는 PDF를 읽어요. 파일은 이 기기에서 열고, 뽑은 글자만 보내요.";
 
+/** 읽을 쪽을 잘못 적었으면 그 까닭 (괜찮으면 ""). 말없이 다른 쪽을 읽거나 엉뚱한 안내가 나오지 않게 한다. */
+function rangeProblem(d: MakeDraft): string {
+  const r = d.range.trim();
+  if (!r || !d.pages) return "";
+  const last = d.pages.length ? d.pages[d.pages.length - 1].n : 0;
+  const want = pagesIn(r);
+  if (!want.size) return '읽을 쪽은 "12-45"처럼 숫자로 적어 주세요.';
+  if (!d.pages.some((p) => want.has(p.n) && p.text)) return `그 쪽에는 읽을 글자가 없어요. 1쪽부터 ${last}쪽 사이에서 적어 주세요.`;
+  return "";
+}
+
 async function submit() {
   const d = getDraft();
+  const bad = rangeProblem(d);
+  if (bad) {
+    setDraft({ err: bad });
+    return;
+  }
   const topic = d.topic.trim();
   const source = sourceOf(d);
   if (!topic && !source) {
@@ -38,7 +56,7 @@ function Planning({ message, titles, t0 }: { message: string; titles: string[]; 
             <li key={i}>{t}</li>
           ))}
         </ol>
-        <p className="fine mt12">처음 30초쯤은 조용히 생각만 해요. 계획이 끝나면 1편을 바로 만듭니다.</p>
+        <p className="fine mt12">{HOST.planQuiet}</p>
       </div>
       <div className="cta">
         <button className="btn ghost" type="button" onClick={stopGen}>
@@ -54,6 +72,12 @@ export default function MakeView() {
   const d = useDraft();
   const busy = gen.busy && gen.busy.kind === "plan" ? gen.busy : null;
   const ok = gen.avail === "ok";
+  // 한 번에 하나만 만든다: 다른 편을 만드는 동안에는 새 계획을 세울 수 없다
+  const making = !!gen.busy && gen.busy.kind === "short";
+  // 서버 확인이 앞에서 실패했으면 이 화면에 들어올 때 다시 묻는다
+  useEffect(() => {
+    initGen();
+  }, []);
 
   const pick = (f: File | undefined | null) => {
     if (f) void takeFile(f);
@@ -68,7 +92,17 @@ export default function MakeView() {
     void submit();
   };
 
-  const msg = d.err || (gen.error && gen.error.kind === "plan" ? gen.error.message : gen.avail === "none" ? "지금은 서버에 AI 키가 없어서 만들 수 없어요. 이미 있는 시리즈는 그대로 볼 수 있어요." : "");
+  const msg =
+    d.err ||
+    (gen.error && gen.error.kind === "plan"
+      ? gen.error.message
+      : gen.avail === "none"
+        ? HOST.makeNone
+        : gen.avail === "down"
+          ? HOST.makeDown
+          : making
+            ? "지금 다른 편을 만드는 중이에요. 한 번에 하나씩 만들어서, 끝나면 새 계획을 세울 수 있어요."
+            : "");
 
   return (
     <>
@@ -84,7 +118,7 @@ export default function MakeView() {
           <form className="form" noValidate onSubmit={onSubmit}>
             <div className="field">
               <label htmlFor="topic">주제 (자료를 올리면 비워 둬도 돼요)</label>
-              <input type="text" id="topic" placeholder="예: 옵션 가격의 이항모형, 신용장 거래" value={d.topic} autoComplete="off" onChange={(e) => setDraft({ topic: e.target.value })} />
+              <input type="text" id="topic" placeholder="예: 옵션 가격의 이항모형, 신용장 거래" value={d.topic} autoComplete="off" onChange={(e) => setDraft({ topic: e.target.value, err: "" })} />
             </div>
             <label className="drop" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
               <span className="ic">
@@ -107,24 +141,24 @@ export default function MakeView() {
             {d.pages && d.pages.length > 1 ? (
               <div className="field">
                 <label htmlFor="range">{`읽을 쪽 (모두 ${d.pages.length}쪽, 비워 두면 앞에서부터)`}</label>
-                <input type="text" id="range" placeholder="예: 12-45" value={d.range} inputMode="numeric" autoComplete="off" onChange={(e) => setDraft({ range: e.target.value })} />
+                <input type="text" id="range" placeholder="예: 12-45" value={d.range} inputMode="numeric" autoComplete="off" onChange={(e) => setDraft({ range: e.target.value, err: "" })} />
               </div>
             ) : null}
             <div className="field">
               <label htmlFor="paste">또는 내용 붙여 넣기</label>
-              <textarea id="paste" placeholder="교재나 필기 내용을 그대로 붙여 넣어도 돼요" value={d.paste} onChange={(e) => setDraft({ paste: e.target.value })} />
+              <textarea id="paste" placeholder="교재나 필기 내용을 그대로 붙여 넣어도 돼요" value={d.paste} onChange={(e) => setDraft({ paste: e.target.value, err: "" })} />
             </div>
             {msg ? <p className="note mt0">{msg}</p> : null}
-            <button className="btn primary" type="submit" disabled={!ok || d.reading}>
+            <button className="btn primary" type="submit" disabled={!ok || d.reading || making}>
               {d.reading ? "파일 읽는 중" : "계획 세우고 1편 만들기"}
             </button>
           </form>
           <ol className="steps">
-            <li>자료를 읽고 가장 쉬운 설명 순서로 시리즈를 계획해요. 1분쯤 걸려요.</li>
-            <li>1편을 바로 만들어요. 15초 안팎 걸려요.</li>
-            <li>나머지 편은 누를 때마다 한 편씩 만들어요.</li>
+            {HOST.steps.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
           </ol>
-          <p className="fine mt16">{`자료는 글자만 뽑아 서버로 보내고, 서버에 저장하지 않아요. 한 번에 앞부분 ${FILM_LIMITS.planDefault}편까지 계획해요.`}</p>
+          <p className="fine mt16">{HOST.privacy(FILM_LIMITS.planDefault)}</p>
         </>
       )}
     </>

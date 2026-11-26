@@ -1,7 +1,7 @@
 // Director 2 core: turns a scene script into a timeline, answers "what is on screen at time t",
 // checks a script before anyone sees it, and describes each scene in plain words for a reviewer.
 // No DOM here, so the server and the browser share it.
-import { clamp, lerp, E } from "./ease";
+import { clamp, lerp, E, dict } from "./ease";
 import { ICONS, ICON_KO } from "./icons";
 
 export const W = 1080, H = 1920;
@@ -13,7 +13,7 @@ export const ASK_Y = 1290;
 /** The part of the screen the camera keeps the picture in (the sentence sits above it). */
 export const FRAME = { y0: 560, y1: 1790 };
 /** The grid: a row holds one thing (M), two (L R) or three (A B C). */
-export const COLS: Record<string, number> = { A: 200, B: 540, C: 880, L: 290, R: 790, M: 540 };
+export const COLS: Record<string, number> = dict({ A: 200, B: 540, C: 880, L: 290, R: 790, M: 540 });
 export const ROWS = [640, 890, 1140, 1390, 1640];
 
 export type Props = Record<string, any>;
@@ -97,7 +97,7 @@ export function approxW(str: unknown, size: number): number {
 
 // ---------- calc terms ----------
 export interface Term { kind: "num" | "op" | "txt"; v?: number; text: string; from?: string; color?: string }
-const OPS: Record<string, string> = { "+": "+", "-": "−", "−": "−", "–": "−", "*": "×", x: "×", X: "×", "×": "×", "/": "÷", "÷": "÷", "=": "=", "(": "(", ")": ")", "≈": "≈" };
+const OPS: Record<string, string> = dict({ "+": "+", "-": "−", "−": "−", "–": "−", "*": "×", x: "×", X: "×", "×": "×", "/": "÷", "÷": "÷", "=": "=", "(": "(", ")": ")", "≈": "≈" });
 export function normTerms(p: Props): Term[] {
   const out: Term[] = [];
   for (const raw of Array.isArray(p.terms) ? p.terms : []) {
@@ -195,6 +195,13 @@ function refsOf(b: Beat): Set<string> {
 function srcOf(b: Beat): Set<string> {
   const s = new Set<string>();
   (b.do || []).forEach((a) => { if (a && typeof a === "object" && Array.isArray(a.terms)) a.terms.forEach((x: Props) => { if (x && typeof x === "object" && x.from != null) s.add(String(x.from)); }); });
+  return s;
+}
+
+/** The ids a scene changes. A change nobody sees is lost, so these come before the things a calculation merely takes its numbers from. */
+function setOf(b: Beat): Set<string> {
+  const s = new Set<string>();
+  (b.do || []).forEach((a) => { if (a && typeof a === "object" && (a.op || (a.type ? "add" : "set")) === "set" && a.id != null) s.add(String(a.id)); });
   return s;
 }
 
@@ -345,7 +352,7 @@ export function prep(script: Script, opt: { speed?: number } = {}): Model {
     const bm = m.beats.find((x) => x.i === o.beat);
     if (!bm) return;
     const t1 = Math.max(bm.t0 + bm.dur - 0.02, o.tAdd + 0.1), p = stateOfEnd(o, t1), want = String(p.side || "right");
-    const others: Box[] = [], segs: { s: number[]; now: boolean }[] = [], mine: Record<string, number> = {}; // mine: how far out the tags this thing already has reach, per side
+    const others: Box[] = [], segs: { s: number[]; now: boolean }[] = [], mine: Record<string, number> = dict(); // mine: how far out the tags this thing already has reach, per side
     m.list.forEach((q) => {
       if (q === o || !(q.tAdd < o.tDel && q.tDel > o.tAdd) || q.id === String(p.to)) return;
       const tq = Math.max(t1, q.tAdd + 0.6);
@@ -495,11 +502,19 @@ function coreBox(m: Model, i: number, ids: Set<string>): Rect | null {
   return r;
 }
 /** What the camera must show in scene i. Everything the scene works with, when one frame holds that at a readable size;
- *  else what is new and the things its calculation takes numbers from; else only what is new (a number may then fly in from off screen). */
+ *  else what is new, what it changes and the things its calculation takes numbers from; else what is new and what it changes;
+ *  else what is new and the sources; else only what is new (a number may then fly in from off screen). */
 function aboutBox(m: Model, i: number, ids: Set<string>, b: Beat): Rect | null {
   const full = coreBox(m, i, ids);
   if (!full || roomy(full, false, ZMIN)) return full;
-  const made = coreBox(m, i, srcOf(b));
+  const src = srcOf(b), set = setOf(b);
+  if (set.size) {
+    const both = coreBox(m, i, new Set<string>([...src, ...set]));
+    if (both && roomy(both, false, ZMIN)) return both;
+    const changed = coreBox(m, i, set);
+    if (changed && roomy(changed, false, ZMIN)) return changed;
+  }
+  const made = coreBox(m, i, src);
   if (made && roomy(made, false, ZMIN)) return made;
   const fresh = coreBox(m, i, new Set<string>());
   return fresh && roomy(fresh, false, ZMIN) ? fresh : full;
@@ -694,7 +709,7 @@ function nameOf(m: Model, o: MObj, p: Props): string {
 function shortName(m: Model, o: MObj, t?: number): string {
   const p = t == null ? o.keys[o.keys.length - 1].p : stateOfEnd(o, t);
   const val = p.value != null ? (p.pre || "") + fmtV(Number(p.value), p.dec) + (p.suf || "") : p.str ?? p.cap ?? p.name ?? o.id;
-  const kind: Record<string, string> = { node: "원", box: "상자", text: "글", num: "숫자", bar: "막대", icon: "그림", calc: "계산식", plot: "그래프", table: "표", dot: "점", arrow: "화살표", line: "선", brace: "구간 표시", note: "쪽지", sign: "기호", scale: "저울", dots: "점 격자" };
+  const kind: Record<string, string> = dict({ node: "원", box: "상자", text: "글", num: "숫자", bar: "막대", icon: "그림", calc: "계산식", plot: "그래프", table: "표", dot: "점", arrow: "화살표", line: "선", brace: "구간 표시", note: "쪽지", sign: "기호", scale: "저울", dots: "점 격자" });
   if (o.type === "scale") return "저울";
   if (o.type === "dots") return `점 격자${p.cap ? " " + q(p.cap) : ""}`;
   if (o.type === "icon") return `그림 ${q(p.cap || ICON_KO[p.name] || p.name)}`;

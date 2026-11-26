@@ -1,9 +1,9 @@
 // @ts-nocheck
 // Director 2 drawing: draws one frame of a prepared scene script into an <svg>. seek(t) is a pure function of t
 // (and of the answers given to questions), so frames can be drawn in any order, live or for a video file.
-import { W, H, ASK_Y, prep, stateOf, alive, camAt, anchorOf, normTerms, plotMap, lineY, tableDims, dotPos, fmtV, approxW, calcSize, noteBox, dotsDims, signAt, nodeHalf, lineEnds } from "./core";
+import { W, H, ASK_Y, prep, stateOf, alive, camAt, anchorOf, boxOf, normTerms, plotMap, lineY, tableDims, dotPos, fmtV, approxW, calcSize, noteBox, dotsDims, signAt, nodeHalf, lineEnds } from "./core";
 const clamp2 = (v: number, lo: number, hi: number) => (hi < lo ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)));
-import { clamp, lerp, E, seg, hitPulse, spring, mixHex, rgba, lum } from "./ease";
+import { clamp, lerp, E, seg, hitPulse, spring, mixHex, rgba, lum, dict } from "./ease";
 import { ICONS } from "./icons";
 import { skinOf } from "./skins";
 
@@ -66,8 +66,8 @@ export function createDirector(svg, opts = {}) {
   function gradDef(id, stops, x1 = 0, y1 = 0, x2 = 0, y2 = 1) { const g = el("linearGradient", { id: PID + id, x1, y1, x2, y2 }, sdefs); stops.forEach((s) => el("stop", { offset: s[0], "stop-color": s[1], "stop-opacity": s[2] == null ? 1 : s[2] }, g)); return `url(#${PID + id})`; }
 
   // ---------- colour ----------
-  const NAMES = { ink: "ink", blue: "primary", primary: "primary", pale: "soft", soft: "soft", yellow: "accent", accent: "accent", orange: "accent", green: "good", good: "good", red: "bad", bad: "bad", grey: "grey", gray: "grey", white: "white", line: "line", sub: "sub", bg: "bg", card: "card" };
-  const col = (c, d) => { if (c == null || c === "") return d || SK.ink; const k = NAMES[String(c)]; if (k) return SK[k]; return /^#[0-9a-fA-F]{6}$/.test(String(c)) ? String(c) : d || SK.ink; };
+  const NAMES = dict({ ink: "ink", blue: "primary", primary: "primary", pale: "soft", soft: "soft", yellow: "accent", accent: "accent", orange: "accent", green: "good", good: "good", red: "bad", bad: "bad", grey: "grey", gray: "grey", white: "white", line: "line", sub: "sub", bg: "bg", card: "card" });
+  const col = (c, d) => { if (c == null || c === "") return d || SK.ink; const k = NAMES[String(c)]; if (k && typeof SK[k] === "string") return SK[k]; return /^#[0-9a-fA-F]{6}$/.test(String(c)) ? String(c) : d || SK.ink; };
   const colP = (p, d) => { const c = col(p.color, d); return p._prev && p._prev.color !== p.color ? mixHex(col(p._prev.color, d), c, p._u) : c; };
   const onFill = (hex) => (lum(hex) > 0.62 ? (SK.dark ? SK.bg : SK.ink) : "#FFFFFF");
   const softOf = (hex) => mixHex(hex, SK.bg, SK.dark ? 0.72 : 0.8);
@@ -316,8 +316,48 @@ export function createDirector(svg, opts = {}) {
     });
   }
 
+  // ---------- the edges of the frame ----------
+  // The top of the stage belongs to the sentence and the bottom to the floor (during a question, to the buttons): the picture fades out there.
+  // A thing left half under such a fade reads as a mistake, so a thing is drawn whole or not at all. When less than about half of it is clear
+  // of the fades the whole thing steps out, smoothly, so a moving camera does not make it pop.
+  const EDGE_TOP = 556, EDGE_BOT = 1796;
+  /** the lower edge of the clear part of the stage at time t: a question's buttons take the lower part while they are up */
+  function clearBottom(t) {
+    let y = EDGE_BOT;
+    for (const a of M.asks) { if (t < a.t0 - 0.35 || t > a.t1 + 0.3) continue; const k = seg(t, a.t0 - 0.35, 0.4, E.out) * (1 - seg(t, a.t1, 0.3, E.exit)); y = Math.min(y, lerp(EDGE_BOT, ASK_Y - 80, k)); }
+    return y;
+  }
+  /** how much of its own strength a thing keeps at the edges: 1 when most of it is clear of the fades, 0 when most of it is under one */
+  function edgeKeep(o, t, cam, bot, memo) {
+    if (memo.has(o)) return memo.get(o);
+    memo.set(o, 1); // a thing that points at itself is left alone
+    let k = 1;
+    const p = stateOf(o, t);
+    if (o.type === "arrow" || o.type === "line" || o.type === "brace") { // a link stays while either of its ends stays
+      const ends = [p.from, p.to].concat(Array.isArray(p.between) ? p.between : []).filter((x) => x != null).map((x) => M.objs.get(String(x))).filter((x) => x && alive(x, t));
+      if (ends.length) k = Math.max(...ends.map((e) => edgeKeep(e, t, cam, bot, memo)));
+    } else {
+      const b = o.type === "note" ? noteBox(M, p, t) : boxOf(M, o, p, t);
+      if (b) {
+        const y0 = 960 + (b.y0 - cam.y) * cam.zoom, y1 = 960 + (b.y1 - cam.y) * cam.zoom;
+        const clear = (Math.min(y1, bot) - Math.max(y0, EDGE_TOP)) / Math.max(1, y1 - y0);
+        k = clamp((clear - 0.4) / 0.15);
+      }
+      const hostId = o.type === "note" ? p.to : o.type === "dot" ? p.plot : null; // a tag leaves with its thing, a point with its chart
+      if (k > 0 && hostId != null) { const host = M.objs.get(String(hostId)); if (host && host !== o && alive(host, t)) k = Math.min(k, edgeKeep(host, t, cam, bot, memo)); }
+    }
+    memo.set(o, k);
+    return k;
+  }
+
   // ---------- frame ----------
-  function seek(tPublic) {
+  // One thing that cannot be drawn must not take the film with it: the rest of the frame still draws, and the player's clock
+  // keeps running so the viewer still reaches the end screen and its questions.
+  let warned = false;
+  const skipped = (e) => { if (!warned) { warned = true; console.warn("[film] skipped something that could not be drawn:", e); } };
+  const safe = (fn) => { try { fn(); } catch (e) { skipped(e); } };
+  function seek(tPublic) { try { frame(tPublic); } catch (e) { skipped(e); } }
+  function frame(tPublic) {
     if (!M) return;
     const t = clamp(tPublic * M.speed, 0, M.DUR - 1e-4);
     while (layer.firstChild) layer.removeChild(layer.firstChild);
@@ -332,12 +372,13 @@ export function createDirector(svg, opts = {}) {
     for (const f of M.focus) if (t >= f.t0 - 0.05 && t < f.t1 + 0.3) { fIds = f.ids; fI = f.i; fk = Math.min(seg(t, f.t0, 0.3, E.out), 1 - seg(t, f.t1, 0.3, E.out)); }
     const dimOf = (o) => { if (!fIds || fk <= 0) return 1; if (fIds.has(o.id) || o.beat === fI) return 1; const p = o.keys[0].p; if ((o.type === "arrow" || o.type === "line" || o.type === "brace") && p.from != null && p.to != null && fIds.has(String(p.from)) && fIds.has(String(p.to))) return 1; if (o.type === "note" && fIds.has(String(p.to))) return 1; if (o.type === "dot" && fIds.has(String(p.plot))) return 1; return lerp(1, 0.3, fk); };
     const order = (o) => (o.type === "arrow" || o.type === "line" ? 0 : o.type === "note" || o.type === "calc" || o.type === "sign" || o.type === "dot" || o.type === "brace" ? 2 : 1);
-    M.list.slice().sort((a, b) => order(a) - order(b) || a.order - b.order).forEach((o) => drawObj(o, t, world, dimOf(o)));
-    M.sends.forEach((s) => drawSend(s, t, world));
+    const bot = clearBottom(t), kept = new Map();
+    M.list.slice().sort((a, b) => order(a) - order(b) || a.order - b.order).forEach((o) => safe(() => { if (t < o.tAdd || t > o.tDel + 0.35) return; drawObj(o, t, world, dimOf(o) * edgeKeep(o, t, c, bot, kept)); }));
+    M.sends.forEach((s) => safe(() => drawSend(s, t, world)));
     el("rect", { x: 0, y: 0, width: W, height: 556, fill: `url(#${PID}veil)` });
     el("rect", { x: 0, y: 1796, width: W, height: H - 1796, fill: `url(#${PID}floor)` }); // a picture taller than the frame fades out at the bottom edge
-    M.says.forEach((s) => drawSay(s, t));
-    M.asks.forEach((a) => drawAsk(a, t));
+    M.says.forEach((s) => safe(() => drawSay(s, t)));
+    M.asks.forEach((a) => safe(() => drawAsk(a, t)));
     if (brand) { const g = G(null, { opacity: 0.55 }); label(brand, W / 2, H - 56, 34, 800, SK.sub, g); }
   }
 

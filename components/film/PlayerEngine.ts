@@ -1,13 +1,22 @@
 "use client";
 // 재생기의 움직이는 부분. 매 프레임 하는 일(그리기, 진행 막대, 시각)은 React를 거치지 않고 DOM에 바로 쓰고,
 // 드물게 바뀌는 것(시작했는지, 멈췄는지, 끝났는지, 열린 메뉴)만 onView로 알린다.
-import { createDirector, W, H, type FilmInfo, type Script } from "@/lib/film";
+import { createDirector, W, H, type AskRect, type FilmInfo, type Script } from "@/lib/film";
 import { BRAND, getPrefs, markSeen, setPrefs, type Prefs } from "@/lib/film/store";
 import { fmtT } from "./format";
 import type { IconName } from "./icons";
 import { blip, bufferOf, createVoice, forgetBuffer, openAudio, prepareBuffer } from "./PlayerAudio";
 
 export type PlayerMenu = "skin" | "speed" | null;
+
+/** 답을 기다리는 영상 속 질문. 그림은 무대(SVG)가 그리고, 누르기와 초점은 이 정보로 만든 진짜 단추가 받는다 */
+export interface AskView {
+  n: number;
+  q: string;
+  choices: string[];
+  /** 보기 단추의 자리 (무대 좌표 1080×1920) */
+  rects: AskRect[];
+}
 
 export interface PlayerView {
   info: FilmInfo | null;
@@ -16,12 +25,16 @@ export interface PlayerView {
   ended: boolean;
   /** 영상 속 질문에서 답을 기다리는 중 */
   hold: boolean;
+  /** 기다리는 질문 (hold일 때만) */
+  ask: AskView | null;
+  /** 지금 장면 (0부터, 시작 전에는 -1). 장면의 문장을 글로도 알리는 데 쓴다 */
+  beat: number;
   menu: PlayerMenu;
   /** 화면 가운데에 잠깐 뜨는 표시. n이 바뀔 때마다 다시 뜬다 */
   flash: { name: IconName; n: number } | null;
 }
 
-export const EMPTY_VIEW: PlayerView = { info: null, started: false, playing: false, ended: false, hold: false, menu: null, flash: null };
+export const EMPTY_VIEW: PlayerView = { info: null, started: false, playing: false, ended: false, hold: false, ask: null, beat: -1, menu: null, flash: null };
 
 export interface PlayerEls {
   svg: SVGSVGElement;
@@ -36,6 +49,8 @@ export interface PlayerApi {
   /** 재생 단추: 시작 전이면 시작, 아니면 멈춤과 재생을 오간다 */
   playPause(): void;
   onStage(clientX: number, clientY: number): void;
+  /** 기다리는 질문 n에 choice(0부터)로 답한다 */
+  answer(n: number, choice: number): void;
   scrubStart(e: PointerEvent): void;
   toggleMenu(kind: "skin" | "speed"): void;
   pick(change: Partial<Prefs>): void;
@@ -75,6 +90,8 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
   let playing = false;
   let ended = false;
   let hold = false;
+  let ask: AskView | null = null;
+  let beat = -1;
   let userPaused = false;
   let answers: Record<number, number> = {};
   let askRight: boolean | null = null;
@@ -89,8 +106,18 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
   let endScrub: (() => void) | null = null;
   let view = EMPTY_VIEW;
 
+  /** 답을 기다리는 질문. 같은 질문이면 같은 것을 돌려준다 (화면을 다시 그리지 않게) */
+  function askNow(): AskView | null {
+    if (!hold || ended || !info) return null;
+    const p = dir.pendingAsk(t);
+    if (!p) return null;
+    if (ask && ask.n === p.n) return ask;
+    const a = info.asks.find((x) => x.n === p.n);
+    return a ? { n: p.n, q: info.beats[a.beat]?.say ?? "", choices: a.choices, rects: p.rects } : null;
+  }
   const emit = () => {
-    const v: PlayerView = { info, started, playing, ended, hold, menu, flash };
+    ask = askNow();
+    const v: PlayerView = { info, started, playing, ended, hold, ask, beat, menu, flash };
     if ((Object.keys(v) as (keyof PlayerView)[]).every((key) => v[key] === view[key])) return;
     view = v;
     if (alive) o.onView(v);
@@ -107,6 +134,9 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
     if (!info) return;
     const B = info.beats;
     const at = started ? t : 0;
+    let i = -1;
+    if (started) for (let j = 0; j < B.length; j++) if (B[j].t0 <= at + 1e-3) i = j;
+    beat = i;
     if (fills.length === B.length) for (let i = 0; i < B.length; i++) fills[i].style.width = (clamp((at - B[i].t0) / B[i].dur, 0, 1) * 100).toFixed(1) + "%";
     const text = fmtT(at) + " / " + fmtT(info.dur);
     if (els.time.textContent !== text) els.time.textContent = text;
@@ -207,6 +237,7 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
     }
     t = nt;
     draw();
+    if (beat !== view.beat) emit(); // 장면이 넘어갔다
     raf = requestAnimationFrame(tick);
   }
   function showFlash(name: IconName) {
@@ -361,6 +392,8 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
       return;
     }
     if (!info || loading) return;
+    // 끝 화면이 올라와 있으면 글쇠는 끝 화면의 것이다 (스페이스로 내려 읽다가 영상이 처음부터 다시 도는 일이 없게)
+    if (ended) return;
     const tag = e.target instanceof HTMLElement ? e.target.tagName : "";
     // 단추와 링크는 제 할 일을 한다
     if ((tag === "BUTTON" || tag === "A") && (e.key === " " || e.key === "Enter")) return;
@@ -450,6 +483,11 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
       else toggle();
     },
     onStage,
+    answer(n, choice) {
+      if (!info || loading || ended) return;
+      const p = dir.pendingAsk(t);
+      if (p && p.n === n && choice >= 0 && choice < p.rects.length) answerAsk({ n, choice });
+    },
     scrubStart,
     toggleMenu(kind) {
       menu = menu === kind ? null : kind;

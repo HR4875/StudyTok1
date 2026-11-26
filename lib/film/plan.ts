@@ -275,8 +275,9 @@ export function pagesIn(src: string): Set<number> {
   for (const part of String(src || "").split(/[,\s]+/)) {
     const m = /^(\d+)(?:\s*[-~]\s*(\d+))?$/.exec(part.trim());
     if (!m) continue;
-    const a = +m[1];
-    const b = Math.min(+(m[2] || m[1]), a + 2000);
+    // 거꾸로 적은 범위("45-12")도 같은 쪽으로 읽는다
+    const a = Math.min(+m[1], +(m[2] || m[1]));
+    const b = Math.min(Math.max(+m[1], +(m[2] || m[1])), a + 2000);
     for (let k = a; k <= b; k++) want.add(k);
   }
   return want;

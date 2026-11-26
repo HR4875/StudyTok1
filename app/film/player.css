@@ -4,7 +4,7 @@
 .film .watch { position: fixed; inset: 0; z-index: 20; background: var(--w-bg); color: var(--w-fg); display: flex; flex-direction: column; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 .film .wbar { display: flex; align-items: center; gap: 4px; height: 52px; padding: 0 8px; flex: none; }
 .film .wbar .ttl { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--w-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
-.film .ib { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: var(--w-fg); flex: none; }
+.film .ib { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--w-fg); flex: none; }
 .film .ib:active { background: rgba(255, 255, 255, .1); }
 .film .ib svg { width: 22px; height: 22px; }
 .film .stagewrap { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; padding: 0 8px; }
@@ -18,17 +18,17 @@
 .film .flash.on { animation: film-flash .5s ease-out; }
 .film .flash svg { width: 30px; height: 30px; }
 @keyframes film-flash { 0% { opacity: .95; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.15); } }
-.film .wctl { flex: none; padding: 10px 14px 12px; display: grid; gap: 8px; }
-.film .segs { display: flex; gap: 3px; height: 18px; align-items: center; cursor: pointer; touch-action: none; }
+.film .wctl { flex: none; padding: 5px 14px 10px; display: grid; gap: 3px; }
+.film .segs { display: flex; gap: 3px; height: 28px; align-items: center; cursor: pointer; touch-action: none; }
 .film .seg { height: 4px; border-radius: 2px; background: var(--w-seg); overflow: hidden; min-width: 3px; }
 .film .seg i { display: block; height: 100%; width: 0; background: #fff; }
 .film .seg.ask { background: rgba(255, 212, 59, .45); }
 .film .seg.ask i { background: #FFD43B; }
 .film .wrow { display: flex; align-items: center; gap: 6px; }
 .film .wrow .time { flex: 1; font-size: 12.5px; color: var(--w-sub); font-variant-numeric: tabular-nums; padding-left: 6px; }
-.film .pill { height: 34px; padding: 0 12px; border-radius: 99px; background: var(--w-card); color: var(--w-fg); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 6px; }
+.film .pill { position: relative; height: 40px; padding: 0 14px; border-radius: 99px; background: var(--w-card); color: var(--w-fg); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 6px; }
 .film .pop { position: absolute; right: 10px; bottom: 6px; z-index: 5; background: var(--w-card); border: 1px solid var(--w-line); border-radius: 16px; padding: 10px; display: grid; gap: 4px; min-width: 168px; box-shadow: 0 18px 40px rgba(0, 0, 0, .45); }
-.film .pop button { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--w-fg); text-align: left; }
+.film .pop button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 10px; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--w-fg); text-align: left; }
 .film .pop button[aria-pressed="true"] { background: rgba(255, 255, 255, .1); }
 .film .sw { width: 24px; height: 24px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .25); position: relative; overflow: hidden; flex: none; }
 .film .sw i { position: absolute; left: 5px; right: 5px; bottom: 4px; height: 5px; border-radius: 3px; }
@@ -39,9 +39,9 @@
 .film .sheet .q { font-size: 15.5px; font-weight: 700; line-height: 1.45; }
 .film .opts { display: grid; gap: 8px; }
 .film .opt { min-height: 46px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid var(--w-line); font-weight: 700; font-size: 15px; text-align: left; color: var(--w-fg); }
-.film .opt.right { background: #1E9E6A; border-color: #1E9E6A; color: #fff; }
-.film .opt.wrong { background: #D93F45; border-color: #D93F45; color: #fff; }
-.film .opt.dim { opacity: .45; }
+.film .opt.right { background: #178055; border-color: #178055; color: #fff; }
+.film .opt.wrong { background: #D2343B; border-color: #D2343B; color: #fff; }
+.film .opt.dim { opacity: .6; }
 .film .why { font-size: 14px; color: var(--w-sub); line-height: 1.5; }
 .film .sheet .btn.primary { background: #fff; color: #111; }
 .film .sheet .btn.ghost { background: rgba(255, 255, 255, .1); color: #fff; }
@@ -55,11 +55,21 @@
 .film .terms b { color: var(--w-fg); margin-right: 8px; }
 .film .qz { display: grid; gap: 18px; }
 .film .qb { display: grid; gap: 10px; }
-.film .opt:disabled { cursor: default; }
-.film .wrow .ib { width: 38px; height: 38px; margin-left: -6px; }
+.film .opt[aria-disabled="true"] { cursor: default; }
+.film .wrow .ib { margin-left: -10px; }
 .film .wrow .time { padding-left: 0; }
 .film .pill .sw { width: 18px; height: 18px; border-radius: 6px; }
 .film .pill .sw i { left: 3px; right: 3px; bottom: 3px; height: 4px; }
 .film .cover { border-radius: 0; }
 .film .wbar, .film .wctl { width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; }
 .film .sheet { max-width: 600px; margin: 0 auto; }
+/* 알약 단추는 40px로 보이지만 누르는 영역은 44px */
+.film .pill::after { content: ""; position: absolute; inset: -2px 0; }
+/* 영상 속 질문의 보기 위에 겹쳐 두는 진짜 단추: 그림은 무대(SVG)가 그리고, 누르기와 초점은 이 단추가 받는다 */
+.film .askbtns { position: absolute; inset: 0; pointer-events: none; }
+.film .askbtn { position: absolute; pointer-events: auto; border-radius: 14px; }
+.film .askbtn:focus-visible { outline-offset: 3px; border-radius: 14px; }
+/* 끝 화면은 올라올 때 초점을 받지만 테두리는 그리지 않는다 (화면의 큰 부분이라 테두리가 뜻이 없다) */
+.film .sheet:focus { outline: none; }
+/* 문제의 풀이 자리는 답하기 전에도 있다 (답하면 화면 낭독기가 읽게). 비어 있는 동안은 칸 사이 틈을 없앤다 */
+.film .qb .why:empty { margin-top: -10px; }

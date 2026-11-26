@@ -59,7 +59,9 @@ export async function takeFile(f: File): Promise<void> {
       const doc = await openPdf(await f.arrayBuffer());
       try {
         const read = await readPdfPages(doc, (a, b) => {
-          if (seq === readSeq) setDraft({ note: `읽는 중 ${a}/${b}쪽` });
+          // 그사이 다른 파일을 골랐으면 이 파일은 그만 읽는다
+          if (seq !== readSeq) throw new Error("superseded");
+          setDraft({ note: `읽는 중 ${a}/${b}쪽` });
         });
         if (isScannedDoc(read.map((p) => p.chars))) note = "글자가 들어 있지 않은 PDF(스캔본)예요. 지금은 글자가 있는 PDF만 읽을 수 있어요.";
         else {
@@ -88,8 +90,11 @@ export async function takeFile(f: File): Promise<void> {
 /** 계획 모델에 보낼 자료: 파일의 고른 쪽과 붙여 넣은 글 */
 export function sourceOf(d: MakeDraft): string {
   const cap = FILM_LIMITS.sourceChars;
-  const parts: string[] = [];
-  if (d.pages) parts.push(pickPages(d.pages, d.range, cap).text);
-  if (d.paste.trim()) parts.push(pickPages(blocksOf(d.paste), "", cap).text);
-  return parts.filter(Boolean).join("\n\n").slice(0, cap);
+  const paste = d.paste.trim();
+  if (!d.pages) return paste ? pickPages(blocksOf(paste), "", cap).text : "";
+  if (!paste) return pickPages(d.pages, d.range, cap).text;
+  // 둘 다 있으면 붙여 넣은 글을 앞에 둔다. 파일이 길어도 잘려 사라지지 않게 3분의 1까지 자리를 주고,
+  // 쪽 표시([p.N])는 파일에만 둔다 (붙여 넣은 글에도 붙이면 파일의 쪽 번호와 겹친다).
+  const head = "[붙여 넣은 글]\n" + paste.slice(0, Math.floor(cap / 3)) + "\n\n";
+  return head + pickPages(d.pages, d.range, cap - head.length).text;
 }

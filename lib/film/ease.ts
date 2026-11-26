@@ -1,5 +1,11 @@
 // Motion and colour helpers shared by the director core and its drawing code. No DOM.
 
+/**
+ * A lookup table with no inherited keys. Names in a script are written by a model (and can echo whatever the student uploaded),
+ * so a thing called "constructor" or "toString" has to be an ordinary name: in a plain {} those would find members of Object itself.
+ */
+export const dict = <T>(o?: Record<string, T>): Record<string, T> => Object.assign(Object.create(null) as Record<string, T>, o);
+
 export const clamp = (x: number, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 export const lerp = (a: number, b: number, x: number) => a + (b - a) * x;
 /** scales move in log space */

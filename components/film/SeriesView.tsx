@@ -1,7 +1,8 @@
 "use client";
 // 시리즈 한 개: 편 목록. 있는 편은 바로 보고, 없는 편은 그 자리에서 만든다.
-import { useState } from "react";
-import { makeShort, stopGen, useGen, type GenState } from "@/lib/film/gen";
+import { useEffect, useState } from "react";
+import { initGen, makeShort, stopGen, useGen, type GenState } from "@/lib/film/gen";
+import { HOST } from "@/lib/film/host";
 import { loadShort, madeKs, removeSeries, seenOf, titleOf, totalOf, useFilmStore, getSeries, type Series } from "@/lib/film/store";
 import { secs } from "./format";
 import { Icon } from "./icons";
@@ -41,7 +42,7 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
         <span>{busyLine(busy.message, busy.t0, now)}</span>
       </span>
     );
-  else m = err ? err.message : "아직 만들지 않은 편";
+  else m = err ? err.message : sh ? "이 기기에 남은 대본을 읽지 못했어요. 다시 만들 수 있어요." : "아직 만들지 않은 편";
   let action;
   if (busy)
     action = (
@@ -52,7 +53,7 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
   else if (gen.avail === "ok")
     action = (
       <button className={"btn small " + (first ? "primary" : "ghost")} type="button" disabled={!!gen.busy} onClick={() => void makeShort(sid, k)}>
-        만들기
+        {sh ? "다시 만들기" : "만들기"}
       </button>
     );
   else action = <span className="chip">미공개</span>;
@@ -97,17 +98,24 @@ function DeleteSeries({ id }: { id: string }) {
   );
 }
 
-function noteOf(gen: GenState): string {
+function noteOf(gen: GenState, id: string): string {
+  // 한 번에 하나만 만든다: 다른 곳에서 만드는 중이면 단추가 꺼져 있는 까닭을 알린다
+  if (gen.busy && (gen.busy.kind === "plan" || gen.busy.sid !== id)) return "지금 다른 것을 만드는 중이에요. 한 번에 하나씩 만들어서, 끝나면 여기서도 만들 수 있어요.";
   if (gen.avail === "ok")
-    return "만들기를 누르면 그 편의 계획대로 Sonnet 5.5가 대본을 쓰고, 자동 점검을 거쳐 바로 볼 수 있어요. 보통 15초 안팎 걸려요." + (gen.mock ? " 지금은 예시 모드라 AI를 부르지 않고 준비된 대본으로 답해요." : "");
+    return HOST.seriesReady + (gen.mock ? " 지금은 예시 모드라 AI를 부르지 않고 준비된 대본으로 답해요." : "");
   if (gen.avail === "wait") return "새 편을 만들 수 있는지 확인하는 중이에요.";
-  return "지금은 서버에 AI 키가 없어서 새 편을 만들 수 없어요. 이미 있는 편은 그대로 볼 수 있어요.";
+  if (gen.avail === "down") return HOST.seriesDown;
+  return HOST.seriesNone;
 }
 
 export default function SeriesView({ id }: { id: string }) {
   useFilmStore();
   const gen = useGen();
   const now = useNow(!!gen.busy && gen.busy.kind === "short" && gen.busy.sid === id);
+  // 서버 확인이 앞에서 실패했으면 이 화면에 들어올 때 다시 묻는다
+  useEffect(() => {
+    initGen();
+  }, []);
   const s = getSeries(id);
   if (!s || !s.plan || s.kind === "ex") return null;
   const n = totalOf(s);
@@ -133,7 +141,7 @@ export default function SeriesView({ id }: { id: string }) {
           <ShortRow key={k} s={s} k={k} first={k === next} gen={gen} now={now} />
         ))}
       </div>
-      {have.length < n ? <p className="note">{noteOf(gen)}</p> : null}
+      {have.length < n ? <p className="note">{noteOf(gen, id)}</p> : null}
       {s.kind === "mine" ? (
         <>
           {s.cut ? <p className="fine ex">계획이 길어서 끝까지 받지 못한 편은 뺐어요.</p> : null}

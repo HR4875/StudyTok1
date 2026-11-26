@@ -1,9 +1,9 @@
 "use client";
 // 모션 쇼츠 화면의 뼈대: 주소의 # 뒤를 읽어 화면을 고르고, 재생기는 그 화면 위에 덮어 띄운다.
 //   #home(또는 없음) 홈 · #s-<id> 시리즈 · #make 만들기 · #price 요금제 · #w-<id>-<k> 재생기
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { initGen } from "@/lib/film/gen";
-import { entryOf, getSeries, useFilmStore } from "@/lib/film/store";
+import { entryOf, getSeries, unsavedMade, useFilmStore } from "@/lib/film/store";
 import HomeView from "./HomeView";
 import MakeView from "./MakeView";
 import Player from "./Player";
@@ -89,9 +89,31 @@ export default function FilmApp() {
   const under = route.under.name === "series" && !isSeriesPage(route.under.id) ? HOME : route.under;
   const watch = !fix && route.watch ? route.watch : null;
 
+  // 재생기를 닫으면 그 편을 열었던 줄로 초점을 돌려준다: 키보드와 화면 낭독기가 보던 자리를 잃지 않게
+  const watchHash = watch ? route.hash : "";
+  const lastWatch = useRef("");
+  useEffect(() => {
+    if (watchHash) {
+      lastWatch.current = watchHash;
+      return;
+    }
+    const from = lastWatch.current;
+    lastWatch.current = "";
+    if (!from) return;
+    const a = document.activeElement;
+    if (a && a !== document.body && a !== document.documentElement) return;
+    document.querySelector<HTMLElement>(`.film .wrap a[href="${from}"]`)?.focus({ preventScroll: true });
+  }, [watchHash]);
+
   return (
     <div className="film">
-      <div className="wrap">
+      {/* 재생기가 열려 있는 동안 아래 화면은 초점과 화면 낭독기에서 뺀다 */}
+      <div className="wrap" inert={!!watch}>
+        {unsavedMade() ? (
+          <p className="note warnbar" role="status">
+            방금 만든 것을 이 기기에 저장하지 못했어요. 브라우저의 저장 공간이 꽉 찼거나 저장이 막혀 있어요. 이 창을 닫으면 사라집니다.
+          </p>
+        ) : null}
         {under.name === "series" ? (
           <SeriesView key={under.id} id={under.id} />
         ) : under.name === "make" ? (

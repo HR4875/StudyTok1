@@ -1,13 +1,13 @@
 "use client";
 // 재생기: 한 편을 9:16 무대에 틀고, 영상 속 질문에서 멈춰 답을 받고, 끝나면 끝 화면을 올린다.
 // 편마다 새로 마운트된다 (FilmApp이 sid-k를 key로 준다).
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SKINS, SKIN_LIST } from "@/lib/film";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { H, SKINS, SKIN_LIST, W } from "@/lib/film";
 import { SPEEDS, getPrefs, getSeries, loadShort, titleOf, useFilmStore, type LoadedShort } from "@/lib/film/store";
 import EndSheet from "./EndSheet";
 import { secs } from "./format";
 import { Icon } from "./icons";
-import { EMPTY_VIEW, createPlayer, type PlayerApi, type PlayerView } from "./PlayerEngine";
+import { EMPTY_VIEW, createPlayer, type PlayerApi, type PlayerMenu, type PlayerView } from "./PlayerEngine";
 
 export interface PlayerProps {
   /** 시리즈 id ("ex"는 한 편짜리 맛보기 묶음) */
@@ -17,6 +17,17 @@ export interface PlayerProps {
 }
 
 const closeHref = (sid: string) => (sid !== "ex" ? "#s-" + sid : "#home");
+const pct = (v: number) => (v * 100).toFixed(3) + "%";
+
+/** 메뉴 안에서 위아래 화살표로 항목을 옮겨 다닌다 */
+function popKey(e: KeyboardEvent<HTMLDivElement>) {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("button"));
+  const i = items.indexOf(document.activeElement as HTMLElement);
+  if (i < 0) return;
+  e.preventDefault();
+  items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+}
 
 export default function Player({ sid, k }: PlayerProps) {
   const sh = useMemo(() => loadShort(sid, k), [sid, k]);
@@ -42,6 +53,10 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
   const timeRef = useRef<HTMLSpanElement>(null);
   const coverRef = useRef<HTMLButtonElement>(null);
   const ppRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const skinRef = useRef<HTMLButtonElement>(null);
+  const speedRef = useRef<HTMLButtonElement>(null);
+  const askRef = useRef<HTMLDivElement>(null);
   const script = sh.script;
 
   useEffect(() => {
@@ -95,13 +110,35 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
     };
   }, []);
 
-  // 열리면 표지의 재생 단추로. 표지나 끝 화면이 사라지며 초점을 잃으면 창 안에 다시 둔다
+  // 열리면 표지의 재생 단추로. 표지, 질문의 보기, 끝 화면이 사라지며 초점을 잃으면 창 안에 다시 둔다.
+  // 영상이 질문에서 멈추면, 키보드로 보던 사람의 초점은 첫 보기로 옮긴다.
+  const askN = view.ask ? view.ask.n : -1;
   useLayoutEffect(() => {
+    if (askN >= 0 && !byPointer.current) {
+      askRef.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+      return;
+    }
     const a = document.activeElement;
     if (a && a !== document.body && rootRef.current?.contains(a)) return;
     const to = coverRef.current ?? (byPointer.current ? rootRef.current : ppRef.current);
     to?.focus({ preventScroll: true });
-  }, [view.started, view.ended]);
+  }, [view.started, view.ended, askN]);
+
+  // 메뉴가 열리면 지금 고른 항목으로, 닫히면 그 메뉴를 연 단추로 초점을 옮긴다 (키보드로 쓸 때만)
+  const lastMenu = useRef<PlayerMenu>(null);
+  useLayoutEffect(() => {
+    if (view.menu) {
+      lastMenu.current = view.menu;
+      if (!byPointer.current) popRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
+      return;
+    }
+    const was = lastMenu.current;
+    lastMenu.current = null;
+    if (!was || byPointer.current) return;
+    const a = document.activeElement;
+    if (a && a !== document.body && rootRef.current?.contains(a)) return;
+    (was === "skin" ? skinRef : speedRef).current?.focus({ preventScroll: true });
+  }, [view.menu]);
 
   // 진행 막대의 칸은 React가 그리고, 채우는 것은 엔진이 한다
   useLayoutEffect(() => {
@@ -115,6 +152,9 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
   const meta = secs(sh.dur) + (asks ? " · 보다가 질문에 직접 답해요" : "") + " · 화면 양옆을 누르면 장면을 넘겨요";
   const askBeats = useMemo(() => new Set(info ? info.asks.map((a) => a.beat) : []), [info]);
   const sk = SKINS[prefs.skin] ?? SKINS.paper;
+  // 그림은 화면 낭독기에 보이지 않으니, 지금 장면의 문장을 글로도 알린다
+  const caption = info && view.started && !view.ended && view.beat >= 0 ? (info.beats[view.beat]?.say ?? "") : "";
+  const ask = view.ask;
 
   return (
     <div className="watch" ref={rootRef} role="dialog" aria-modal="true" aria-label={ttl} tabIndex={-1}>
@@ -127,7 +167,10 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
           <Icon name={prefs.sound ? "sound" : "mute"} />
         </button>
       </div>
-      <div className="stagewrap" ref={wrapRef}>
+      <p className="sr" aria-live="polite">
+        {caption}
+      </p>
+      <div className="stagewrap" ref={wrapRef} inert={view.ended}>
         <div className="stagebox" ref={boxRef} onClick={(e) => api.current?.onStage(e.clientX, e.clientY)}>
           <svg className="st" aria-hidden="true" ref={svgRef} />
           {!view.started && (
@@ -151,9 +194,31 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
           <div key={view.flash ? view.flash.n : 0} className={view.flash ? "flash on" : "flash"}>
             {view.flash && <Icon name={view.flash.name} />}
           </div>
+          {ask && (
+            <div className="askbtns" ref={askRef} role="group" aria-label="답을 골라 주세요">
+              {ask.choices.map((c, i) => {
+                const r = ask.rects[i];
+                if (!r) return null;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="askbtn"
+                    style={{ left: pct(r.x / W), top: pct(r.y / H), width: pct(r.w / W), height: pct(r.h / H) }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      api.current?.answer(ask.n, i);
+                    }}
+                  >
+                    <span className="sr">{`${i + 1}번: ${c}`}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         {view.menu === "skin" && (
-          <div className="pop">
+          <div className="pop" ref={popRef} role="group" aria-label="디자인 고르기" onKeyDown={popKey}>
             {SKIN_LIST.map((s) => (
               <button key={s.id} type="button" aria-pressed={prefs.skin === s.id} onClick={() => api.current?.pick({ skin: s.id })}>
                 <span className="sw" style={{ background: SKINS[s.id].bg }}>
@@ -165,7 +230,7 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
           </div>
         )}
         {view.menu === "speed" && (
-          <div className="pop">
+          <div className="pop" ref={popRef} role="group" aria-label="속도 고르기" onKeyDown={popKey}>
             {SPEEDS.map((v) => (
               <button key={v} type="button" aria-pressed={prefs.speed === v} onClick={() => api.current?.pick({ speed: v })}>
                 {v + "×" + (v === 1.1 ? "  기본" : "")}
@@ -174,7 +239,7 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
           </div>
         )}
       </div>
-      <div className="wctl">
+      <div className="wctl" inert={view.ended}>
         <div
           className="segs"
           ref={segsRef}
@@ -196,13 +261,13 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
             <Icon name={view.playing ? "pause" : "play"} />
           </button>
           <span className="time" ref={timeRef} />
-          <button type="button" className="pill" aria-label={`디자인 바꾸기, 지금 ${sk.name}`} onClick={() => api.current?.toggleMenu("skin")}>
+          <button type="button" className="pill" ref={skinRef} aria-haspopup="true" aria-expanded={view.menu === "skin"} aria-label={`디자인 바꾸기, 지금 ${sk.name}`} onClick={() => api.current?.toggleMenu("skin")}>
             <span className="sw" style={{ background: sk.bg }}>
               <i style={{ background: sk.primary }} />
             </span>
             {sk.name}
           </button>
-          <button type="button" className="pill" aria-label={`속도 바꾸기, 지금 ${prefs.speed}배`} onClick={() => api.current?.toggleMenu("speed")}>
+          <button type="button" className="pill" ref={speedRef} aria-haspopup="true" aria-expanded={view.menu === "speed"} aria-label={`속도 바꾸기, 지금 ${prefs.speed}배`} onClick={() => api.current?.toggleMenu("speed")}>
             {prefs.speed + "×"}
           </button>
         </div>

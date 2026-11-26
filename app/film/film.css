@@ -1,8 +1,8 @@
 /* 모션 쇼츠 화면(/film)의 스타일. 모든 규칙을 .film 아래에 두어 앱의 다른 화면에 새지 않게 한다.
    이 화면의 색 이름(--bg, --ink ...)은 .film 안에서만 쓰고, 재생기는 player.css에 따로 있다. */
 .film {
-  --bg: #F4F3EF; --card: #FFFFFF; --ink: #1F1F22; --sub: #55555B; --faint: #8B8A86; --line: #E2E0D9; --fill: #ECEAE3;
-  --primary: #0A5FC2; --on-primary: #FFFFFF; --soft: #DCEBFF; --mark: #FFD43B; --good: #1E9E6A; --bad: #D93F45; --warn-bg: #FFF4CC; --warn-fg: #5C4700;
+  --bg: #F4F3EF; --card: #FFFFFF; --ink: #1F1F22; --sub: #55555B; --faint: #6C6B67; --line: #E2E0D9; --fill: #ECEAE3;
+  --primary: #0A5FC2; --on-primary: #FFFFFF; --soft: #DCEBFF; --mark: #FFD43B; --good: #1E9E6A; --on-good: #FFFFFF; --bad: #D93F45; --warn-bg: #FFF4CC; --warn-fg: #5C4700;
   --w-bg: #0B0C10; --w-card: #171920; --w-fg: #F4F4F6; --w-sub: #A3A7B3; --w-line: #2A2D38; --w-seg: rgba(255,255,255,.24);
   --r-s: 12px; --r-m: 18px; --r-l: 26px;
   --font: "Wanted Sans Variable", "Wanted Sans", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
@@ -13,7 +13,7 @@
 @media (prefers-color-scheme: dark) {
   .film {
     --bg: #0F1117; --card: #1A1D27; --ink: #F3F4F6; --sub: #B1B6C2; --faint: #7F8696; --line: #2B303D; --fill: #232733;
-    --primary: #5EA2FF; --on-primary: #06162E; --soft: #1D3156; --mark: #8A6D00; --good: #3DD68C; --bad: #FF7B7B; --warn-bg: #3A3110; --warn-fg: #FFE08A;
+    --primary: #5EA2FF; --on-primary: #06162E; --soft: #1D3156; --mark: #8A6D00; --good: #3DD68C; --on-good: #06281A; --bad: #FF7B7B; --warn-bg: #3A3110; --warn-fg: #FFE08A;
     color-scheme: dark;
   }
 }
@@ -36,10 +36,10 @@ body:has(.film) { background: #F4F3EF; }
 
 /* top bar */
 .film .top { display: flex; align-items: center; justify-content: space-between; height: 60px; }
-.film .logo { font-weight: 900; font-size: 21px; letter-spacing: -0.04em; }
+.film .logo { display: inline-block; padding-block: 7px; font-weight: 900; font-size: 21px; letter-spacing: -0.04em; }
 .film .logo i { font-style: normal; background: #FFD43B; border-radius: 6px; padding: 0 5px 1px; margin-left: 1px; color: #1F1F22; }
-.film .toplink { font-size: 14px; font-weight: 700; color: var(--sub); padding: 10px 2px; }
-.film .back { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 15px; color: var(--sub); padding: 10px 10px 10px 0; }
+.film .toplink { font-size: 14px; font-weight: 700; color: var(--sub); padding: 12px 8px; margin-right: -8px; }
+.film .back { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 15px; color: var(--sub); padding: 11px 12px 11px 0; }
 .film .back svg { width: 20px; height: 20px; }
 
 /* hero */
@@ -47,7 +47,7 @@ body:has(.film) { background: #F4F3EF; }
 .film .hero .lead { margin-top: 12px; color: var(--sub); font-size: 16px; line-height: 1.55; max-width: 26em; }
 .film .heroplay { margin-top: 22px; display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); gap: 16px; align-items: stretch; }
 .film .phone { position: relative; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: #F4F3EF; box-shadow: 0 0 0 1px var(--line), 0 18px 40px -18px rgba(20, 20, 30, .35); display: block; width: 100%; }
-.film .phone .tag { position: absolute; left: 8px; bottom: 8px; background: rgba(20, 20, 24, .78); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 99px; display: flex; gap: 5px; align-items: center; }
+.film .phone .tag { position: absolute; left: 8px; bottom: 8px; white-space: nowrap; background: rgba(20, 20, 24, .78); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 99px; display: flex; gap: 5px; align-items: center; }
 .film .phone .tag b { width: 6px; height: 6px; border-radius: 50%; background: #FF5A5F; }
 .film .heroside { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
 .film .facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
@@ -57,7 +57,7 @@ body:has(.film) { background: #F4F3EF; }
 .film .btn:active { transform: scale(.98); }
 .film .btn.primary { background: var(--primary); color: var(--on-primary); }
 .film .btn.ghost { background: var(--fill); color: var(--ink); }
-.film .btn.small { min-height: 40px; width: auto; padding: 8px 14px; font-size: 14px; border-radius: 12px; }
+.film .btn.small { min-height: 44px; width: auto; padding: 8px 14px; font-size: 14px; border-radius: 12px; }
 .film .btn[disabled] { opacity: .45; cursor: default; }
 .film .cta { margin-top: 18px; display: grid; gap: 8px; }
 .film .fine { font-size: 13px; color: var(--faint); line-height: 1.5; }
@@ -80,7 +80,7 @@ body:has(.film) { background: #F4F3EF; }
 .film .tcard b { display: block; margin-top: 8px; font-size: 14px; font-weight: 800; line-height: 1.3; }
 .film .tcard span { display: block; font-size: 12px; color: var(--faint); margin-top: 2px; }
 .film .foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
-.film .foot a { font-weight: 700; color: var(--sub); font-size: 14px; }
+.film .foot a { display: inline-block; padding: 11px 0; font-weight: 700; color: var(--sub); font-size: 14px; }
 
 /* series page */
 .film .shead h1 { font-size: 25px; line-height: 1.28; font-weight: 800; margin-top: 6px; }
@@ -89,7 +89,7 @@ body:has(.film) { background: #F4F3EF; }
 .film .list { margin-top: 18px; display: grid; gap: 8px; }
 .film .row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 14px 14px 14px 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-m); width: 100%; text-align: left; }
 .film .row .num { width: 30px; height: 30px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
-.film .row.done .num { background: var(--good); color: #fff; }
+.film .row.done .num { background: var(--good); color: var(--on-good); }
 .film .row .t { font-weight: 700; font-size: 15.5px; line-height: 1.35; }
 .film .row .m { font-size: 12.5px; color: var(--faint); margin-top: 2px; }
 .film .row.locked { background: transparent; border-style: dashed; }
@@ -153,8 +153,13 @@ body:has(.film) { background: #F4F3EF; }
 .film .about li + li { border-top: 1px solid var(--line); }
 .film .about b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 1px; }
 .film .del { margin-top: 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.film .linkbtn { font-size: 13.5px; font-weight: 700; color: var(--faint); padding: 8px 0; text-decoration: underline; text-underline-offset: 3px; }
+.film .linkbtn { font-size: 13.5px; font-weight: 700; color: var(--faint); padding: 12px 0; text-decoration: underline; text-underline-offset: 3px; }
 .film .planbox ol:empty { display: none; }
 .film .steps { padding: 0; margin-bottom: 0; }
 .film .drop b { color: var(--ink); }
 .film .heroside .btn { margin-top: 14px; }
+/* 눈에는 보이지 않고 화면 낭독기만 읽는 글 */
+.film .sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.film .warnbar { margin-top: 10px; }
+/* 아주 좁은 화면에서는 미리보기의 꼬리표를 줄인다 */
+@media (max-width: 359px) { .film .phone .tag .long { display: none; } }
