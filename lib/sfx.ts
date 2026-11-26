@@ -133,12 +133,18 @@ export function playSfx(kind: SfxKind | "correct" | "wrong" | "tap" | "swipe", d
     case "swish":
       noise(0.3, { from: 2500, to: 800, gain: 0.08 });
       break;
-    case "correct":
-      [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.22, { gain: 0.18, delay: i * 0.07 }));
+    case "correct": {
+      // 콤보마다 한 단계(반음 2개)씩 높아지고, 5콤보부터 반짝이가 붙는다 (11/26 확정 A안). dur = 지금 콤보 수
+      const combo = Math.max(1, Math.round(dur));
+      const k = Math.pow(2, (Math.min(combo - 1, 4) * 2) / 12);
+      [523, 659, 784, 1046].forEach((f, i) => tone(f * k, 0.22, { gain: 0.17, delay: i * 0.065 }));
+      if (combo >= 5) [2093, 2637, 3136, 2637].forEach((f, i) => tone(f, 0.35, { gain: 0.06, delay: 0.3 + i * 0.05 }));
       break;
+    }
     case "wrong":
-      tone(220, 0.25, { type: "sawtooth", gain: 0.12, to: 150 });
-      tone(180, 0.3, { type: "sawtooth", gain: 0.1, to: 120, delay: 0.15 });
+      // 혼나는 버저 대신 부드러운 '뿅' 두 음 (11/26 확정 1안). 화면에는 "오답노트에 담았어요" 안내
+      tone(523, 0.16, { gain: 0.16, to: 494, attack: 0.02 });
+      tone(392, 0.28, { gain: 0.14, to: 370, delay: 0.13, attack: 0.02 });
       break;
     case "tap":
       tone(900, 0.05, { gain: 0.08 });
