@@ -44,7 +44,7 @@ SHORT 2 | ...
 - needs names earlier shorts by number ("1, 2") or "없음". gives lists what later shorts may rely on, with the numbers.
 - src is the page numbers of the material this short draws on (the material is given with page marks like [p.3]); "-" when you were given only a topic name.
 - The player can draw only these pictures, so name one of them in route, chosen by the shape of the idea: a tree of circles joined by arrows (cases branching from one start, or steps in a row); a balance with two pans (two bundles that are worth the same, or one outweighing the other); bars standing side by side (comparing sizes); a grid of dots (so many out of so many); icons with tokens travelling between them (who gives what to whom: people, banks, ships, documents, money); a table revealed row by row (cases against properties); a line graph with a point that slides (a value that depends on another). One short uses one of them, with a calculation line under it when numbers are computed.
-- What unfolds in time is drawn from left to right over a time axis, one stage per column with its name under the axis: prices branching over periods (the tree grows to the right), cash flows and book values year by year (bars standing on the axis), the steps of a procedure in order. Say in route which stages the axis has ("오늘, 3개월 뒤"). For finance and accounting material prefer these graph-like pictures: time on the horizontal axis, amounts as bars standing on it, cases branching to the right.
+- What unfolds in time is drawn from left to right over a time axis, one stage per column with its name under the axis: prices branching over periods (the tree grows to the right), cash flows and book values year by year (bars standing on the axis), the steps of a procedure in order. Say in route which 2 to 4 stages the axis has ("오늘, 3개월 뒤"); they are moments, never cases. The axis carries a tree or bars, never a balance, table, plot, dots grid or icons: a price that branches over time is a tree over time. For finance and accounting material prefer these graph-like pictures: time on the horizontal axis, amounts as bars standing on it, cases branching to the right.
 - Keep each SHORT line under 350 characters and each STEP line under 110. ASK: the question at most 22 characters, each answer at most 12.
 `;
 
@@ -55,22 +55,29 @@ A planner has already chosen the path. The brief gives you the idea, the picture
 # Staging rules
 1. Follow the steps in order. A step becomes one scene, or two when it holds two things (a fact and then a calculation); never two steps in one scene. Add no idea, fact or number that the brief does not give, and skip no step. Scenes follow from each other with "그래서" or "그런데".
 2. Numbers are born on screen. A number is either given (list it in GIVEN and introduce it with its meaning) or computed in front of the viewer by a calc whose numbers fly in from objects already on screen. Every calculation a step mentions is shown as a calc in that step's scene, and its result appears nowhere before it.
-3. One picture that grows. The brief names the picture; build it up so that every scene adds one thing to it or changes one thing in it. Things stay where they first appeared, so the eye learns the layout once and the viewer never has to remember what has gone. Position, size, movement and comparison carry the idea; the sentence only names what the eye is seeing. The picture says the idea by its shape: cases branching from one start, or steps in a row = a tree of circles with arrows; two bundles that must be worth the same, or one outweighing the other = a balance (scale) with one bundle on each pan; comparing sizes = bars standing side by side; so many out of so many = a grid of dots; who gives what to whom = icons with tokens travelling between them (send); cases against properties = a table revealed row by row; a value that depends on another = a plot with a moving dot; what unfolds in time (prices over periods, cash flows or book values year by year, the steps of a procedure) = stages from left to right over a time axis (TIME): a tree over time grows to the right along the axis, and amounts compared over time are bars standing on it. For finance and accounting prefer these graph-like pictures over icons and boxes. Real things (a stock, a coupon, a bank, a ship, a person) appear as icons, numbers as circles. Clearing the screen is for a real change of place, once in a short at most, and nothing that has been on screen is ever drawn a second time. A thing keeps its meaning: a new quantity is a new object in its own seat, never an old circle relabelled; set is for a value that really changes (a price moving, a balance tilting, a bar growing). When the picture is a balance, table or plot, it is on screen from the first or second scene and stays to the end.
+3. One picture that grows. The brief names the picture; build it up so that every scene adds one thing to it or changes one thing in it. Things stay where they first appeared, so the eye learns the layout once. Position, size, movement and comparison carry the idea; the sentence only names what the eye is seeing. The picture says the idea by its shape: cases branching from one start, or steps in a row = a tree of circles with arrows; two bundles worth the same, or one outweighing the other = a balance (scale); comparing amounts = bars (pillars); so many out of so many = a grid of dots; who gives what to whom = icons with tokens travelling between them (send); cases against properties = a table revealed row by row; a value that depends on another = a plot with a moving dot; what unfolds in time (prices over periods, money month by month or year by year, the steps of a procedure) = stages from left to right over a time axis (TIME), with a tree growing to the right or pillars standing on the axis. For finance and accounting prefer these graph-like pictures over icons and boxes. Real things (a stock, a bank, a ship, a person) appear as icons, numbers as circles. Clearing the screen is for a real change of place, once in a short at most, and nothing that has been on screen is ever drawn a second time. A thing keeps its meaning: a new quantity is a new object in its own seat, never an old circle relabelled; set is for a value that really changes (a price moving, a balance tilting, a bar filling). A balance, table or plot is on screen from the first or second scene to the end.
 4. Purpose before method, reason before result: the scene that shows why comes before the scene that shows what. Never show a result first and justify it later.
 5. Everyday words, all of them Korean. A technical term is a name tag given after the idea is understood ("이걸 ○○라고 불러요"), and every number keeps one unit throughout. When the brief uses an English word (payoff, hedge, spread), put its plain Korean meaning on screen instead ("만기에 받는 돈"); only names that Korean students themselves say in English (ETF, GDP) stay as they are.
 6. The ask is its own scene, placed right before the scenes of the step the brief names (before=), so nothing on screen has shown its answer yet. Use the brief's question and choices.
 7. Open with the concrete situation of the first step, never a definition. Close with one sentence that answers the title and that the viewer could repeat to a friend. Friendly 해요체, light humour welcome, never childish.
 
+# The look
+- Few and bold: about six things on screen plus two or three tags; delete a tag once its scene is over. In a sparse picture r=96 makes the three to five main circles bigger. Tags and arrow labels at most 7 characters.
+- Colour is meaning: ink neutral; blue the hero, a gain, "up"; red only a loss or something wrong; yellow only the unknown and the one highlight; pale and grey quiet seconds. No green: it draws as a second blue.
+- Amounts are pillars (bar). The tallest bar stands as tall as three rows of circles, so bars go in the top row, or over TIME in the bottom row; bars of one row share one floor, so nothing sits between them. A bar must get its number: written without one it stands as a yellow dashed ghost until a later set fills it, so give it the colour of what it will be. An amount nobody knows yet is node f "?" c=yellow.
+- Over TIME the labels are moments (오늘, 3개월 뒤, 2년 뒤), never cases; 2 or 3 stages read best, and a last stage may hold what each branch is worth ("TIME 오늘 | 3개월 뒤 | 쿠폰 값"). Give every stage the same number of seats ("-" fills), so each row holds one kind of thing across the stages. Pillars standing on the axis fill the bottom row alone, with no name (the label under the axis names them), and the seat above each of them stays "-" so their numbers stay clear. A tree over time opens from the middle ("TIME 오늘 | 3개월 뒤" with "GRID s / u d").
+- Ask while at most three rows of circles or icons are on screen and no bar yet; the pillars come after the question.
+
 # What you write
 Plain text in the notation below, nothing else: no JSON, no code fence, no commentary. Do not copy the STEP or ASK lines; scenes point to steps by number.
 
 TITLE 브리프의 제목
-HOOK 3개월 뒤 | 주가는 | 둘 중 | 하나?
-CARD 콜옵션 | 오를 때만 | 쓰는 쿠폰
+HOOK 덩어리 | 서너 개로 | 수수께끼를 | 던져요?
+CARD 가르친 용어 | 강조할 앞부분 | 나머지
 GOAL 다 보고 나면 친구에게 말할 수 있는 한 문장
 PICTURE 처음부터 끝까지 화면에 남는 그림 하나와, 거기에 무엇이 차례로 붙는지 한 줄
-GRID s / u d / fu fd / k
-GIVEN 20=지금 주가; 22=오르면; 18=내리면
+GRID 자리표 (아래 설명)
+GIVEN 숫자=뜻; 숫자=뜻
 TERM 용어=쉬운 말; 용어=쉬운 말
 PART 1/3 next=다음 편 제목
 #1 s1 | 화면 맨 위 문장, *강조할 말* 하나
@@ -79,10 +86,10 @@ PART 1/3 next=다음 편 제목
 END 마지막 한 문장
 QUIZ 질문 | 정답 | 오답 | 오답 | why=짧은 이유
 
-- GRID is the seating plan of the PICTURE: the ids of everything that takes a place (node, box, icon, num, bar, text, table, plot, scale, dots), row by row from the top, rows separated by "/". One id in a row sits in the middle, two sit left and right, three sit across; "-" leaves a seat empty ("- d" puts d on the right). Four rows at most, at most three in a row, every id in one seat. Things that belong together sit next to each other or one under the other, and the things one scene works with sit in neighbouring rows. A plot, table, scale or dots grid takes a row of its own and counts as two rows, because it is tall; the engine gives that row the height it needs. A picture taller than about four rows no longer fits the phone screen at a readable size. Scene lines then give no positions; each thing appears in its seat when its scene adds it. With a TIME line the groups between "/" are not rows but stages from left to right, one group per TIME label in the same order, and the ids of a group stack from the top; a group with fewer ids is centred beside the taller ones, so a tree opens from the middle. "TIME 오늘 | 3개월 뒤" with "GRID s / u d" puts s on the left, halfway between u above and d below on the right. A stage holds 1 to 3 things, and "-" still leaves a seat empty ("GRID - a / b - / - c" draws a zigzag).
+- GRID is the seating plan of the PICTURE: the ids of everything that takes a place (node, box, icon, num, bar, text, table, plot, scale, dots), row by row from the top, rows separated by "/". One id in a row sits in the middle, two sit left and right, three sit across; "-" leaves a seat empty ("- d" puts d on the right). Four rows at most, at most three in a row, every id in one seat. Things that belong together sit next to each other or one under the other, and the things one scene works with sit in neighbouring rows. A plot, table, scale or dots grid takes a row of its own and counts as two rows, because it is tall; the engine gives that row the height it needs. A picture taller than about four rows no longer fits the phone screen at a readable size. Scene lines then give no positions; each thing appears in its seat when its scene adds it. With a TIME line the groups between "/" are not rows but stages from left to right, one group per TIME label in the same order, and the ids of a group stack from the top; a group with fewer ids is centred beside the taller ones ("TIME 오늘 | 3개월 뒤" with "GRID s / u d" puts s on the left, halfway between u above and d below on the right). A stage holds 1 to 3 seats.
 - TIME (optional) puts the picture over a time axis: "TIME 오늘 | 3개월 뒤 | 6개월 뒤", 2 to 4 stage names of at most 8 characters, typed under their columns. Use it whenever the picture runs in time order. VALUE (optional, only with TIME) names the vertical axis, at most 6 characters ("VALUE 주가"); give it when the height of things means an amount, and then seat higher amounts higher.
-- HOOK (optional): 3 or 4 chunks of at most 7 characters each that open the film as stacked type, one after another, the last ending in ? or !. They state the mystery of the title in the viewer's words. Without HOOK the engine cuts the title into chunks.
-- CARD (optional): the end card. Every film ends on a card: a big title of at most 8 characters, usually the term this short teaches, then the highlighted part and the rest of one short line ("CARD 콜옵션 | 오를 때만 | 쓰는 쿠폰"). Without CARD the engine builds it from the title and END.
+- HOOK: always. 3 or 4 chunks that open the film as big stacked type, one after another, stating the mystery of the title in the viewer's words; the last ends in ? or !. The type size follows the widest chunk: chunks of 4 to 6 characters counting spaces ("오르면 22", "이 쿠폰은", "얼마일까?") fill the screen, one of 9 shrinks the whole hook to half.
+- CARD: always. The end card grows out of the last thing the last scene adds or changes, so end on the thing that matters. A big title of at most 6 characters, the term this short teaches, then one line of at most 14 characters cut at a space in two: the highlighted first part and the rest.
 - GIVEN lists every number that is simply given: the numbers of the series, the results of earlier parts that you show again, and counts above 2. Every other number on screen must come out of a calc.
 - 9 to 12 scenes. "#3 s2 hard | 문장" is scene 3, showing step 2; hard marks the difficult scenes so they get more time. The engine sets all timing.
 - The sentence: at most 22 characters not counting spaces, one idea, with the single key word or number between asterisks. Any number in it is already on screen or computed in this scene.
@@ -103,7 +110,7 @@ dots dd n=100 hi=10 c=red cap="100명 중 10명"     a grid of n dots (20 to 200
 arrow a s>u "오르면"                             from>to by id. dash, both, curve=60. line is the same without a head
 brace k u>d left "4 차이"                        bracket between two objects with a label: a difference or a range
 calc c 22@u − 21@k = 1원                         the calculation builds itself just under the picture: 22@u flies out of object u and keeps u's unit; write the unit on the result. Operators + − × ÷ ( ). One calc per scene, at most 3 numbers before "=", checked by code.
-note m u right "쪽지"                            small tag on an object: left|right|top|bottom, 10 characters at most
+note m u right "쪽지"                            small tag on an object: left|right|top|bottom, 7 characters at most
 sign e a~b "="                                   big symbol halfway between two things that sit side by side with an empty seat between them: = ≠ > < + → ?
 table t w=900 cols="경우|주식|쿠폰" rows="오르면|22|1 / 내리면|18|0" show=1 hi="0,1"     show reveals rows one by one; hi highlights row,col; ✓ and ✗ are drawn as marks
 plot p w=860 h=640 xr=0..40 yr=0..20 xt=0,20,40 yt=0,10,20 xl="만기 주가" yl="이득"
@@ -117,11 +124,11 @@ focus s u d                                      these stay bright and the rest 
 ask 주식은 몇 주 사야 할까요? | 1주보다 적게 | 딱 1주 | 1주보다 많이 | why=쿠폰은 1원, 주식은 4원 움직여요
 
 A calc leaves the screen when the next scene starts. When its result is needed later, put it into a node or box in the same scene ("box r 1원 at=3" appears 3 seconds in, after the calc) and take it from there afterwards ("1@r").
-Colours: ink blue yellow pale grey green red white (blue is the main colour, yellow the highlighter). at=2.5 on a line delays it to that second of the scene.
-A scene with ask has no sentence ("#7 s5 hard" then the ask line; the question at most 22 characters, each choice at most 12, why without numbers that are not on screen yet). Keep at most 3 rows on screen during it; the answer buttons take the lower part.
+Colours: ink blue red yellow pale grey white (meanings under The look). at=2.5 on a line delays it to that second of the scene.
+A scene with ask has no sentence ("#7 s5 hard" then the ask line; the question at most 22 characters, each choice at most 12, why without numbers that are not on screen yet). The answer buttons take the lower part of the screen and the picture shrinks above them.
 Icons: person people student bank ship factory truck box container crane warehouse plane anchor coin coins money wallet card piggy vault won dollar ticket tag receipt doc contract cert stamp sign id up down chart pie trendup trenddown scale shield umbrella lock key gavel handshake clock calendar hourglass timer house store building office city globe pin flag car train bike rocket idea warn check x q star heart fire bolt target trophy medal gift dice puzzle magnet book cap pencil calc percent search eye brain robot phone laptop mail chat megaphone news like dislike smile sad cart coffee pizza burger shirt shoe apple bread chicken plant tree sun cloud drop snow thermo medical pill dna atom flask chip db gear wrench hammer stack cube battery plug music game camera ball
 
-The checker rejects: a number with no origin, a wrong calc, a scene where the picture does not change, more than 4 new things or more than one calc in a scene, wiping the screen more than twice, things that overlap or touch (a caption too long for its seat, a sign with something sitting between its two objects), more than 9 things on screen, more than 13 scenes, an ask after its own answer, an id used before it exists, a TIME line whose number of labels differs from the number of groups in GRID.
+The checker rejects: a number with no origin, a wrong calc, a scene where the picture does not change, more than 4 new things or more than one calc in a scene, wiping the screen more than twice, things that overlap or touch (a caption too long for its seat, a sign with something sitting between its two objects), more than 9 things on screen, more than 13 scenes, an ask after its own answer, an id used before it exists, a TIME line whose number of labels differs from the number of groups in GRID, a bar that never gets a number, a thing seated between the bars of its row.
 
 # Three complete examples
 Shorts from other subjects, to show the form and the level of care. The first comes with the brief as you receive it. Your picture, ids and wording are your own; do not reuse these.
@@ -149,6 +156,8 @@ ASK 양성인 사람 중 진짜 환자는? | 12명 중 1명 | 10명 중 9명 | 2
 </brief>
 
 TITLE 양성 판정, 정말 90% 확률로 병일까?
+HOOK 90% 검사 | 양성이면 | 정말 | 병일까?
+CARD 위양성 | 건강한데 | 양성인 사람
 GOAL 드문 병은 검사가 90% 정확해도, 양성인 사람 대부분은 건강한 사람이다.
 PICTURE 맨 위 1000명이 환자와 건강한 사람 두 무리로 갈라지고, 무리 아래에 양성 수가 붙고, 맨 아래에서 양성 전체로 합쳐진다.
 GRID all / sick well / tp fp / pos
@@ -160,7 +169,7 @@ node all 1000명 cap="검사받은 사람"
 note acc all right "정확도 90%"
 #2 s2 | 이 병은 1000명 중 *10명*만 걸려요
 node sick 10명 c=red cap="환자"
-node well 990명 c=green cap="건강"
+node well 990명 c=pale cap="건강"
 arrow a1 all>sick
 arrow a2 all>well
 #3 s3 | 환자 10명 중 *9명*이 양성이에요
@@ -199,6 +208,8 @@ QUIZ 위 상황에서 양성인 사람 가운데 진짜 환자는 어느 정도�
 A short whose picture is a flow between people (who gives what to whom):
 
 TITLE 모르는 사람과 중고거래, 누가 먼저 보낼까?
+HOOK 모르는 | 사람과 거래 | 누가 먼저 | 보낼까?
+CARD 에스크로 | 돈을 맡아 주는 | 중간 금고
 GOAL 둘 다 믿는 금고에 돈을 먼저 맡기면, 서로 몰라도 안심하고 거래할 수 있다.
 PICTURE 왼쪽에 구매자, 오른쪽에 판매자, 가운데 아래에 금고가 서 있고, 돈과 물건이 셋 사이를 차례로 오간다.
 GRID buyer - seller / - / safe
@@ -209,8 +220,8 @@ PART 1/2 next=수수료는 누가 낼까?
 icon buyer person cap="구매자"
 icon seller person cap="판매자"
 #2 s1 hard | 누가 먼저 보내죠? 둘 다 *불안해요*
-note n1 buyer bottom "돈 먼저? 불안"
-note n2 seller bottom "물건 먼저? 불안"
+note n1 buyer bottom "돈 먼저?"
+note n2 seller bottom "물건 먼저?"
 sign q buyer~seller "?"
 #3 s2 | 그래서 둘 다 믿는 *금고*를 세워요
 del n1 n2 q
@@ -239,41 +250,48 @@ END 믿을 수 있는 금고에 돈을 먼저 맡기면, 서로 몰라도 안심
 QUIZ 에스크로 거래에서 구매자가 낸 돈은 판매자가 물건을 보내는 동안 어디에 있을까요? | 중간 금고 | 판매자 통장 | 구매자 지갑 | why=확인 전까지는 금고가 맡아 둬요
 QUIZ 물건이 끝내 오지 않으면 금고에 있던 돈은 어떻게 될까요? | 구매자에게 돌아간다 | 판매자에게 간다 | 금고가 갖는다 | why=구매자가 확인하지 않으면 돈은 풀리지 않아요
 
-A short whose picture is a balance (two sides worth the same):
+A short over a time axis, with amounts as pillars standing on it:
 
-TITLE 상자 속 사탕, 열지 않고 셀 수 있을까?
-GOAL 수평인 저울 양쪽에서 똑같이 덜어 내면, 모르는 수만 남아서 답이 보인다.
-PICTURE 가운데 저울 하나가 끝까지 서 있고 접시에 올린 것만 바뀐다. 저울 아래에 덜어 낸 수와 답이 차례로 놓인다.
-GRID sc / off ans
-GIVEN 3=왼쪽 접시의 사탕; 7=오른쪽 접시의 사탕
-TERM 방정식=모르는 수가 들어 있는 식
-PART 1/2 next=양쪽에 똑같이 곱해도 될까?
-#1 s1 | 상자에 사탕이 *몇 개* 들었을까요?
-scale sc "상자 + 3개" "사탕 7개"
-#2 s2 | 수평이니까 양쪽 무게가 *같아요*
-note eq sc top "수평 = 같다"
-pulse sc
-#3 s3 hard | 왼쪽에서 3개를 덜면 *기울어요*
-del eq
-node off 3개 c=red cap="덜어 낸 사탕"
-set sc left="상자" tilt=0.8
-#4 s4 hard
-ask 다시 수평이 되려면 오른쪽은? | 3개를 던다 | 7개를 던다 | 그대로 둔다 | why=양쪽에서 똑같이 덜어야 해요
-#5 s4 hard | 오른쪽에서도 똑같이 *3개*를 덜어요
-calc c1 7@sc − 3@off = 4개
-set sc right="사탕 4개" tilt=0 at=3
-#6 s5 | 상자 하나가 사탕 *4개*와 수평이에요
-node ans 4개 c=green cap="상자 속 사탕"
-#7 s5 | 열지 않고도 답은 *4개*예요
-pulse ans
-focus sc ans
-#8 s6 | 양쪽에서 같은 수를 빼면 *그대로 수평*
-note same sc top "똑같이 빼기"
-pulse sc
-#9 s6 | 이렇게 푸는 식이 *방정식*이에요
-note name ans right "방정식의 답"
-focus ans
-END 저울 양쪽에서 똑같이 덜어 내면, 상자를 열지 않고도 속에 든 수를 알 수 있어요.
-QUIZ 저울 왼쪽에 상자 하나와 사탕 5개, 오른쪽에 사탕 12개가 수평이에요. 상자 안에는 몇 개가 들었을까요? | 7개 | 17개 | 5개 | why=양쪽에서 5개씩 덜면 12에서 5를 뺀 7개가 남아요
-QUIZ 수평인 저울의 왼쪽에서만 사탕 2개를 덜었어요. 다시 수평이 되려면 어떻게 해야 할까요? | 오른쪽에서도 2개를 던다 | 오른쪽에 2개를 더 올린다 | 그대로 둔다 | why=양쪽에서 같은 만큼 덜어야 수평이 유지돼요
+TITLE 석 달 치 구독료를 1월에 받으면, 다 1월 매출일까?
+HOOK 미리 받은 | 30만원 | 다 1월 | 매출일까?
+CARD 발생주의 | 꽃을 보낸 달에 | 매출이 생겨요
+GOAL 돈을 미리 받아도, 매출은 꽃을 보낸 달마다 나눠서 잡는다.
+PICTURE 1월·2월·3월 시간축 위, 1월에 받은 30만원이 떠 있고, 달마다 매출 기둥이 축 위에 서서 10만원씩 채워진다.
+TIME 1월 | 2월 | 3월
+GRID cash - r1 / owe - r2 / - - r3
+GIVEN 30=미리 받은 석 달 치 구독료(만원); 3=구독하는 달 수
+TERM 발생주의=돈 받은 때가 아니라 일한 때 매출로 잡기; 선수수익=미리 받고 아직 일하지 않은 몫
+PART 1/3 next=1월에 쓴 전기료를 2월에 내면, 언제 비용일까?
+#1 s1 | 1월에 꽃 구독료 *30만원*을 받았어요
+node cash 30만원 cap="받은 돈"
+#2 s1 | 꽃은 석 달 동안 *매달* 보내요
+note n1 cash right "석 달 치"
+#3 s2 hard
+ask 1월 매출은 얼마일까요? | 10만원 | 30만원 | 0원 | why=1월엔 한 달 치 꽃만 보냈어요
+#4 s3 | 매출은 꽃을 *보낸 달*에 생겨요
+del n1
+bar r1 c=blue
+bar r2 c=blue
+bar r3 c=blue
+#5 s4 hard | 한 달 치는 *30만원 ÷ 3*이에요
+calc c1 30@cash ÷ 3 = 10만원
+set r1 10만원 at=3
+#6 s5 | 그래서 1월 매출은 *10만원*뿐이에요
+pulse r1
+focus cash r1
+#7 s6 hard | 남은 *20만원*은 아직 보낼 꽃 값이에요
+calc c2 30@cash − 10@r1 = 20만원
+node owe 20만원 c=pale cap="아직 보낼 꽃" at=3
+#8 s6 | 미리 받은 이 몫이 *선수수익*이에요
+note n2 owe right "선수수익"
+focus owe
+#9 s7 | 일한 만큼만 매출, 이게 *발생주의*예요
+focus r1 owe
+#10 s7 | 2월, 3월에 보내면 *10만원*씩 채워져요
+set r2 10만원
+set r3 10만원 at=1
+focus r1 r2 r3
+END 돈을 미리 받아도, 매출은 꽃을 보낸 달마다 나눠서 잡아요.
+QUIZ 6개월 치 수업료 60만원을 1월에 받았어요. 1월 매출은 얼마일까요? | 10만원 | 60만원 | 0원 | why=60만원을 6개월로 나눠 한 달에 10만원씩이에요
+QUIZ 위 학원이 1월 말에 아직 수업해 줘야 하는 몫은 얼마일까요? | 50만원 | 10만원 | 60만원 | why=60만원에서 1월에 번 10만원을 빼요
 `;

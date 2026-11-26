@@ -903,6 +903,8 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
   if (!script || !Array.isArray(script.beats) || !script.beats.length) { err(0, "empty", "The script has no scenes."); return out; }
   const COVER = err; // the engine has already taken the least bad place, so only the script can make room: the one repair says it another way
   const m = prep(script, opt);
+  // over a time axis of 4 stages the columns are only 250 apart, so wide values touch: the repair must hear the way out
+  const crampT = (script.time || []).length >= 4 ? " Over a time axis of 4 stages the columns are only 250 apart: use 2 or 3 stages, or shorter values and captions." : "";
   m.warn.forEach((w) => err(0, "ref", w));
   if (m.seated.length) warn(0, "seat", `No seat in GRID for: ${m.seated.join(", ")}. They were placed in the first free row.`);
   if (m.beats.length < 5) warn(0, "short", `Only ${m.beats.length} scenes: a short needs a hook, the build-up and a pay-off.`);
@@ -1021,7 +1023,7 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
       const ix = Math.min(A.b.x1, B.b.x1) - Math.max(A.b.x0, B.b.x0), iy = Math.min(A.b.y1, B.b.y1) - Math.max(A.b.y0, B.b.y0);
       if (ix <= -16 || iy <= -8) continue; // text that almost touches reads as one lump
       const small = Math.min((A.b.x1 - A.b.x0) * (A.b.y1 - A.b.y0), (B.b.x1 - B.b.x0) * (B.b.y1 - B.b.y0));
-      if (((ix + 16) * (iy + 8)) / Math.max(1, small) > 0.06) err(n, "overlap", `"${A.o.id}" and "${B.o.id}" overlap or touch on screen. Put them in different slots (a row holds M, or L R, or A B C), shorten a caption, or delete what is no longer needed.`);
+      if (((ix + 16) * (iy + 8)) / Math.max(1, small) > 0.06) err(n, "overlap", `"${A.o.id}" and "${B.o.id}" overlap or touch on screen. Put them in different slots (a row holds M, or L R, or A B C), shorten a caption, or delete what is no longer needed.${crampT}`);
     }
     // a tag or a line label that still covers something after the engine took the best place there was
     m.list.forEach((o) => {
@@ -1037,6 +1039,14 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
     });
     const onScreen = boxes.length;
     if (onScreen > 9) warn(n, "crowd", `${onScreen} objects are on screen at once; delete what is no longer needed (use "clear").`);
+  });
+  // pillars: a bar with no number never stands, and bars of one row stand on one floor tile, so a thing seated between them sits on that floor
+  const bars = m.list.filter((o) => o.type === "bar"), seat = (o: MObj) => o.keys[0].p, both = (a: MObj, b: MObj) => a.tAdd < b.tDel && b.tAdd < a.tDel;
+  bars.forEach((o) => { if (o.keys.every((k) => k.p.value == null)) err(o.beat + 1, "bar", `bar "${o.id}" never gets a number, so no pillar stands. Give it its amount, or fill it in a later scene ("set ${o.id} 10원"); an amount nobody knows yet is a node: node ${o.id} "?" c=yellow.`); });
+  m.list.forEach((o) => {
+    if (!PLACED.has(o.type) || o.type === "bar") return;
+    const mates = bars.filter((b) => Math.abs(Number(seat(b).y) - Number(seat(o).y)) < 2 && both(b, o)), xs = mates.map((b) => Number(seat(b).x)), x = Number(seat(o).x);
+    if (mates.length > 1 && x > Math.min(...xs) && x < Math.max(...xs)) err(Math.max(o.beat, ...mates.map((b) => b.beat)) + 1, "floor", `"${o.id}" sits in the row of the bars ${mates.map((b) => b.id).join(", ")}, between them, so it stands on their floor. Bars of one row share one floor: give "${o.id}" a row of its own in GRID and keep the bars side by side.`);
   });
   // plan coverage
   const steps = (plan.steps || []).length;
