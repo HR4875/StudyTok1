@@ -17,7 +17,9 @@ const BAR_TOP = 300;
 /** Pixels per unit of value for the bars of one short. */
 const barUnit = (values: number[]) => { const top = Math.max(0, ...values.map((v) => Math.abs(v) || 0)); return top > 0 ? BAR_TOP / top : 1; };
 /** A place written as "x,y" before the value (the parser reads a bare "880,1430" as a position; toText writes one for a thing it has seated) is not the value. */
-const noPos = (rest: string) => rest.replace(/^\s*-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?(?=\s|$)/, "");
+/** "1,000" is a thousand written with its comma, not the place x 1, y 0: a place that would sit off the left edge or up in the sentence is read as a number */
+const groupedNum = (s: string): boolean => { const m = /^(\d{1,3}),(\d{3})$/.exec(s.trim()); return !!m && (+m[1] < 36 || +m[2] < 300); };
+const noPos = (rest: string) => rest.replace(/^\s*(-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?)(?=\s|$)/, (all, xy) => (groupedNum(xy) ? all : ""));
 /** The largest value each bar ever takes (the line that adds it and every "set" after). */
 export function barValues(text: string): Record<string, number> {
   const out: Record<string, number> = dict();
@@ -147,13 +149,15 @@ export function timeRowSeats(line: string, stages: number, reach: Reach = dict()
   const out: Record<string, [number, number]> = dict(), xs = TIME_XS[stages] || TIME_XS[4];
   let y = 0, prevDown = 0, r = 0;
   for (const row of String(line || "").split("/")) {
-    const ids = row.trim().split(/[\s,]+/).filter(Boolean).slice(0, xs.length), real = ids.filter((id) => id !== "-");
+    const all = row.trim().split(/[\s,]+/).filter(Boolean), ids = all.slice(0, all.length > xs.length ? 3 : xs.length), real = ids.filter((id) => id !== "-");
     if (!ids.length) continue;
     if (r >= 6) break;
     if (r > 0 && prevDown > DOWN && !real.length) continue; // an empty row left under a tall thing: the tall row already took that room
     const up = Math.max(UP, ...real.map((id) => (reach[id] ? reach[id].up : UP))), down = Math.max(DOWN, ...real.map((id) => (reach[id] ? reach[id].down : DOWN)));
     y = r === 0 ? TOP + up : y + prevDown + up;
-    ids.forEach((id, k) => { if (/^[A-Za-z_]\w*$/.test(id)) out[id] = [xs[k], y]; });
+    // a row with more seats than stages holds no stage (results side by side above the axis): it spreads across the screen as a plain row does
+    const across = ids.length > xs.length ? ["A", "B", "C"].map((c) => COLS[c]) : null;
+    ids.forEach((id, k) => { if (/^[A-Za-z_]\w*$/.test(id)) out[id] = [across ? across[k] : xs[k], y]; });
     prevDown = down; r++;
   }
   return out;
@@ -175,14 +179,15 @@ export function linksOf(text: string): [string, string][] {
  * "depth" (a tree read along its arrows) is a candidate only when every id of GRID is joined by an arrow and the depths fill the stages exactly.
  * Returns the reading and the GRID line to seat it with (column form for timeSeats; rows keep their own line for timeRowSeats).
  */
-export function timeReading(line: string, stages: number, links: [string, string][]): { kind: "stage" | "rows" | "depth"; line: string } | null {
+export function timeReading(line: string, stages: number, links: [string, string][], bars: Set<string> = new Set()): { kind: "stage" | "rows" | "depth"; line: string } | null {
   const parts = String(line || "").split("/").map((g) => g.trim().split(/[\s,]+/).filter(Boolean)).filter((g) => g.length);
   const ids = parts.flat().filter((id) => /^[A-Za-z_]\w*$/.test(id)), inGrid = new Set(ids);
   const cand: { kind: "stage" | "rows" | "depth"; col: Record<string, number>; line: string }[] = [];
   const colOf = (groups: string[][]) => { const c: Record<string, number> = dict(); groups.forEach((g, k) => g.forEach((id) => { if (inGrid.has(id) && c[id] == null) c[id] = k; })); return c; };
-  if (parts.every((g) => g.length <= stages)) {
+  // a row longer than the stages is read across the screen (see timeRowSeats), but never a row of pillars: those stand on their stage
+  if (parts.every((g) => g.length <= stages || (g.length <= 3 && !g.some((id) => bars.has(id))))) {
     const c: Record<string, number> = dict();
-    parts.forEach((g) => g.forEach((id, k) => { if (inGrid.has(id) && c[id] == null) c[id] = k; }));
+    parts.forEach((g) => { if (g.length <= stages) g.forEach((id, k) => { if (inGrid.has(id) && c[id] == null) c[id] = k; }); });
     cand.push({ kind: "rows", col: c, line });
   }
   if (parts.length === stages) cand.push({ kind: "stage", col: colOf(parts), line });
@@ -448,8 +453,8 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       if (W === "GRID") {
         plan.grid = rest; has.grid = true;
         // with TIME the rows of GRID hold one seat per stage; older films give one group per stage. timeReading says which reading the arrows agree with.
-        const how = stages ? timeReading(rest, stages.length, linksOf(String(text || ""))) : null;
-        if (stages && !how) errT(`TIME names ${stages.length} stages but a row of GRID has more seats than that. With TIME every row of GRID (the part between "/") holds one seat per stage from left to right, "-" for an empty one: at most ${stages.length} seats in a row.`);
+        const how = stages ? timeReading(rest, stages.length, linksOf(String(text || "")), new Set(Object.keys(axisBar))) : null;
+        if (stages && !how) errT(`TIME names ${stages.length} stages but a row of GRID with pillars (or with more than three seats) has more seats than that. With TIME every row of GRID (the part between "/") holds one seat per stage from left to right, "-" for an empty one: at most ${stages.length} seats in a row of pillars.`);
         if (how && how.kind === "depth") warnH(`GRID was read along its arrows as a tree growing to the right: ${how.line}.`, "time");
         timeOn = !!how;
         Object.assign(grid, how ? (how.kind === "rows" ? timeRowSeats(rest, stages!.length, circleReach(String(text || ""), reach)) : timeSeats(how.line, reach)) : gridSeats(rest, reach));
@@ -567,7 +572,7 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     for (const t of toks) {
       if (t.k) { const k = ALIAS[t.k] || t.k; a[k] = kvValue(k, t); continue; }
       if (t.q) { strs.push(t.s); continue; }
-      const s = t.s, m = POS.exec(s);
+      const s = t.s, m = groupedNum(s) ? null : POS.exec(s);
       if (m && !gotPos) { a.x = +m[1]; a.y = +m[2]; gotPos = true; continue; }
       const sl = gotPos ? null : slotXY(s);
       if (sl) { a.x = sl[0]; a.y = sl[1]; gotPos = true; continue; }
