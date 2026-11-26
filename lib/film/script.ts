@@ -6,8 +6,10 @@ import { COLS, ROWS, hangOf, dotsDims } from "./core";
 import { dict } from "./ease";
 import { ICONS } from "./icons";
 
-export interface Ctx { grid?: Record<string, [number, number]>; units?: Record<string, { pre?: string; suf?: string }> }
-export interface Parsed { script: Script; issues: Issue[]; labels: string[]; dels: string[]; has: Record<string, boolean>; grid: Record<string, [number, number]>; units: Record<string, { pre?: string; suf?: string }> }
+/** The unit an object's number carries, the number itself, and the words written on the object (a label may name another number with its own unit). */
+export interface UnitOf { pre?: string; suf?: string; v?: number; texts?: string[] }
+export interface Ctx { grid?: Record<string, [number, number]>; units?: Record<string, UnitOf> }
+export interface Parsed { script: Script; issues: Issue[]; labels: string[]; dels: string[]; has: Record<string, boolean>; grid: Record<string, [number, number]>; units: Record<string, UnitOf> }
 /** How much room a thing needs above and below the line of its row. A circle with a caption is the default; tall things (a balance, a dot grid, a table, a plot) hang down from the row, a bar stands up on it. */
 export type Reach = Record<string, { up: number; down: number }>;
 const UP = 105, DOWN = 145, TOP = 535;
@@ -169,6 +171,25 @@ function link(p: Props, s: string): boolean {
   if (pa && pb) { p.x = +pa[1]; p.y = +pa[2]; p.x2 = +pb[1]; p.y2 = +pb[2]; } else { p.from = a; p.to = b; }
   return true;
 }
+const CALC_OP: Record<string, string> = dict({ "*": "×", x: "×", X: "×", "×": "×", "/": "÷", "÷": "÷" });
+const sameNum = (a: number, b: number) => Math.abs(a - b) <= 0.005 * Math.max(1, Math.abs(b));
+/** Units a label may write right after a number, longest first. Only these are read, so a word that merely follows a number is never taken for a unit. */
+const UNIT_WORDS = ["퍼센트", "만원", "억원", "천원", "조원", "달러", "센트", "유로", "위안", "개월", "주일", "시간", "분기", "배럴", "리터", "원", "엔", "%p", "%", "년", "월", "일", "분", "초", "주", "개", "벌", "명", "대", "권", "장", "톤", "배", "번", "회", "건", "칸", "점", "쪽", "편", "살", "세", "kg", "km", "cm", "mm", "ml", "g", "m", "L"];
+const MONEY_SIGNS = ["$", "₩", "€", "£", "¥"];
+/** The unit written beside the number v in one of an object's texts ("주식 0.25주" gives 주 for 0.25). */
+function unitIn(texts: string[] | undefined, v: number): { pre?: string; suf?: string } | undefined {
+  for (const raw of texts || []) {
+    const s = String(raw).replace(/(\d),(?=\d{3})/g, "$1"), re = /\d+(?:\.\d+)?/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s))) {
+      if (!sameNum(parseFloat(m[0]), Math.abs(v))) continue;
+      const rest = s.slice(m.index + m[0].length), suf = UNIT_WORDS.find((u) => rest.startsWith(u) && rest[u.length] !== "의");
+      const before = m.index > 0 ? s[m.index - 1] : "", pre = MONEY_SIGNS.includes(before) ? before : undefined;
+      if (suf || pre) return { pre, suf };
+    }
+  }
+  return undefined;
+}
 function calcTerms(toks: Tok[]): unknown[] {
   const out: unknown[] = [];
   for (const t of toks) {
@@ -228,7 +249,7 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
   const err = (beat: number, msg: string) => issues.push({ level: "error", beat, code: "syntax", msg });
   const steps: Record<number, Props> = {}, quiz: Quiz[] = [];
   const plots: Record<string, { lines: Props[]; marks: Props[] }> = dict();
-  const units: Record<string, { pre?: string; suf?: string }> = dict(ctx.units); // the unit each object's number carries, so a term that flies out of it keeps it
+  const units: Record<string, UnitOf> = dict(ctx.units); // the unit each object's number carries, so a term that flies out of it keeps it
   const grid: Record<string, [number, number]> = dict(ctx.grid);
   const unseated: string[] = [], seenIds = new Set<string>(), live = new Map<string, number>(); // live: the row of each placed thing now on screen
   const reach = reachOf(String(text || "")), life = lifeOf(String(text || "")), barV = barValues(String(text || "")), barPx = barUnit(Object.keys(barV).map((k) => barV[k]));
@@ -346,19 +367,28 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       else if (body.length && !body[0].q && slotXY(body[0].s)) body.shift(); // a calculation finds its own place
       a.terms = calcTerms(body);
       for (const t of tail) if (t.k) a[ALIAS[t.k] || t.k] = kvValue(ALIAS[t.k] || t.k, t);
-      // units: a number that flies out of an object keeps that object's unit; "suf=" names the unit of the result
+      // units: a number that flies out of an object keeps that object's unit when it is that object's number. A different number
+      // (0.25 out of a bar that shows 1원 and is named "주식 0.25주") takes the unit written beside it on the object, or none: a unit is never guessed.
+      // "suf=" names the unit of the result.
       const ts = a.terms as unknown[], eq = ts.findIndex((x) => x === "=" || x === "≈");
       ts.forEach((x, k) => {
         if (!x || typeof x !== "object") return;
         const tm = x as Props;
         if (typeof tm.v !== "number" || tm.pre != null || tm.suf != null) return;
         const u = tm.from != null ? units[String(tm.from)] : undefined;
-        if (u && (u.pre || u.suf)) { if (u.pre) tm.pre = u.pre; if (u.suf) tm.suf = u.suf; }
-        else if ((eq >= 0 && k > eq) || tm.from == null) { if (a.pre != null) tm.pre = a.pre; if (a.suf != null) tm.suf = a.suf; }
+        const own = !u ? undefined : (u.pre || u.suf) && (u.v == null || sameNum(u.v, tm.v)) ? u : unitIn(u.texts, tm.v);
+        if (own && (own.pre || own.suf)) { if (own.pre) tm.pre = own.pre; if (own.suf) tm.suf = own.suf; }
+        else if (!u && ((eq >= 0 && k > eq) || tm.from == null)) { if (a.pre != null) tm.pre = a.pre; if (a.suf != null) tm.suf = a.suf; }
       });
       delete a.pre; delete a.suf;
+      // a sum or a difference is of like things: when the units that are written all agree, the bare numbers carry the same unit
+      const numsT = ts.filter((x) => !!x && typeof x === "object" && typeof (x as Props).v === "number") as Props[];
+      if (numsT.length > 1 && !ts.some((x) => typeof x === "string" && ["×", "÷"].includes(CALC_OP[x] || ""))) {
+        const written = numsT.filter((t) => t.pre != null || t.suf != null), key = (t: Props) => `${t.pre || ""}|${t.suf || ""}`;
+        if (written.length && written.every((t) => key(t) === key(written[0]))) numsT.forEach((t) => { if (t.pre == null && t.suf == null) { if (written[0].pre) t.pre = written[0].pre; if (written[0].suf) t.suf = written[0].suf; } });
+      }
       const res = eq >= 0 ? (ts.slice(eq + 1).find((x) => x && typeof x === "object") as Props | undefined) : undefined;
-      if (res) units[id] = { pre: res.pre, suf: res.suf };
+      if (res) units[id] = { pre: res.pre, suf: res.suf, v: typeof res.v === "number" ? res.v : undefined };
       acts.push(a);
       continue;
     }
@@ -392,7 +422,11 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     }
     if (type === "plot") plots[id] = { lines: [], marks: [] };
     if (type === "bar") a.scale = barPx; else if (isSet && barV[id] != null) delete a.scale; // the engine sets the measure of the bars
-    if (a.value != null) units[id] = { pre: a.pre, suf: a.suf };
+    {
+      const words = [a.str, a.cap, a.sub, a.badge, a.left, a.right].filter((x): x is string => typeof x === "string" && x !== ""), was = units[id];
+      if (a.value != null) units[id] = { pre: a.pre, suf: a.suf, v: typeof a.value === "number" ? a.value : undefined, texts: words.concat((was && was.texts) || []) };
+      else if (words.length) units[id] = Object.assign({}, was, { texts: words.concat((was && was.texts) || []) });
+    }
     // not in the GRID line and no place given: the engine seats it. The whole short is known, so nothing lands on a seat that is taken later,
     // and the picture keeps reading from the top down in the order things appear.
     if (!isSet && !gotPos && !grid[id] && PLACED_T.includes(type)) {

@@ -582,10 +582,44 @@ export function dotPos(m: Model, p: Props, t: number): [number, number] | null {
   if (p.line != null) { const ln = (Array.isArray(pp.lines) ? pp.lines : []).find((l: Props) => String(l.id) === String(p.line)); if (ln) py = lineY(ln.pts, px); }
   return [map.sx(px), map.sy(py)];
 }
-/** Where a sign between two things is drawn: halfway, or beside them when they are stacked one above the other (a caption sits between those). */
+/** How tall a bar's column is, in px (below zero: it hangs down). A bar that has no number yet but gets one later keeps that room:
+ *  it is drawn as an empty slot of that size, so the viewer sees what is about to be filled. */
+export function barSlot(o: MObj | null | undefined, p: Props): number {
+  if (p.scale == null) return p.h || 0;
+  if (p.value != null) return Number(p.value) * p.scale;
+  const later = o ? o.keys.find((k) => k.p.value != null) : undefined;
+  return later ? Number(later.p.value) * (later.p.scale ?? p.scale) : p.h || 0;
+}
+/** Does the straight way from (ax,ay) to (bx,by), without its two ends, cross the box? */
+function crosses(ax: number, ay: number, bx: number, by: number, r: Box): boolean {
+  let u0 = 0.15, u1 = 0.85; // the ends belong to the two things themselves
+  const dx = bx - ax, dy = by - ay;
+  for (const [pp, qq] of [[-dx, ax - r.x0], [dx, r.x1 - ax], [-dy, ay - r.y0], [dy, r.y1 - ay]]) {
+    if (Math.abs(pp) < 1e-9) { if (qq < 0) return false; continue; }
+    const u = qq / pp;
+    if (pp < 0) u0 = Math.max(u0, u); else u1 = Math.min(u1, u);
+    if (u0 > u1) return false;
+  }
+  return true;
+}
+/** A sign reads only between neighbours. This is the thing that sits on the way between its two ends, if there is one. */
+export function signBlocker(m: Model, p: Props, t: number): MObj | null {
+  if (!Array.isArray(p.between) || p.between.length < 2) return null;
+  const ends = new Set(p.between.map(String)), A = anchorOf(m, String(p.between[0]), t), B = anchorOf(m, String(p.between[1]), t);
+  if (!A || !B) return null;
+  for (const o of m.list) {
+    if (!SOLID.has(o.type) || o.type === "calc" || ends.has(String(o.id)) || !alive(o, t)) continue;
+    const b = boxOf(m, o, stateOf(o, t), t);
+    if (b && crosses(A.x, A.y, B.x, B.y, { x0: b.x0 - 24, y0: b.y0 - 24, x1: b.x1 + 24, y1: b.y1 + 24 })) return o;
+  }
+  return null;
+}
+/** Where a sign between two things is drawn: halfway, or beside them when they are stacked one above the other (a caption sits between those).
+ *  With another thing on the way between the two there is no place where the sign would read as theirs, so it is not drawn (null). */
 export function signAt(m: Model, p: Props, t: number): [number, number] | null {
   const A = anchorOf(m, String(p.between[0]), t), B = anchorOf(m, String(p.between[1]), t);
   if (!A || !B) return null;
+  if (signBlocker(m, p, t)) return null;
   const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
   if (Math.abs(A.x - B.x) < 120 && Math.abs(A.y - B.y) > 120) { const right = Math.max(A.box ? A.box.x1 : A.x + A.r, B.box ? B.box.x1 : B.x + B.r); return [right + 90 > 1000 ? Math.min(A.box ? A.box.x0 : A.x - A.r, B.box ? B.box.x0 : B.x - B.r) - 90 : right + 90, my]; }
   return [mx, my];
@@ -640,7 +674,7 @@ export function boxOf(m: Model, o: MObj, p: Props, t: number): Box | null {
     case "text": { const s = p.size || 56, w = Math.min(p.maxW || 1000, approxW(p.str, s)); return p.align === "left" ? { x0: x, y0: y - s * 0.62, x1: x + w, y1: y + s * 0.62 } : { x0: x - w / 2, y0: y - s * 0.62, x1: x + w / 2, y1: y + s * 0.62 }; }
     case "num": { const s = p.size || 120, w = approxW((p.pre || "") + fmtV(Number(p.value) || 0, p.dec) + (p.suf || ""), s); return { x0: x - w / 2, y0: y - s * 0.62 - (p.cap ? 62 : 0), x1: x + w / 2, y1: y + s * 0.62 }; }
     case "icon": { const s = p.size || 160, capW = p.cap ? Math.min(340, approxW(p.cap, 42)) / 2 : 0, hw = Math.max(s / 2, capW); return { x0: x - hw, y0: y - s / 2, x1: x + hw, y1: y + s / 2 + (p.cap ? 62 : 0) }; }
-    case "bar": { const w = p.w || 120, h = p.scale != null && p.value != null ? Math.abs(p.value * p.scale) : p.h || 0; return { x0: x - w / 2, y0: y - h - (p.value != null ? 70 : 0), x1: x + w / 2, y1: y + (p.str ? 78 : 0) }; }
+    case "bar": { const w = p.w || 120, h = Math.abs(barSlot(o, p)); return { x0: x - w / 2, y0: y - h - (p.value != null ? 70 : 0), x1: x + w / 2, y1: y + (p.str ? 78 : 0) }; }
     case "calc": { const s = calcSize(p), ts = normTerms(p), w = ts.reduce((a, q) => a + approxW(q.text, s), 0) + Math.max(0, ts.length - 1) * s * 0.34; return { x0: x - w / 2, y0: y - s * 0.7, x1: x + w / 2, y1: y + s * 0.7 }; }
     case "plot": { const map = plotMap(p); return { x0: map.x0 - 70, y0: map.y1 - map.h - 50, x1: map.x0 + map.w + 20, y1: map.y1 + 70 }; }
     case "table": { const d = tableDims(p); return { x0: d.x0, y0: d.y0, x1: d.x0 + d.w, y1: d.y0 + d.h }; }
@@ -888,6 +922,7 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
     m.list.forEach((o) => {
       if (!alive(o, t1) || !(SOLID.has(o.type) || o.type === "sign")) return;
       const p = stateOf(o, t1), bx = boxOf(m, o, p, t1);
+      if (o.type === "sign" && o.beat === i) { const w = signBlocker(m, p, t1); if (w) warn(n, "apart", `sign "${o.id}" is not drawn: "${w.id}" sits between "${p.between[0]}" and "${p.between[1]}". A sign reads only between two neighbours; for things that are apart, pulse both and say it in the sentence.`); }
       if (!bx) return;
       if (o.beat === i || o.keys.some((k) => k.t >= t0 && k.t < t0 + dur)) {
         if (bx.x0 < ZONE.x0 - 6 || bx.x1 > ZONE.x1 + 6) err(n, "layout", `"${o.id}" runs off the side of the screen (x ${Math.round(bx.x0)}..${Math.round(bx.x1)}; keep within ${ZONE.x0}..${ZONE.x1}).`);

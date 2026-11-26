@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Director 2 drawing: draws one frame of a prepared scene script into an <svg>. seek(t) is a pure function of t
 // (and of the answers given to questions), so frames can be drawn in any order, live or for a video file.
-import { W, H, ASK_Y, prep, stateOf, alive, camAt, anchorOf, boxOf, normTerms, plotMap, lineY, tableDims, dotPos, fmtV, approxW, calcSize, noteBox, dotsDims, signAt, nodeHalf, lineEnds } from "./core";
+import { W, H, ASK_Y, prep, stateOf, alive, camAt, anchorOf, boxOf, barSlot, normTerms, plotMap, lineY, tableDims, dotPos, fmtV, approxW, calcSize, noteBox, dotsDims, signAt, nodeHalf, lineEnds } from "./core";
 const clamp2 = (v: number, lo: number, hi: number) => (hi < lo ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)));
 import { clamp, lerp, E, seg, hitPulse, spring, mixHex, rgba, lum, dict } from "./ease";
 import { ICONS } from "./icons";
@@ -124,7 +124,10 @@ export function createDirector(svg, opts = {}) {
         break;
       }
       case "bar": {
-        const w = p.w || 120, hv = p.scale != null && p.value != null ? p.value * p.scale : p.h || 0, h = Math.abs(hv) * clamp(ap), neg = hv < 0, q = G(g), cc = neg && !p.color ? SK.bad : c;
+        // a column that gets its number later stands as an empty slot first, and fills when the number arrives
+        const w = p.w || 120, hv = p.scale != null && p.value != null ? p.value * p.scale : p.h || 0, filling = p._prev && p._prev.value == null && p.value != null ? clamp(p._u) : 1;
+        const h = Math.abs(hv) * clamp(ap) * filling, neg = hv < 0, q = G(g), cc = neg && !p.color ? SK.bad : c, slot = barSlot(o, p), sh = Math.abs(slot);
+        if (sh > h + 2) rr(q, p.x - w / 2 + 2, slot < 0 ? p.y : p.y - sh, w - 4, sh, Math.min(14, SK.radius), { fill: "none", stroke: SK.sub, "stroke-opacity": 0.55, "stroke-width": 4, "stroke-dasharray": "16 12", "stroke-linecap": "round" });
         rr(q, p.x - w / 2, neg ? p.y : p.y - h, w, h, Math.min(14, SK.radius), { fill: cc });
         if (p.str) label(p.str, p.x, p.y + (neg ? -44 : 50), 42, 700, SK.sub, q, "middle", w + 120, true);
         if (p.value != null) number(String(shownValue(o, p)), p.x, neg ? p.y + h + 44 : p.y - h - 40, 48, 800, cc, q, w + 160);
@@ -239,7 +242,12 @@ export function createDirector(svg, opts = {}) {
         const d = tableDims(p), q = G(g, { transform: tf(p.x || 540, p.y || 1100, lerp(0.92, 1, ap)) }), size = p.size || 52, wsum = Array.isArray(p.colW) && p.colW.length === d.cols ? p.colW.reduce((a, b) => a + b, 0) : d.cols, cw = (k) => (Array.isArray(p.colW) && p.colW.length === d.cols ? p.colW[k] : 1) * d.w / wsum;
         const show = p.show == null ? d.nrows : p.show, hi = Array.isArray(p.hi) ? p.hi : [];
         rr(q, d.x0, d.y0, d.w, d.rowH * (d.head + Math.min(d.nrows, Math.ceil(show))), SK.radius, { fill: SK.card, stroke: SK.line, "stroke-width": 4 });
-        if (d.head) { rr(q, d.x0, d.y0, d.w, d.rowH, SK.radius, { fill: SK.soft }); let x = d.x0; (p.cols || []).forEach((cell, k) => { label(cell, x + cw(k) / 2, d.y0 + d.rowH / 2, size * 0.85, 800, SK.dark ? SK.ink : SK.primary, q, "middle", cw(k) - 20); x += cw(k); }); }
+        if (d.head) {
+          // the head band sits inside the card's border: round where the card is round, square where it meets the rows
+          const hx0 = d.x0 + 2, hx1 = d.x0 + d.w - 2, hy0 = d.y0 + 2, hy1 = d.y0 + d.rowH, hr = Math.max(0, Math.min(SK.radius - 2, d.rowH - 2, (d.w - 4) / 2));
+          if (Math.min(d.nrows, Math.ceil(show)) < 1) rr(q, hx0, hy0, d.w - 4, d.rowH - 4, hr, { fill: SK.soft }); // no row shown yet: the band is the whole card
+          else el("path", { d: `M${n1(hx0)} ${n1(hy1)}V${n1(hy0 + hr)}A${n1(hr)} ${n1(hr)} 0 0 1 ${n1(hx0 + hr)} ${n1(hy0)}H${n1(hx1 - hr)}A${n1(hr)} ${n1(hr)} 0 0 1 ${n1(hx1)} ${n1(hy0 + hr)}V${n1(hy1)}Z`, fill: SK.soft }, q);
+          let x = d.x0; (p.cols || []).forEach((cell, k) => { label(cell, x + cw(k) / 2, d.y0 + d.rowH / 2, size * 0.85, 800, SK.dark ? SK.ink : SK.primary, q, "middle", cw(k) - 20); x += cw(k); }); }
         (p.rows || []).forEach((row, r) => { const vis = clamp(show - r); if (vis <= 0) return; const y = d.y0 + d.rowH * (d.head + r), rg = G(q, { opacity: vis.toFixed(3) });
           if (r > 0 || d.head) el("line", { x1: d.x0 + 16, y1: y, x2: d.x0 + d.w - 16, y2: y, stroke: SK.line, "stroke-width": 3 }, rg);
           let x = d.x0; (row || []).forEach((cell, k) => { const on = hi.some((h2) => h2 && h2[0] === r && h2[1] === k) || p.hiRow === r || p.hiCol === k, cx = x + cw(k) / 2, cy = y + d.rowH / 2;
