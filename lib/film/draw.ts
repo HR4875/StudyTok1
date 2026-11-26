@@ -186,6 +186,7 @@ export function createDirector(svg, opts = {}) {
         const q = G(g, { transform: tf(x, y, sc) }); label(p.str || "=", x, y, p.size || 96, 800, p.color ? c : SK.primary, q);
         break;
       }
+      case "axis": drawAxis(o, p, t, world, out); break; // the floor of the picture: born as a solid dot (no fade), drawn whole, and not dimmed when a scene points elsewhere
       case "plot": {
         const map = plotMap(p), q = G(g), ax = SK.ink, grey = SK.grey, zeroY = map.yr[0] < 0 && map.yr[1] > 0 ? map.sy(0) : map.y1, dp = seg(t, o.tAdd, 0.6, E.out);
         (Array.isArray(p.yt) ? p.yt : []).forEach((v) => { const y = map.sy(v); el("line", { x1: map.x0, y1: y, x2: map.x0 + map.w * dp, y2: y, stroke: SK.line, "stroke-width": 3 }, q); label(fmtV(v), map.x0 - 16, y, 36, 700, SK.sub, q, "end", 150); });
@@ -256,6 +257,33 @@ export function createDirector(svg, opts = {}) {
             x += cw(k); }); });
         break;
       }
+    }
+  }
+
+  // ---------- the time axis (Design F): a dot stretches into the line, the line turns from blue to ink, then the head, the ticks and the labels ----------
+  const expoOut = (x) => (x >= 1 ? 1 : x <= 0 ? 0 : 1 - Math.pow(2, -10 * x));
+  /** a label that types itself in, one character at a time, from the left edge it will finally have */
+  function typeIn(str, x0, y, size, fill, k, parent) { const ch = Array.from(String(str)), n = Math.round(ch.length * clamp(k)); if (n > 0) text(ch.slice(0, n).join(""), x0, y + size * 0.36, size, 700, fill, "start", parent); }
+  function drawAxis(o, p, t, world, op) {
+    if (op <= 0.003) return;
+    const s = t - o.tAdd, x = p.x, y = p.y, x2 = p.x2, L = Math.max(0, x2 - x), R0 = 20, g = G(world, { opacity: op.toFixed(3) });
+    const ink = mixHex(SK.primary, SK.ink, expoOut(clamp((s - 0.05) / 0.3))), th = lerp(2 * R0, 9, expoOut(clamp(s / 0.22))), len = L * expoOut(clamp(s / 0.3));
+    rr(g, x - th / 2, y - th / 2, len + th, th, th / 2, { fill: ink }); // at s = 0 this is the dot itself, then it stretches to the right
+    const ah = 20 * expoOut(clamp((s - 0.3) / 0.3));
+    if (ah > 0.5) el("path", { d: `M ${n1(x2 + ah * 1.6)} ${n1(y)} L ${n1(x2 - 2)} ${n1(y - ah)} L ${n1(x2 - 2)} ${n1(y + ah)} Z`, fill: ink, "stroke-linejoin": "round" }, g);
+    const xs = Array.isArray(p.xs) ? p.xs : [], labels = Array.isArray(p.labels) ? p.labels : [], gap = xs.length > 1 ? xs[1] - xs[0] : 300;
+    xs.forEach((cx, k) => { const tk = 18 * expoOut(clamp((s - 0.3 - 0.06 * k) / 0.25)); if (tk > 0.5) el("line", { x1: cx, y1: y + 2, x2: cx, y2: y + 2 + tk, stroke: ink, "stroke-width": 6, "stroke-linecap": "round" }, g); });
+    labels.forEach((str, k) => {
+      if (xs[k] == null) return;
+      const size = Math.max(24, Math.min(p.size || 40, fitSize(String(str), gap - 24, 40, 700))), w = tw(String(str), size, 700);
+      typeIn(str, xs[k] - w / 2, y + 60, size, SK.ink, expoOut(clamp((s - 0.45 - 0.3 * k) / 0.25)), g);
+    });
+    if (p.vname != null && typeof p.y2 === "number") { // the vertical axis grows up out of the left end and names itself beside its top
+      const H2 = Math.max(0, y - p.y2), up = H2 * expoOut(clamp((s - 0.35) / 0.3));
+      if (up > 0.5) rr(g, x - 4.5, y - up, 9, up, 4.5, { fill: ink });
+      const vh = 20 * expoOut(clamp((s - 0.65) / 0.3));
+      if (vh > 0.5) el("path", { d: `M ${n1(x)} ${n1(p.y2 - vh * 1.6)} L ${n1(x - vh)} ${n1(p.y2 + 2)} L ${n1(x + vh)} ${n1(p.y2 + 2)} Z`, fill: ink }, g);
+      typeIn(p.vname, x + 30, p.y2 - 4, 40, SK.ink, expoOut(clamp((s - 0.7) / 0.25)), g);
     }
   }
 

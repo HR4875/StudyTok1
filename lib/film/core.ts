@@ -27,7 +27,9 @@ export interface Plan {
   part?: { n: number; of: number; next?: string };
 }
 export interface Quiz { q: string; choices: string[]; answer: number; why?: string }
-export interface Script { title?: string; skin?: string; speed?: number; plan?: Plan; beats: Beat[]; quiz?: Quiz[]; takeaway?: string }
+/** hook: the 3 or 4 chunks of type that open the film; card: the end card (big title, highlighted part, rest); time: the stage labels of a picture
+ *  that runs left to right over a time axis; vname: the name of its vertical axis. All four are optional. */
+export interface Script { title?: string; skin?: string; speed?: number; plan?: Plan; beats: Beat[]; quiz?: Quiz[]; takeaway?: string; hook?: string[]; card?: string[]; time?: string[]; vname?: string }
 
 export interface MObj { id: string; type: string; tAdd: number; tDel: number; keys: { t: number; p: Props }[]; pulses: number[]; order: number; beat: number; auto?: boolean }
 export interface Send { from: string; to: string; icon?: string; str?: string; color?: string; t0: number; dur: number; i: number }
@@ -46,7 +48,10 @@ export interface Model {
 }
 export interface Issue { level: "error" | "warn"; beat: number; code: string; msg: string }
 
-export const TYPES = ["node", "box", "text", "num", "bar", "icon", "arrow", "line", "brace", "calc", "note", "plot", "dot", "table", "sign", "scale", "dots"];
+export const TYPES = ["node", "box", "text", "num", "bar", "icon", "arrow", "line", "brace", "calc", "note", "plot", "dot", "table", "sign", "scale", "dots", "axis"];
+// The time axis ("axis", added by the parser for a TIME line) is the floor of the picture, not a thing in it: it is in none of the sets below,
+// so it never counts as a thing on screen, never overlaps anything and is never seated. Only the camera's whole-picture box, the calculation
+// line and the tags look at it, through axisBox().
 const SOLID = new Set(["node", "box", "text", "num", "icon", "bar", "calc", "plot", "table", "scale", "dots"]);
 const PLACED = new Set(["node", "box", "text", "num", "bar", "icon", "plot", "table", "scale", "dots"]);
 const NUMK = ["x", "y", "w", "h", "r", "size", "value", "x2", "y2", "opacity", "frac", "px", "py", "show", "scale", "tilt", "hi", "hi2"];
@@ -310,7 +315,7 @@ export function prep(script: Script, opt: { speed?: number } = {}): Model {
     if (!bm) return;
     const t1 = bm.t0 + bm.dur - 0.02;
     let low = 0;
-    m.list.forEach((q) => { if (q === o || q.type === "calc" || !SOLID.has(q.type) || !(q.tAdd <= t1 && q.tDel > t1)) return; const bx = boxOf(m, q, stateOfEnd(q, t1), t1); if (bx) low = Math.max(low, bx.y1); });
+    m.list.forEach((q) => { if (q === o || q.type === "calc" || !(SOLID.has(q.type) || q.type === "axis") || !(q.tAdd <= t1 && q.tDel > t1)) return; const bx = q.type === "axis" ? axisBox(stateOfEnd(q, t1)) : boxOf(m, q, stateOfEnd(q, t1), t1); if (bx) low = Math.max(low, bx.y1); }); // under the stage labels too
     const y = Math.max(700, low ? low + 150 : 1100); // the camera frames whatever the picture needs
     o.keys.forEach((k) => { k.p.y = y; });
   });
@@ -366,6 +371,7 @@ export function prep(script: Script, opt: { speed?: number } = {}): Model {
         return;
       }
       if (q.type === "note" && q.order < o.order) { const qp = stateOfEnd(q, tq); if (String(qp.to) === String(p.to)) mine[String(qp.side)] = Math.max(mine[String(qp.side)] || 0, (Number(qp.push) || 0) + 78); }
+      if (q.type === "axis") { const ap = stateOfEnd(q, tq); others.push({ x0: Number(ap.x) - 30, y0: Number(ap.y) - 20, x1: Number(ap.x2) + 40, y1: Number(ap.y) + 92 }); return; } // a tag never sits on the line or the stage labels
       const qb = q.type === "note" ? (q.order < o.order ? noteBox(m, stateOfEnd(q, tq), tq) : null) : SOLID.has(q.type) || q.type === "sign" ? boxOf(m, q, stateOfEnd(q, tq), tq) : null;
       if (qb) others.push(qb);
     });
@@ -465,8 +471,8 @@ function sceneBox(m: Model, i: number): { x0: number; y0: number; x1: number; y1
   const t1 = bm.t0 + bm.dur - 0.02;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   m.list.forEach((o) => {
-    if (!(o.tAdd <= t1 && o.tDel > t1) || !(SOLID.has(o.type) || o.type === "note" || o.type === "arrow" || o.type === "line")) return;
-    const bx = o.type === "note" ? noteBox(m, stateOfEnd(o, t1), t1) : o.type === "arrow" || o.type === "line" ? lineLabel(m, stateOfEnd(o, t1), t1) : boxOf(m, o, stateOfEnd(o, t1), t1);
+    if (!(o.tAdd <= t1 && o.tDel > t1) || !(SOLID.has(o.type) || o.type === "note" || o.type === "arrow" || o.type === "line" || o.type === "axis")) return; // the time axis belongs to the whole picture, never to what one scene is about (coreBox)
+    const bx = o.type === "axis" ? axisBox(stateOfEnd(o, t1)) : o.type === "note" ? noteBox(m, stateOfEnd(o, t1), t1) : o.type === "arrow" || o.type === "line" ? lineLabel(m, stateOfEnd(o, t1), t1) : boxOf(m, o, stateOfEnd(o, t1), t1);
     if (!bx) return;
     x0 = Math.min(x0, bx.x0); y0 = Math.min(y0, bx.y0); x1 = Math.max(x1, bx.x1); y1 = Math.max(y1, bx.y1);
   });
@@ -649,7 +655,8 @@ export function edgePt(a: Anchor, towards: number[], pad = 10): number[] {
 export function lineEnds(A: Anchor, B: Anchor, p: Props): number[][] {
   let a = p.from != null ? edgePt(A, [B.x, B.y]) : [A.x, A.y], b = p.to != null ? edgePt(B, [A.x, A.y], 14) : [B.x, B.y];
   const capUnder = (q: Anchor) => !!(q.box && (q.body ? q.box.y1 - q.body.y1 > 30 : q.r && q.box.y1 - (q.y + q.r) > 30));
-  if (p.from != null && p.to != null && !p.curve) {
+  // across: a line of a TIME picture that runs from one column to another meets its circles from the side; the caption rule is for trees that grow down
+  if (p.from != null && p.to != null && !p.curve && !(p.across && Math.abs(B.x - A.x) > 120)) {
     if (capUnder(A) && B.y - A.y > 60) { a = [A.x, A.box!.y1 + 6]; b = edgePt(B, a, 14); }
     else if (capUnder(B) && A.y - B.y > 60) { b = [B.x, B.box!.y1 + 16]; a = edgePt(A, b); }
   }
@@ -687,8 +694,15 @@ export function boxOf(m: Model, o: MObj, p: Props, t: number): Box | null {
       const s = p.size || 96, w = Math.max(s * 0.6, approxW(p.str || "=", s));
       return { x0: sx - w / 2, y0: sy - s * 0.5, x1: sx + w / 2, y1: sy + s * 0.5 };
     }
+    case "axis": return null; // the floor of the picture: nothing collides with it, and it is never cut at the edges of the frame (see axisBox)
     default: return null;
   }
+}
+/** The room the time axis takes: its line, its stage labels under the line and, with a vertical axis, the line up the left with its name. */
+export function axisBox(p: Props): Box {
+  const x = Number(p.x) || 0, y = Number(p.y) || 0, x2 = Number(p.x2) || x, xs: number[] = Array.isArray(p.xs) ? p.xs.map(Number) : [];
+  const half = xs.length > 1 ? (xs[1] - xs[0]) / 2 : 120, top = p.vname != null && typeof p.y2 === "number" ? p.y2 - 70 : y - 30;
+  return { x0: Math.min(x - 30, xs.length ? xs[0] - half : x), y0: top, x1: Math.max(x2 + 40, xs.length ? xs[xs.length - 1] + half : x2), y1: y + 92 };
 }
 /** Where a note sits: beside the object it tags, on the given side. */
 export function noteBox(m: Model, p: Props, t: number, side?: string): (Box & { cx: number; cy: number; w: number; h: number; tip: [number, number] }) | null {
@@ -736,6 +750,7 @@ function nameOf(m: Model, o: MObj, p: Props): string {
     case "table": return `표(머리: ${(p.cols || []).join(" | ")}; 행: ${(p.rows || []).slice(0, p.show == null ? undefined : Math.round(p.show)).map((r: unknown[]) => r.join(" | ")).join(" / ")})`;
     case "sign": return `큰 기호 ${q(p.str)}${Array.isArray(p.between) ? ` (${ref(p.between[0])} 과 ${ref(p.between[1])} 사이)` : ""}`;
     case "scale": return `저울(왼쪽 접시 ${q(p.left || "")}, 오른쪽 접시 ${q(p.right || "")}, ${(p.tilt || 0) < -0.2 ? "왼쪽으로 기울어짐" : (p.tilt || 0) > 0.2 ? "오른쪽으로 기울어짐" : "수평"})`;
+    case "axis": return `맨 아래 가로 시간축(왼쪽부터 ${(Array.isArray(p.labels) ? p.labels : []).map((x: unknown) => q(x)).join(", ")})${p.vname ? `, 왼쪽 세로축 ${q(p.vname)}` : ""}`;
     case "dots": return `점 ${dotsDims(p).n}개 격자(색칠된 점 ${Math.round(p.hi || 0)}개${p.hi2 ? `, 다른 색 점 ${Math.round(p.hi2)}개` : ""})${p.cap ? ` 설명 ${q(p.cap)}` : ""}`;
     default: return `${o.type} ${q(val)}`;
   }
@@ -840,6 +855,7 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
   // numbers: nothing may appear without a visible origin
   const plan = script.plan || {}, given = new Set<number>(), seen = new Set<number>();
   (plan.given || []).forEach((g) => numsIn(g && g.v).forEach((v) => given.add(v)));
+  m.list.forEach((o) => { if (o.type === "axis") [o.keys[0].p.vname].concat(o.keys[0].p.labels || []).forEach((s) => numsIn(s).forEach((v) => given.add(v))); }); // the stage labels are on screen from the start ("3년 뒤")
   const ok = (v: number) => TRIVIAL.has(v) || near(given, v) || near(seen, v);
   const seenIds = new Set<string>(), computed = new Set<number>();
   const everIds = new Set<string>(); m.beats.forEach(({ b }) => (b.do || []).forEach((a) => { if (a.id != null && (a.type || (a.op || "add") === "add")) everIds.add(String(a.id)); }));
@@ -853,7 +869,7 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
     const pic = acts.length > 0 || !!b.ask || !!b.cam || (Array.isArray(b.focus) && b.focus.length > 0);
     if (!pic) err(n, "still", "Nothing changes in the picture in this scene. Every scene must show its idea, not only say it.");
     const adds = acts.filter((a) => (a.op || (a.type ? "add" : "set")) === "add");
-    const heavy = adds.filter((a) => !["arrow", "line", "note", "brace", "sign", "dot", "calc"].includes(String(a.type)));
+    const heavy = adds.filter((a) => !["arrow", "line", "note", "brace", "sign", "dot", "calc", "axis"].includes(String(a.type)));
     if (heavy.length > 4) err(n, "crowd", `${heavy.length} new objects appear in one scene; 3 at most. Keep what is already on screen instead of drawing it again, or spread the new things over two scenes.`);
     if (adds.filter((a) => a.type === "calc").length > 1) err(n, "crowd", "Two calculations in one scene. One calculation per scene.");
     // ids and types
