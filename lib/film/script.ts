@@ -507,6 +507,8 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     if (op === "send") {
       const a: Action = { op: "send" };
       for (const t of toks) { if (t.k) a[ALIAS[t.k] || t.k] = kvValue(ALIAS[t.k] || t.k, t); else if (t.q) a.str = t.s; else if (!link(a, t.s)) { if (COLORS.has(t.s)) a.color = t.s; else if (ASCII.test(t.s) && a.icon == null) a.icon = t.s; else a.str = a.str ? a.str + " " + t.s : t.s; } }
+      // a token named by the id of an icon on screen ("send sell>inv cpn" after "icon cpn ticket") travels as that icon's picture
+      if (typeof a.icon === "string" && !ICONS[a.icon]) { const ic = ICON_ALIAS[a.icon.toLowerCase()] || (/^[A-Za-z_]\w*$/.test(a.icon) ? (new RegExp("^\\s*icon\\s+" + a.icon + "\\s+([A-Za-z_]\\w*)", "m").exec(String(text || "")) || [])[1] : ""); if (ic) a.icon = ICON_ALIAS[ic.toLowerCase()] || ic.toLowerCase(); }
       if (a.from == null || a.to == null) err(n, `Line ${ln + 1}: send needs "from>to".`);
       acts.push(a);
       continue;
@@ -537,7 +539,7 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     const type = isSet ? "" : op, strs: string[] = [], loose: string[] = [];
     if (type === "calc") {
       const k = toks.findIndex((t, i) => i > 0 && !!t.k), body = k < 0 ? toks : toks.slice(0, k), tail = k < 0 ? [] : toks.slice(k);
-      const p0 = body.length && !body[0].q ? POS.exec(body[0].s) : null;
+      const p0 = body.length && !body[0].q && !groupedNum(body[0].s) ? POS.exec(body[0].s) : null;
       if (p0) { a.x = +p0[1]; a.y = +p0[2]; body.shift(); }
       else if (body.length && !body[0].q && slotXY(body[0].s)) body.shift(); // a calculation finds its own place
       a.terms = calcTerms(body);
