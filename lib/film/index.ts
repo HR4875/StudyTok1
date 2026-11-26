@@ -30,6 +30,8 @@ export interface DirectorOptions {
   fancy?: boolean;
   /** 화면 아래에 작게 넣는 이름 */
   brand?: string;
+  /** false면 제목 훅 없이 첫 장면부터 시작한다 */
+  hook?: boolean;
 }
 
 /** 재생기에 필요한 한 편의 정보. 시간은 모두 실제 재생 시간(초)이다. */
@@ -40,8 +42,12 @@ export interface FilmInfo {
   skin: string;
   /** 장면마다: 시작 시각, 길이, 화면 맨 위 문장 */
   beats: { t0: number; dur: number; say: string }[];
-  /** 장면 경계 시각 (0, 각 장면의 시작, 끝) */
+  /** 장면 경계 시각 (0, 각 장면의 시작, 끝 카드의 시작, 끝) */
   T: number[];
+  /** 맨 앞의 제목 훅: 0초부터 len초 동안. 훅이 없으면 len이 0 */
+  hook: { t0: number; len: number };
+  /** 맨 끝의 파란 끝 카드가 시작하는 시각 */
+  end: { t0: number };
   /** 영상 속 질문: hold 시각에서 멈춰 답을 기다린다 */
   asks: { n: number; beat: number; t0: number; hold: number; t1: number; answer: number; choices: string[] }[];
   warn: string[];

@@ -268,7 +268,7 @@ export function prep(script: Script, opt: { speed?: number; hook?: boolean } = {
   // the hook comes first and everything else simply starts later, so no scene needs to know about it
   const given = (script as Props).hook, chunks = opt.hook === false ? [] : Array.isArray(given) && given.length >= 3 && given.length <= 4 && given.every((x: unknown) => typeof x === "string" && x.trim()) ? given.map((x: string) => x.trim()) : hookChunks(String(script.title || ""));
   if (chunks.length) { m.hook = { t0: 0, len: HOOK, chunks }; chunks.forEach((_, k) => m.cues.push({ k: "pop", t: 0.5 * k, step: [0, 2, 4, 7][k % 4], v: 0.08 })); }
-  let t = LEAD + m.hook.len;
+  let t = (m.hook.len ? 0.05 : LEAD) + m.hook.len; // after a hook scene 1 starts at once: the dot that survives the title is already on its way
   (Array.isArray(script.beats) ? script.beats : []).forEach((b, i) => {
     if (!b || typeof b !== "object") return;
     const { dur, ats } = beatTiming(b, i), t0 = t;

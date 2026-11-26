@@ -305,8 +305,7 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
     if (!natural) voice.stop();
     ended = true;
     hold = false;
-    const last = info.beats[info.beats.length - 1];
-    dir.seek(Math.max(0, last.t0 + last.dur - 0.5)); // 끝 화면 뒤에는 다 그려진 그림이 남는다
+    dir.seek(Math.max(0, info.dur - 0.001)); // 끝 화면 뒤에는 영상의 끝 카드가 남는다
     paint();
     markSeen(sid, k, { done: true, ask: askRight, at: Date.now() });
     emit();
