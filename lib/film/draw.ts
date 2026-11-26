@@ -397,7 +397,7 @@ export function createDirector(svg, opts = {}) {
   }
 
   // ---------- the time axis (Design F): a dot stretches into the line, the line turns from blue to ink, then the head, the ticks and the labels ----------
-  const expoOut = (x) => (x >= 1 ? 1 : x <= 0 ? 0 : 1 - Math.pow(2, -10 * x));
+  // (expoOut is the one declared with the other Design F eases further down)
   /** a label that types itself in, one character at a time, from the left edge it will finally have */
   function typeIn(str, x0, y, size, fill, k, parent) { const ch = Array.from(String(str)), n = Math.round(ch.length * clamp(k)); if (n > 0) text(ch.slice(0, n).join(""), x0, y + size * 0.36, size, 700, fill, "start", parent); }
   function drawAxis(o, p, t, world, op) {
