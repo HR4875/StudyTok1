@@ -8,7 +8,7 @@ import { SPEEDS, getPrefs, getSeries, loadShort, titleOf, totalOf, useFilmStore,
 import EndSheet from "./EndSheet";
 import { secs } from "./format";
 import { Icon } from "./icons";
-import { EMPTY_VIEW, createPlayer, type PlayerApi, type PlayerMenu, type PlayerView } from "./PlayerEngine";
+import { EMPTY_VIEW, createPlayer, spanOf, type PlayerApi, type PlayerMenu, type PlayerView } from "./PlayerEngine";
 
 export interface PlayerProps {
   /** 시리즈 id ("ex"는 한 편짜리 맛보기 묶음) */
@@ -307,8 +307,8 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
             aria-valuemax={info ? Math.round(info.dur) : 0}
             onPointerDown={(e) => api.current?.scrubStart(e.nativeEvent)}
           >
-            {info?.beats.map((b, i) => (
-              <div key={i} className={askBeats.has(i) ? "seg ask" : "seg"} style={{ flex: `${Math.max(0.4, b.dur).toFixed(2)} 1 0` }}>
+            {info?.beats.map((_, i) => (
+              <div key={i} className={askBeats.has(i) ? "seg ask" : "seg"} style={{ flex: `${Math.max(0.4, spanOf(info, i)[1] - spanOf(info, i)[0]).toFixed(2)} 1 0` }}>
                 <i />
               </div>
             ))}

@@ -34,6 +34,9 @@ export interface PlayerView {
   flash: { name: IconName; n: number } | null;
 }
 
+/** 진행 막대에서 j번째 장면이 맡는 구간(초). 맨 앞의 제목 훅은 첫 장면에, 맨 끝의 끝 카드는 마지막 장면에 붙여서 막대가 영상 전체 길이를 빈틈없이 덮는다. */
+export const spanOf = (info: FilmInfo, j: number): [number, number] => [j === 0 ? 0 : info.beats[j].t0, j === info.beats.length - 1 ? info.dur : info.beats[j + 1].t0];
+
 export const EMPTY_VIEW: PlayerView = { info: null, started: false, playing: false, ended: false, hold: false, ask: null, beat: -1, menu: null, flash: null };
 
 export interface PlayerEls {
@@ -137,7 +140,7 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
     let i = -1;
     if (started) for (let j = 0; j < B.length; j++) if (B[j].t0 <= at + 1e-3) i = j;
     beat = i;
-    if (fills.length === B.length) for (let i = 0; i < B.length; i++) fills[i].style.width = (clamp((at - B[i].t0) / B[i].dur, 0, 1) * 100).toFixed(1) + "%";
+    if (fills.length === B.length) for (let i = 0; i < B.length; i++) { const [s0, s1] = spanOf(info, i); fills[i].style.width = (clamp((at - s0) / (s1 - s0), 0, 1) * 100).toFixed(1) + "%"; }
     const text = fmtT(at) + " / " + fmtT(info.dur);
     if (els.time.textContent !== text) els.time.textContent = text;
     els.segs.setAttribute("aria-valuenow", String(Math.round(at)));
