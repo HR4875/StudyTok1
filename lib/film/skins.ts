@@ -16,7 +16,7 @@ export const SKINS: Record<string, Skin> = Object.assign(Object.create(null) as 
   // Design F: warm paper, near-black ink, one blue, a yellow marker
   paper: {
     id: "paper", name: "페이퍼", dark: false, bg: "#F4F3EF", card: "#FFFFFF", ink: "#232325", sub: "#55555B", grey: "#B9B8B2", line: "#DEDCD5",
-    primary: "#0A5FC2", soft: "#C9E2FF", accent: "#FFD43B", good: "#1E9E6A", bad: "#E5484D", white: "#FFFFFF",
+    primary: "#0A5FC2", soft: "#C9E2FF", accent: "#FFD43B", good: "#1286F0", bad: "#F2241B", white: "#FFFFFF", // only the seven colours of Design F: "good" is its bright blue, "bad" its red
     font: FONT, radius: 28, stroke: 8, deco: "none", audio: { bpm: 100, root: 62, mode: "major", lead: "mallet", drums: "soft" },
   },
   // Design D: white paper with a dot grid

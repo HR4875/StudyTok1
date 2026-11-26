@@ -6,6 +6,8 @@ import { ICONS, ICON_KO } from "./icons";
 
 export const W = 1080, H = 1920;
 export const LEAD = 0.3, TAIL = 0.9, TWEEN = 0.55;
+/** Design F opens every film with its title as kinetic type (HOOK film seconds, one chunk per half second) and closes it with a card (CARD). */
+export const HOOK = 2.0, CARD = 2.6;
 /** Where pictures may sit: the sentence owns the top of the stage, the app's controls the bottom. */
 export const ZONE = { x0: 36, x1: 1044, y0: 500, y1: 1800 };
 /** While a question is on screen its answer buttons own everything below this line. */
@@ -43,6 +45,9 @@ export interface Model {
   DUR: number; dur: number; warn: string[];
   /** ids that had no seat and were placed by the engine */
   seated: string[];
+  /** the title as kinetic type before scene 1 (len 0: none), and the end card after the last scene, on the script's clock */
+  hook: { t0: number; len: number; chunks: string[] };
+  end: { t0: number; len: number };
 }
 export interface Issue { level: "error" | "warn"; beat: number; code: string; msg: string }
 
@@ -205,11 +210,65 @@ function setOf(b: Beat): Set<string> {
   return s;
 }
 
+// ---------- the hook ----------
+// Korean words that lean on the next word (a counter, a number word, an adverb, a modifier ending in ㄹ): a chunk must not end on one.
+const LEAN = new Set(["몇", "한", "두", "세", "네", "새", "첫", "이", "그", "저", "각", "온", "왜", "더", "또", "안", "못", "꼭", "늘", "곧", "좀", "잘", "다", "총", "약", "및", "제", "딱", "꽤", "참"]);
+// words that lean on the word before (a bound noun or a counter): a chunk must not start with one
+const HANG = new Set(["수", "것", "뿐", "때", "줄", "데", "등", "만", "쯤", "번", "개", "원", "주", "명", "년", "달", "점", "배", "속", "위", "뒤", "앞", "밖", "옆", "중", "끝", "아니라", "아니고", "아닌"]);
+const leansOn = (w: string) => { const a = [...w]; if (a.length !== 1 || /[,，]$/.test(w)) return false; const c = (a[0].codePointAt(0) || 0) - 0xac00; return LEAN.has(w) || (c >= 0 && c < 11172 && c % 28 === 8); };
+/** The title cut at spaces into 3 or 4 chunks, one per half second of the hook. A chunk keeps to 8 characters (spaces and the closing ? or !
+ *  not counted) when the words allow it, and to 9 at most; a longer title uses its last clause, and failing that drops words from the front
+ *  (the type also shrinks, down to about 96 px). The ? or ! stays at the end of the last chunk. */
+export function hookChunks(title: string): string[] {
+  const clean = String(title || "").replace(/[*_`#]/g, "").replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  const chars = (s: string) => [...s.replace(/[\s,，]/g, "").replace(/[?!？！.]+$/, "")].length; // commas are thin: they do not count
+  const cut = (words: string[]) => { // the best way to cut these words into 3 or 4 chunks
+    const n = words.length;
+    if (n <= 3) return { chunks: words.slice(), max: Math.max(0, ...words.map(chars)) };
+    let best: { chunks: string[]; max: number; cost: number } | null = null;
+    for (const k of [3, 4]) {
+      const go = (from: number, left: number, acc: string[]) => {
+        if (left === 1) {
+          const ch = acc.concat(words.slice(from).join(" ")), ls = ch.map(chars), max = Math.max(...ls);
+          let cost = max * 10 + ls.reduce((a, l) => a + l * l, 0) / ch.length / 4 + (k === 3 ? 2 : 0);
+          ch.forEach((c, j) => {
+            const ws = c.split(" ");
+            if (j < ch.length - 1 && leansOn(ws[ws.length - 1])) cost += 15;
+            if (j < ch.length - 1 && /[,，]$/.test(c)) cost -= 8; // a clause ends here: the best place to cut
+            else if (j < ch.length - 1 && /(면|고|서)$/.test(c)) cost -= 3; // "if ...", "and ...": a clause without its comma
+            if (/[,，]./.test(c)) cost += 15; // and a chunk that runs over the end of a clause reads as two thoughts
+            if (j > 0 && HANG.has(ws[0])) cost += 12;
+            if (ws.length === 1 && chars(c) <= 1) cost += 20;
+          });
+          if (!best || cost < best.cost) best = { chunks: ch, max, cost };
+          return;
+        }
+        for (let e = from + 1; e <= n - left + 1; e++) go(e, left - 1, acc.concat(words.slice(from, e).join(" ")));
+      };
+      go(0, k, []);
+    }
+    return best as unknown as { chunks: string[]; max: number };
+  };
+  const words = clean.split(" ");
+  const all = cut(words);
+  if (all.max <= 9) return all.chunks;
+  const comma = clean.search(/[,，][^,，]*$/), tail = comma > 0 ? clean.slice(comma + 1).trim() : "";
+  if (tail && tail.split(" ").length >= 3) { const c = cut(tail.split(" ")); if (c.max <= 9) return c.chunks; }
+  // still too long: the type shrinks to the widest line, but below about 96 px it would not read, so words go from the front
+  let ws = words;
+  while (ws.length > 3 && Math.max(...cut(ws).chunks.map((c, j, a) => approxW(c, 1) + (j === a.length - 1 ? 0.54 : 0))) * 96 > 900) ws = ws.slice(1);
+  return cut(ws).chunks;
+}
+
 // ---------- timeline ----------
-export function prep(script: Script, opt: { speed?: number } = {}): Model {
+export function prep(script: Script, opt: { speed?: number; hook?: boolean } = {}): Model {
   const speed = clamp(Number(opt.speed ?? script.speed ?? 1.1) || 1.1, 0.5, 2);
-  const m: Model = { script, speed, beats: [], objs: new Map(), list: [], cams: [{ t: 0, c: { x: 540, y: 960, zoom: 1 } }], says: [], cues: [], sends: [], focus: [], asks: [], DUR: 0, dur: 0, warn: [], seated: [] };
-  let t = LEAD;
+  const m: Model = { script, speed, beats: [], objs: new Map(), list: [], cams: [{ t: 0, c: { x: 540, y: 960, zoom: 1 } }], says: [], cues: [], sends: [], focus: [], asks: [], DUR: 0, dur: 0, warn: [], seated: [], hook: { t0: 0, len: 0, chunks: [] }, end: { t0: 0, len: CARD } };
+  // the hook comes first and everything else simply starts later, so no scene needs to know about it
+  const given = (script as Props).hook, chunks = opt.hook === false ? [] : Array.isArray(given) && given.length >= 3 && given.length <= 4 && given.every((x: unknown) => typeof x === "string" && x.trim()) ? given.map((x: string) => x.trim()) : hookChunks(String(script.title || ""));
+  if (chunks.length) { m.hook = { t0: 0, len: HOOK, chunks }; chunks.forEach((_, k) => m.cues.push({ k: "pop", t: 0.5 * k, step: [0, 2, 4, 7][k % 4], v: 0.08 })); }
+  let t = LEAD + m.hook.len;
   (Array.isArray(script.beats) ? script.beats : []).forEach((b, i) => {
     if (!b || typeof b !== "object") return;
     const { dur, ats } = beatTiming(b, i), t0 = t;
@@ -281,7 +340,8 @@ export function prep(script: Script, opt: { speed?: number } = {}): Model {
     });
     t += dur;
   });
-  m.DUR = t + TAIL;
+  m.end = { t0: t, len: CARD }; // the end card takes the place of the old rest at the end
+  m.DUR = t + CARD;
   m.dur = m.DUR / speed;
   // a calculation belongs to its scene: it leaves when the next scene starts, unless that scene uses it
   const refs = m.beats.map(({ b }) => refsOf(b));
@@ -835,8 +895,9 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
   if (m.asks.length !== 1) err(0, "ask", m.asks.length ? `${m.asks.length} scenes ask a question; exactly one, right before the key reveal.` : "No scene asks the viewer to predict. Put exactly one ask scene right before the key reveal.");
   const clears = m.beats.filter(({ b, t0, dur, i }) => (b.do || []).some((a) => a && a.op === "clear") && m.list.filter((o) => SOLID.has(o.type) && o.type !== "calc" && o.beat < i && o.tDel >= t0 && o.tDel < t0 + dur).length >= 3).length;
   if (clears > 2) err(0, "slides", `The screen is wiped in ${clears} scenes. Build one picture and keep it: wipe at most twice, and never draw again what was already on screen.`);
-  if (m.dur > 66) err(0, "long", `The short runs ${m.dur.toFixed(0)} s; keep it under 60 s by cutting scenes or splitting into parts.`);
-  else if (m.dur > 60) warn(0, "long", `The short runs ${m.dur.toFixed(0)} s; 60 s or less holds attention better.`);
+  const body = (m.DUR - m.hook.len - m.end.len + TAIL) / m.speed; // the hook and the end card are the engine's, not the writer's: they do not count
+  if (body > 66) err(0, "long", `The short runs ${body.toFixed(0)} s; keep it under 60 s by cutting scenes or splitting into parts.`);
+  else if (body > 60) warn(0, "long", `The short runs ${body.toFixed(0)} s; 60 s or less holds attention better.`);
   // numbers: nothing may appear without a visible origin
   const plan = script.plan || {}, given = new Set<number>(), seen = new Set<number>();
   (plan.given || []).forEach((g) => numsIn(g && g.v).forEach((v) => given.add(v)));

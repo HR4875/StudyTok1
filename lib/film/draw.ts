@@ -85,11 +85,12 @@ export function createDirector(svg, opts = {}) {
 
   function drawObj(o, t, world, dim) {
     if (t < o.tAdd || t > o.tDel + 0.35) return;
-    const p = stateOf(o, t), ap = spring(t, o.tAdd, 260, 16, 0.7), out = 1 - seg(t, o.tDel, 0.3, E.exit);
-    const op = clamp(ap * 2) * out * (p.opacity == null ? 1 : p.opacity) * dim;
+    // Design F: nothing overshoots. ap grows with a critically damped spring; a placed thing opens out of the blue dot that brought it (expoOut)
+    const p = stateOf(o, t), ap = springC(t, o.tAdd), out = 1 - seg(t, o.tDel, 0.3, E.exit), bn = BORN.get(o), grow = expoOut(prog(t, o.tAdd, 0.3));
+    const op = clamp(bn ? 0.25 + grow * 3 : grow * 2.5) * out * (p.opacity == null ? 1 : p.opacity) * dim;
     if (op <= 0.003) return;
-    const pl = o.pulses.reduce((mx, tp) => Math.max(mx, hitPulse(t, tp, 0.08, 0.25)), 0), sc = lerp(0.6, 1, ap) * (1 + 0.12 * pl);
-    const c = colP(p), g = G(world, { opacity: op.toFixed(3) });
+    const pl = o.pulses.reduce((mx, tp) => Math.max(mx, hitPulse(t, tp, 0.08, 0.25)), 0), sc = (bn ? 1 : lerp(0.6, 1, grow)) * (1 + 0.12 * pl);
+    const c = colP(p), g = G(world, { opacity: op.toFixed(3), transform: bn && grow < 0.999 ? tf(bn.seat[0], bn.seat[1], lerp(bn.s0, 1, grow)) : null });
     switch (o.type) {
       case "text": { const q = G(g, { transform: tf(p.x, p.y, sc) }); label(p.str, p.x, p.y, p.size || 56, p.weight || 800, c, q, p.align === "left" ? "start" : "middle", p.maxW || 1000); break; }
       case "box": {
@@ -142,7 +143,7 @@ export function createDirector(svg, opts = {}) {
         const e = el("path", { d: bend ? `M ${n1(a[0])} ${n1(a[1])} Q ${n1(mx)} ${n1(my)} ${n1(b[0])} ${n1(b[1])}` : `M ${n1(a[0])} ${n1(a[1])} L ${n1(b[0])} ${n1(b[1])}`, stroke: c, "stroke-width": wdt, fill: "none", "stroke-linecap": "round" }, g);
         if (p.dash) e.setAttribute("stroke-dasharray", "4 20"); else drawOn(e, L * (bend ? 1.2 : 1) + 4, dp);
         if (o.type === "arrow" && dp > 0.9) { const ex = bend ? b[0] - mx : ux, ey = bend ? b[1] - my : uy, el2 = Math.hypot(ex, ey) || 1; arrowHead(g, b, ex / el2, ey / el2, c, wdt); if (p.both) { const sx = bend ? a[0] - mx : -ux, sy = bend ? a[1] - my : -uy, sl = Math.hypot(sx, sy) || 1; arrowHead(g, a, sx / sl, sy / sl, c, wdt); } }
-        if (p.str) { const off = p.loff != null ? Number(p.loff) : bend < 0 ? -50 : 50, at = bend || p.lpos == null ? 0.5 : Number(p.lpos), tx = a[0] + (b[0] - a[0]) * at - uy * (bend * 0.5 + off), ty = a[1] + (b[1] - a[1]) * at + ux * (bend * 0.5 + off); const q = G(g, { opacity: clamp((dp - 0.5) * 3).toFixed(3) }); chip(q, p.str, tx, ty, 40, c); }
+        if (p.str) { const off = p.loff != null ? Number(p.loff) : bend < 0 ? -50 : 50, at = bend || p.lpos == null ? 0.5 : Number(p.lpos), tx = a[0] + (b[0] - a[0]) * at - uy * (bend * 0.5 + off), ty = a[1] + (b[1] - a[1]) * at + ux * (bend * 0.5 + off); const we = expoOut(prog(t, o.tAdd + 0.22, 0.3)); if (we > 0.002) { const cw = tw(String(p.str), 40, 800) + 36; chip(G(g, { "clip-path": clipR(tx - (cw / 2 + 4) * we, ty - 35, (cw + 8) * we, 70) }), p.str, tx, ty, 40, c); } } // the pill wipes open from its middle, as in Design F
         break;
       }
       case "brace": {
@@ -164,7 +165,7 @@ export function createDirector(svg, opts = {}) {
         terms.forEach((q, k) => {
           const cx = x + ws[k] / 2, t0 = o.tAdd + 0.32 * k, isRes = eq >= 0 && k > eq, tc = q.color ? col(q.color) : isRes ? (p.color ? c : SK.primary) : q.kind === "op" ? SK.sub : SK.ink;
           if (t >= t0) {
-            if (isRes) { const a2 = spring(t, t0 + 0.12, 300, 14, 0.7), hw = ws[k] / 2 + 14; rr(g, cx - hw, p.y + s * 0.18, hw * 2 * clamp(a2 * 1.4), s * 0.34, 6, { fill: SK.accent, opacity: clamp((t - t0 - 0.12) * 6) }); const gq = G(g, { transform: tf(cx, p.y, lerp(0.5, 1, a2)), opacity: clamp(a2 * 2).toFixed(3) }); label(q.text, cx, p.y, s, 800, tc, gq); }
+            if (isRes) { const a2 = spring(t, t0 + 0.12, 300, 29, 0.7), hw = ws[k] / 2 + 14; rr(g, cx - hw, p.y + s * 0.18, hw * 2 * clamp(a2 * 1.4), s * 0.34, 6, { fill: SK.accent, opacity: clamp((t - t0 - 0.12) * 6) }); const gq = G(g, { transform: tf(cx, p.y, lerp(0.5, 1, a2)), opacity: clamp(a2 * 2).toFixed(3) }); label(q.text, cx, p.y, s, 800, tc, gq); }
             else if (q.from && anchorOf(M, q.from, t)) { const src = anchorOf(M, q.from, t), u = seg(t, t0, 0.5, E.rest), px = lerp(src.x, cx, u), py = lerp(src.y, p.y, u) - Math.sin(u * Math.PI) * 46; const gq = G(g, { opacity: clamp((t - t0) * 8).toFixed(3), transform: tf(px, py, lerp(0.8, 1, u)) }); label(q.text, px, py, s, 800, tc, gq); if (u < 1) el("circle", { cx: src.x, cy: src.y, r: (src.r || 60) * (1 + 0.5 * u), fill: "none", stroke: SK.primary, "stroke-width": 5, opacity: (0.6 * (1 - u)).toFixed(3) }, g); }
             else { const a2 = seg(t, t0, 0.3, E.out); const gq = G(g, { opacity: a2.toFixed(3), transform: `translate(0 ${n1((1 - a2) * 18)})` }); label(q.text, cx, p.y, s, 800, tc, gq); }
           }
@@ -175,9 +176,11 @@ export function createDirector(svg, opts = {}) {
       case "note": {
         const nb = noteBox(M, p, t); if (!nb) return;
         const size = p.size || 40, cw = nb.w, ch = nb.h, x = nb.cx, y = nb.cy, tip = nb.tip;
-        const q = G(g, { transform: tf(x, y, sc) }), nc = p.color ? c : SK.primary;
-        if (!p.push && !p.slide) el("line", { x1: tip[0], y1: tip[1], x2: x, y2: y, stroke: nc, "stroke-width": 5, "stroke-linecap": "round" }, q); // a tag stacked on another tag needs no stem
-        rr(q, x - cw / 2, y - ch / 2, cw, ch, ch / 2, { fill: SK.card, stroke: nc, "stroke-width": 4 }); label(p.str, x, y, size, 800, nc, q, "middle", cw - size * 0.7);
+        // Design F's chip: the stem draws out of the thing, then the pill wipes open from the stem's side (from its middle above or below)
+        const q = G(g, { transform: tf(x, y, 1 + 0.12 * pl) }), nc = p.color ? c : SK.primary, we = expoOut(prog(t, o.tAdd, 0.32)), sd = String(p.side || "right");
+        if (!p.push && !p.slide) el("line", { x1: tip[0], y1: tip[1], x2: x, y2: y, stroke: nc, "stroke-width": 5, "stroke-linecap": "round", "stroke-dasharray": `${n1(Math.hypot(x - tip[0], y - tip[1]) * Math.min(1, we * 1.6) + 1)} 9999` }, q); // a tag stacked on another tag needs no stem
+        const ww = (cw + 8) * we, wx = sd === "right" ? x - cw / 2 - 4 : sd === "left" ? x + cw / 2 + 4 - ww : x - ww / 2, pg = G(q, { "clip-path": clipR(wx, y - ch / 2 - 4, ww, ch + 8) });
+        rr(pg, x - cw / 2, y - ch / 2, cw, ch, ch / 2, { fill: SK.card, stroke: nc, "stroke-width": 4 }); label(p.str, x, y, size, 800, nc, pg, "middle", cw - size * 0.7);
         break;
       }
       case "sign": {
@@ -232,7 +235,7 @@ export function createDirector(svg, opts = {}) {
       case "dots": { // "so many out of so many": a grid of dots with some of them coloured
         const d = dotsDims(p), q = G(g), x0 = p.x - d.w / 2, y0 = p.y - d.h / 2, hi = Math.floor((Number(p.hi) || 0) + 1e-6), hi2 = Math.floor((Number(p.hi2) || 0) + 1e-6), c1 = p.color ? c : SK.primary, c2 = col(p.c2 || "yellow");
         for (let k = 0; k < d.n; k++) {
-          const a2 = spring(t, o.tAdd + (k / d.n) * 0.5, 320, 18, 0.7); if (a2 <= 0.01) continue;
+          const a2 = spring(t, o.tAdd + (k / d.n) * 0.5, 320, 30, 0.7); if (a2 <= 0.01) continue; // critically damped: no overshoot (Design F)
           el("circle", { cx: x0 + (k % d.cols) * d.pitch + d.d / 2, cy: y0 + Math.floor(k / d.cols) * d.pitch + d.d / 2, r: (d.d / 2) * clamp(a2, 0, 1.15), fill: k < hi ? c1 : k < hi + hi2 ? c2 : SK.line }, q);
         }
         if (p.cap) label(p.cap, p.x, y0 + d.h + 44, 42, 700, SK.sub, q, "middle", 900, true);
@@ -306,22 +309,279 @@ export function createDirector(svg, opts = {}) {
 
   // ---------- a question for the viewer ----------
   const askRects = (n) => Array.from({ length: n }, (_, k) => ({ x: 80, y: ASK_Y + 110 + k * 152, w: W - 160, h: 128 }));
+  // The buttons wear the app's quiz style: a white box with an ink border and a numbered square. askRects() and the hit test stay as they are,
+  // because the player's own HTML buttons sit on those rectangles.
   function drawAsk(a, t) {
     if (t < a.t0 - 0.35 || t > a.t1 + 0.3) return;
     const inn = seg(t, a.t0 - 0.35, 0.4, E.out), outt = seg(t, a.t1, 0.3, E.exit), k0 = inn * (1 - outt), g = G(null, { opacity: k0.toFixed(3), transform: `translate(0 ${n1((1 - inn) * 80)})` });
     el("rect", { x: 0, y: ASK_Y - 80, width: W, height: 90, fill: `url(#${PID}askveil)` }, g); el("rect", { x: 0, y: ASK_Y, width: W, height: H - ASK_Y, fill: SK.bg }, g);
     const got = answers.get(a.n), revealed = t >= a.hold && (!interactive || got != null), chosen = got == null ? -1 : got, rects = askRects(a.ask.choices.length), tr = a.hold;
     if (!revealed) { label(interactive ? "하나를 눌러 보세요" : "잠깐, 먼저 생각해 보세요", W / 2, ASK_Y + 36, 40, 700, SK.sub, g); if (!interactive) { const k = 1 - clamp((t - a.t0) / Math.max(0.1, a.hold - a.t0)); rr(g, W / 2 - 200, ASK_Y + 78, 400, 8, 4, { fill: SK.line }); rr(g, W / 2 - 200, ASK_Y + 78, 400 * k, 8, 4, { fill: SK.primary }); } }
-    else { const right = chosen < 0 || chosen === a.ask.answer, msg = (chosen < 0 ? "" : right ? "정답! " : "아쉬워요. ") + (a.ask.why || ""); const q = G(g, { opacity: clamp((t - tr) * 5).toFixed(3) }); label(msg || (right ? "정답!" : "정답은 이것"), W / 2, ASK_Y + 52, 44, 800, right ? SK.good : SK.bad, q, "middle", W - 120); }
+    else { // the verdict in its colour, then the reason in ink, on one line
+      const right = chosen < 0 || chosen === a.ask.answer, head = chosen < 0 ? `정답은 ${a.ask.answer + 1}번` : right ? "정답이에요!" : "아깝다!", why = String(a.ask.why || "").trim();
+      const q = G(g, { opacity: clamp((t - tr) * 5).toFixed(3) }), sp = why ? tw(" ", 1, 800) : 0, size = Math.max(26, Math.min(44, Math.floor((W - 120) / Math.max(1e-6, tw(head, 1, 800) + sp + (why ? tw(why, 1, 700) : 0)))));
+      const hw = tw(head, size, 800), tot = hw + (why ? sp * size + tw(why, size, 700) : 0), x0 = W / 2 - tot / 2, y = ASK_Y + 52 + size * 0.36;
+      text(head, x0, y, size, 800, right ? SK.primary : SK.bad, "start", q); if (why) text(why, x0 + hw + sp * size, y, size, 700, SK.ink, "start", q);
+    }
     a.ask.choices.forEach((c, k) => {
-      const r = rects[k], ap = spring(t, a.t0 + 0.12 * k, 260, 18, 0.7), isAns = k === a.ask.answer, isPick = k === chosen, rv = revealed ? clamp((t - tr) * 5) : 0;
-      const shake = revealed && isPick && !isAns ? Math.sin((t - tr) * 46) * 14 * Math.exp(-(t - tr) * 7) : 0, bump = revealed && isAns ? 1 + 0.05 * hitPulse(t, tr, 0.07, 0.2) : 1;
-      const fill = revealed && isAns ? mixHex(SK.card, SK.good, rv) : revealed && isPick ? mixHex(SK.card, SK.bad, rv) : SK.card, fg = revealed && (isAns || isPick) ? mixHex(SK.ink, "#FFFFFF", rv) : SK.ink;
-      const q = G(g, { opacity: (clamp(ap * 2) * (revealed && !isAns && !isPick ? lerp(1, 0.35, rv) : 1)).toFixed(3), transform: `translate(${n1(shake)} ${n1((1 - ap) * 40)}) ${tf(r.x + r.w / 2, r.y + r.h / 2, bump)}` });
-      rr(q, r.x, r.y, r.w, r.h, 40, { fill, stroke: revealed && (isAns || isPick) ? "none" : SK.ink, "stroke-width": 5 });
-      label(c, r.x + r.w / 2, r.y + r.h / 2, 52, 800, fg, q, "middle", r.w - 150);
-      if (revealed && isAns && rv > 0.5) checkMark(q, r.x + r.w - 70, r.y + r.h / 2, 20, "#FFFFFF"); else if (revealed && isPick && !isAns && rv > 0.5) checkMark(q, r.x + r.w - 70, r.y + r.h / 2, 16, "#FFFFFF", true);
+      const r = rects[k], ap = expoOut(prog(t, a.t0 + 0.08 * k, 0.35)), isAns = k === a.ask.answer, isPick = k === chosen, rv = revealed ? clamp((t - tr) * 5) : 0, cy = r.y + r.h / 2;
+      const shake = revealed && isPick && !isAns && t - tr < 0.32 ? Math.sin(((t - tr) / 0.32) * Math.PI * 2) * 16 : 0, bump = revealed && isAns ? 1 + 0.04 * hitPulse(t, tr, 0.07, 0.2) : 1; // the wrong pick shakes once
+      const on = revealed && isAns, bad = revealed && isPick && !isAns;
+      const fill = on ? mixHex(SK.card, SK.soft, rv) : SK.card, stroke = on ? mixHex(SK.ink, SK.good, rv) : bad ? mixHex(SK.ink, SK.bad, rv) : SK.ink, fg = on ? mixHex(SK.ink, SK.good, rv) : bad ? mixHex(SK.ink, SK.bad, rv) : SK.ink;
+      const q = G(g, { opacity: (clamp(ap * 2) * (revealed && !isAns && !isPick ? lerp(1, 0.35, rv) : 1)).toFixed(3), transform: `translate(${n1(shake)} ${n1((1 - ap) * 40)}) ${tf(r.x + r.w / 2, cy, bump)}` });
+      rr(q, r.x, r.y, r.w, r.h, 44, { fill, stroke, "stroke-width": 7 });
+      const bs = 64, bx = r.x + 30; rr(q, bx, cy - bs / 2, bs, bs, 16, { fill: SK.line }); label(String(k + 1), bx + bs / 2, cy, 38, 800, SK.ink, q);
+      const tx = bx + bs + 28, s = label(c, tx, cy, 52, 800, fg, q, "start", r.x + r.w - 96 - tx), cw = tw(String(c), s, 800);
+      if (on && rv > 0.4) checkMark(q, r.x + r.w - 62, cy, 20, SK.good);
+      if (bad) el("line", { x1: tx - 6, y1: cy, x2: tx - 6 + (cw + 12) * rv, y2: cy, stroke: SK.bad, "stroke-width": 6, "stroke-linecap": "round" }, q);
     });
+  }
+
+  // ---------- Design F: the hook, birth from a dot, the end card ----------
+  // Ported from the Design F reel (f_engine.js): no overshoot anywhere, a blue dot that survives from one thing to the next,
+  // smear on fast moves and a slow push-in so the frame is never still. All of it is a pure function of t like the rest of the frame.
+  const CX = 540, HCY = 860, BEAT = 0.5, DOT_R = 20, HW = 900; // HW: the weight of the hook and the card titles (Wanted Sans goes to 1000)
+  const prog = (t, a, d) => clamp((t - a) / Math.max(1e-6, d));
+  const expoOut = (x) => (x >= 1 ? 1 : x <= 0 ? 0 : 1 - Math.pow(2, -10 * x));
+  const expoIn = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : Math.pow(2, 10 * x - 10));
+  const expoInOut = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2 : (2 - Math.pow(2, -20 * x + 10)) / 2);
+  /** a critically damped spring from 0 to 1 that starts at time a */
+  const springC = (t, a, w = 14) => { const s = t - a; return s <= 0 ? 0 : 1 - (1 + w * s) * Math.exp(-w * s); };
+  function clipR(x, y, w, h) { const id = PID + "c" + uid++, cp = el("clipPath", { id }, defs); el("rect", { x, y, width: Math.max(0.01, w), height: Math.max(0.01, h) }, cp); return `url(#${id})`; }
+  /** the blue dot, smeared along its path while it is fast: a capsule from where it was a frame ago to where it is */
+  function capsule(parent, a, b, r, op = 1) {
+    if (r <= 0.3 || op <= 0.01) return;
+    const e = el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1] + 0.001, stroke: SK.primary, "stroke-width": 2 * r, "stroke-linecap": "round", opacity: op < 1 ? op.toFixed(3) : null }, parent);
+    const f = blurF(Math.abs(b[0] - a[0]) * 0.25, Math.abs(b[1] - a[1]) * 0.25, [Math.min(a[0], b[0]) - r, Math.min(a[1], b[1]) - r, Math.abs(b[0] - a[0]) + 2 * r, Math.abs(b[1] - a[1]) + 2 * r]);
+    if (f) e.setAttribute("filter", f);
+  }
+  const PLACED_F = new Set(["node", "box", "icon", "num", "bar", "text", "table", "plot", "scale", "dots"]);
+  let HK = null, HOOKTO = null, BORN = new Map(), HERO = null, CARDL = null;
+  /** where a thing is born and where things that come from it start: a circle, icon, box or number at its middle, a column at its foot, a chart at the corner of its axes */
+  function seatOf(o, p) {
+    if (o.type === "bar") return [Number(p.x) || 0, Number(p.y) || 0];
+    if (o.type === "plot") { const mp = plotMap(p); return [mp.x0, mp.y1]; }
+    if (o.type === "table") return [p.x || 540, p.y || 1100];
+    if (["node", "icon", "box", "num", "scale", "dots"].includes(o.type) || (o.type === "text" && p.align !== "left")) return [Number(p.x) || 0, Number(p.y) || 0];
+    const b = boxOf(M, o, p, o.tAdd); return b ? [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2] : [Number(p.x) || 540, Number(p.y) || 960];
+  }
+  function centreOf(o, t) { const p = stateOf(o, t); if (o.type === "bar" || o.type === "plot") { const b = boxOf(M, o, p, t); if (b) return [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2]; } return seatOf(o, p); }
+  const objAt = (id, t) => { let r = null; for (const q of M.list) if (q.id === String(id) && q.tAdd <= t + 1e-6) r = q; return r; };
+
+  // The hook: the title as kinetic type, one chunk per beat, the stack pushes up, older lines turn grey, a blue hand-drawn ? or ! whose dot survives
+  const MARK = { "?": { qw: 90, ox: 52, len: 190, d: "M -40 -96 C -40 -142 40 -142 40 -96 C 40 -64 0 -62 0 -34" }, "!": { qw: 60, ox: 34, len: 96, d: "M 0 -142 L 0 -46" }, ".": { qw: 52, ox: 34, len: 0, d: "" } };
+  function layoutHook() {
+    HK = null;
+    const ch = M.hook && M.hook.len ? M.hook.chunks.map(String).filter(Boolean) : [];
+    if (!ch.length) return;
+    const words = ch.slice(0, 4), last = words[words.length - 1], mm = last.match(/[?!？！.]+$/);
+    let mark = ".";
+    if (mm) { mark = /[?？]/.test(mm[0]) ? "?" : /[!！]/.test(mm[0]) ? "!" : "."; words[words.length - 1] = last.slice(0, mm.index).trim() || last; }
+    const n = words.length, mk = MARK[mark];
+    const w1 = words.map((w, i) => tw(w, 1, HW) + (i === n - 1 ? mk.qw / 168 : 0));
+    const fit = Math.min(200, Math.floor(900 / Math.max(1e-6, ...w1))), size = 96 * Math.max(...w1) <= 1000 ? Math.max(96, fit) : fit; // the size of the widest line, not under 96 px unless one unbreakable word needs it
+    const qk = size / 168, pitch = Math.round(size * 1.12), w = words.map((x) => tw(x, size, HW));
+    const yc = words.map((_, i) => HCY - ((n - 1) * pitch) / 2 + i * pitch);
+    const total = w[n - 1] + mk.qw * qk, textX = CX - total / 2;
+    HK = { words, n, size, qk, pitch, w, yc, textX, mark, qx: textX + w[n - 1] + mk.ox * qk, qy: yc[n - 1] + 0.37 * size - 18 * qk, dotR: 18 * qk, lastT: (n - 1) * BEAT };
+  }
+  /** where the surviving dot goes: the axis of a TIME film, else the first thing scene 1 places; it arrives when that thing appears */
+  function hookTarget() {
+    const ax = M.objs.get("_axis");
+    if (ax && ax.beat === 0) { const p = ax.keys[0].p; return { o: ax, x: Number(p.x) || 540, y: Number(p.y) || 960, t: ax.tAdd }; }
+    let first = null;
+    for (const o of M.list) if (o.beat === 0 && PLACED_F.has(o.type) && (!first || o.tAdd < first.tAdd - 1e-6)) first = o;
+    // a scene that opens with a calculation and places its thing later: the dot does not wait seconds for it, it goes to where the calculation starts
+    let lead = null;
+    for (const o of M.list) if (o.beat === 0 && o.type === "calc" && (!lead || o.tAdd < lead.tAdd - 1e-6)) lead = o;
+    if (lead && (!first || first.tAdd > lead.tAdd + 0.6)) { const b = boxOf(M, lead, lead.keys[0].p, lead.tAdd); if (b) return { o: lead, x: b.x0 + 24, y: (b.y0 + b.y1) / 2, t: lead.tAdd }; }
+    if (first) { const s = seatOf(first, first.keys[0].p); return { o: first, x: s[0], y: s[1], t: first.tAdd }; }
+    const b0 = M.beats[0]; return { o: null, x: 540, y: 1100, t: (b0 ? b0.t0 : M.hook.len) + 0.25 };
+  }
+  const hookShift = (t) => { let s = ((HK.n - 1) * HK.pitch) / 2; for (let k = 1; k < HK.n; k++) s -= (HK.pitch / 2) * expoOut(prog(t, k * BEAT, 0.22)); return s; };
+  const hookPop = (x, t0) => lerp(1.6, 1, expoOut(prog(x, t0, 0.22)));
+  function drawHook(t) {
+    if (!HK) return;
+    const K = HK, n = K.n, size = K.size, mk = MARK[K.mark], push = 1 + 0.02 * t, SH = hookShift(t);
+    if (t < 2.0) {
+      const g = G(null, { transform: `translate(${CX} ${HCY}) scale(${push.toFixed(5)}) translate(${-CX} ${-HCY}) translate(0 ${n1(SH)})` });
+      const exit = expoIn(prog(t, 1.75, 0.2)); // the words fold shut
+      for (let i = 0; i < n; i++) {
+        const t0 = i * BEAT;
+        if (t < t0) continue;
+        const isLast = i === n - 1, yc = K.yc[i], base = yc + 0.37 * size, cxw = isLast ? K.textX + K.w[i] / 2 : CX;
+        const sc = i === 0 ? 1 : hookPop(t, t0), vs = i === 0 ? 0 : (hookPop(t - 1 / 180, t0) - sc) * 180;
+        const fill = mixHex(SK.ink, SK.grey, (isLast ? 0 : expoOut(prog(t, t0 + BEAT, 0.18))) * 0.9);
+        const wg = G(g, { transform: `translate(${n1(cxw)} ${n1(yc)}) scale(${Math.max(0.0001, sc * (1 - exit)).toFixed(4)} ${sc.toFixed(4)}) translate(${n1(-cxw)} ${n1(-yc)})` });
+        const f = blurF(Math.abs(vs) * 5 + (exit > 0 ? 60 * exit : 0), Math.abs(vs) * 3, [0, yc - size * 1.2, W, size * 2.4]);
+        if (f) wg.setAttribute("filter", f);
+        const tx = isLast ? K.textX : CX, anchor = isLast ? "start" : "middle";
+        if (i === 0) { // the dot stretches into a bar and sweeps the first chunk open
+          const reveal = expoOut(prog(t, 0, 0.32)), x0 = cxw - K.w[0] / 2 - 20, x1 = cxw + K.w[0] / 2 + 20;
+          text(K.words[0], tx, base, size, HW, fill, anchor, wg).setAttribute("clip-path", clipR(x0, yc - size, (x1 - x0) * reveal, size * 2));
+          const mv = expoOut(prog(t, 0, 0.18)), bx = lerp(CX - DOT_R, x0 + (x1 - x0) * reveal - 2 * DOT_R, mv), bw = lerp(2 * DOT_R, 2 * DOT_R + 30 * (1 - reveal), mv), shrink = 1 - expoIn(prog(t, 0.25, 0.15));
+          if (shrink > 0.01 && t < 0.4) rr(g, bx, yc - DOT_R * shrink, bw, 2 * DOT_R * shrink, DOT_R * shrink, { fill: SK.primary });
+        } else text(K.words[i], tx, base, size, HW, fill, anchor, wg);
+        if (isLast && mk.d) { // the mark is drawn by hand in blue so that its dot can survive; with 3 chunks it is drawn on the fourth beat
+          const qg = G(g, { transform: `translate(${n1(K.qx)} ${n1(K.qy)}) scale(${(K.qk * hookPop(t, t0)).toFixed(4)})` });
+          const on = n === 4 ? 1 : expoOut(prog(t, 1.5, 0.2)), ret = expoIn(prog(t, 1.75, 0.14));
+          if (ret < 1 && on > 0) el("path", { d: mk.d, fill: "none", stroke: SK.primary, "stroke-width": 24, "stroke-linecap": "round", "stroke-dasharray": `${n1(mk.len * on * (1 - ret))} 999`, "stroke-dashoffset": n1(-mk.len * (1 - on)) }, qg);
+        }
+      }
+    }
+    // the surviving dot waits, then travels to the first thing of scene 1 and arrives exactly when that thing appears
+    const T = HOOKTO;
+    if (!T || t < K.lastT || t > T.t + 0.14) return;
+    const ts = Math.max(1.82, T.t - 0.3), c = camF(T.t), tx = 540 + (T.x - c.x) * c.zoom, ty = 960 + (T.y - c.y) * c.zoom;
+    const at = (x) => { const pu = 1 + 0.02 * Math.min(x, ts), sh = hookShift(Math.min(x, 2)), u = expoInOut(prog(x, ts, T.t - ts)); return [lerp(CX + (K.qx - CX) * pu, tx, u), lerp(HCY + (K.qy + sh - HCY) * pu, ty, u), u]; };
+    const p = at(t), q = at(t - F), beat4 = n === 4 || mk.d ? 1 : 1 + 0.6 * (t >= 1.5 ? 1 - expoOut(prog(t, 1.5, 0.3)) : 0); // 3 chunks and a full stop: the dot itself takes the fourth beat
+    const r = lerp(K.dotR * hookPop(t, K.lastT) * (1 + 0.02 * Math.min(t, ts)) * beat4, DOT_R * c.zoom, p[2]);
+    capsule(null, q, p, r, 1 - prog(t, T.t, 0.12));
+  }
+
+  // Birth: a placed thing is brought by a blue dot from the thing it comes from, and opens out of it. Worked out once per film.
+  function prepBirth() {
+    BORN = new Map();
+    for (const o of M.list) {
+      if (!PLACED_F.has(o.type)) continue;
+      const p0 = o.keys[0].p, seat = seatOf(o, p0), b = boxOf(M, o, p0, o.tAdd), ext = b ? Math.max(b.x1 - b.x0, b.y1 - b.y0) : 200;
+      const rec = { seat, s0: clamp((2 * DOT_R) / Math.max(1, ext), 0.03, 0.7), from: null, hook: !!(HK && HOOKTO && HOOKTO.o === o) };
+      if (!rec.hook) {
+        const t1 = o.tAdd - 0.18, ok = (q) => q && q !== o && PLACED_F.has(q.type) && q.tAdd < o.tAdd - 0.05 && q.tDel > t1;
+        let src = null;
+        for (const l of M.list) { // an arrow or line of the same scene that joins something to it: the dot comes along that arrow
+          if ((l.type !== "arrow" && l.type !== "line") || l.beat !== o.beat || String(l.keys[0].p.to) !== o.id || l.keys[0].p.from == null) continue;
+          const f = objAt(l.keys[0].p.from, o.tAdd); if (ok(f)) { src = f; break; }
+        }
+        if (!src) for (const q of M.list) if (ok(q) && q.beat < o.beat && (!src || q.beat > src.beat || (q.beat === src.beat && q.order > src.order))) src = q; // the newest thing of the scenes before
+        if (!src) for (const q of M.list) if (ok(q) && q.beat === o.beat && (!src || q.order > src.order)) src = q; // else the newest thing of this scene
+        if (src) rec.from = centreOf(src, t1);
+      }
+      BORN.set(o, rec);
+    }
+  }
+  function drawBirth(t, world, keepOf) {
+    for (const [o, r] of BORN) {
+      if (r.hook || t < o.tAdd - 0.18 || t > o.tAdd + 0.12) continue;
+      const k = keepOf(o); if (k <= 0.01) continue;
+      const at = (x) => { if (!r.from) return r.seat; const u = expoInOut(prog(x, o.tAdd - 0.18, 0.18)); return [lerp(r.from[0], r.seat[0], u), lerp(r.from[1], r.seat[1], u)]; };
+      const rad = DOT_R * expoOut(prog(t, o.tAdd - 0.18, r.from ? 0.06 : 0.18));
+      capsule(world, at(t - F), at(t), rad, k * (1 - prog(t, o.tAdd, 0.12)));
+    }
+  }
+
+  // Never still: inside a scene the world pushes in slowly (at most +1.5 %); the next scene takes it back over the camera's own move.
+  function creepAt(t) {
+    let i = -1; for (let k = 0; k < M.beats.length; k++) if (t >= M.beats[k].t0) i = k;
+    if (i < 0) return 0;
+    const b = M.beats[i], r = clamp((t - b.t0) / Math.max(0.1, b.dur));
+    return clamp(r + (i > 0 ? 1 - E.cam(clamp((t - b.t0) / 1.0)) : 0));
+  }
+  /** the camera the frame is drawn with (and judged with at the edges): the scene's camera, the push-in, and at the end the dive towards the hero */
+  function camF(t, noDive) {
+    const c0 = camAt(M, t); let x = c0.x, y = c0.y, z = c0.zoom;
+    const push = (PX, PY, k) => { x += ((PX - 540) * (k - 1)) / (z * k); y += ((PY - 960) * (k - 1)) / (z * k); z *= k; };
+    push(540, 1175, 1 + 0.015 * creepAt(t));
+    if (!noDive && HERO && t > M.end.t0) { const d = expoInOut(prog(t, M.end.t0, 0.5)); if (d > 0) push(HERO.scr[0], HERO.scr[1], lerp(1, 2.6, d)); }
+    return { x, y, zoom: z };
+  }
+  /** the hero of the end card: the last placed thing the last scene adds or changes, else the last placed thing still on screen */
+  function prepHero() {
+    HERO = null;
+    const lb = M.beats[M.beats.length - 1], tE = M.end.t0 - 0.02;
+    if (!lb) return;
+    let best = null, bt = -1;
+    for (const o of M.list) {
+      if (!PLACED_F.has(o.type) || !(o.tAdd <= tE && o.tDel > tE)) continue;
+      const tt = Math.max(o.beat === lb.i ? o.tAdd : -1, ...o.keys.filter((k) => k.t >= lb.t0).map((k) => k.t));
+      if (tt >= 0 && tt >= bt) { best = o; bt = tt; }
+    }
+    if (!best) for (const o of M.list) if (PLACED_F.has(o.type) && o.tAdd <= tE && o.tDel > tE && (!best || o.order > best.order)) best = o;
+    const c = camF(M.end.t0, true);
+    if (!best) { HERO = { o: null, scr: [540, 960] }; return; }
+    const ce = centreOf(best, M.end.t0);
+    HERO = { o: best, scr: [540 + (ce[0] - c.x) * c.zoom, 960 + (ce[1] - c.y) * c.zoom] };
+  }
+  /** the hero's body on screen at time t, with its corner radius: the colour of the card grows out of it */
+  function heroBox(t, c) {
+    const o = HERO && HERO.o, S = (x, y) => [540 + (x - c.x) * c.zoom, 960 + (y - c.y) * c.zoom];
+    if (!o) { const p = S(540, 960); return { x0: p[0] - DOT_R, y0: p[1] - DOT_R, x1: p[0] + DOT_R, y1: p[1] + DOT_R, r: DOT_R }; }
+    const p = stateOf(o, t);
+    let bx, r = 16;
+    if (o.type === "node") { const R = p.r || 80, hw = nodeHalf(p); bx = { x0: p.x - hw, y0: p.y - R, x1: p.x + hw, y1: p.y + R }; r = R; }
+    else if (o.type === "box") { const w = p.w || 240, h = p.h || 120; bx = { x0: p.x - w / 2, y0: p.y - h / 2, x1: p.x + w / 2, y1: p.y + h / 2 }; r = SK.radius; }
+    else if (o.type === "icon") { const s = (p.size || 160) * 0.42; bx = { x0: p.x - s, y0: p.y - s, x1: p.x + s, y1: p.y + s }; r = s; }
+    else bx = boxOf(M, o, p, t) || { x0: p.x - DOT_R, y0: p.y - DOT_R, x1: p.x + DOT_R, y1: p.y + DOT_R };
+    const a = S(bx.x0, bx.y0), b = S(bx.x1, bx.y1);
+    return { x0: a[0], y0: a[1], x1: b[0], y1: b[1], r: r * c.zoom };
+  }
+
+  // The end card: big title (the first TERM) rising letter by letter in white, then the first sentence of END wiping in under it,
+  // with the yellow highlight behind its key part. Without a term the sentence itself is the big text.
+  function layoutCard() {
+    CARDL = null;
+    const sc = M.script || {}, given = sc.card, str = (v) => String(v == null ? "" : v).replace(/\*/g, "").replace(/\s+/g, " ").trim();
+    let big = "", toks = [];
+    const words = (s, hi) => str(s).split(" ").filter(Boolean).map((w) => ({ s: w, hi: !!hi, sp: true, nb: /^(수|것|때|뿐|줄|데|등|만큼)/.test(w) && w.length <= 3 })); // "알 수 있어요": a bound word never starts a line
+    if (Array.isArray(given) && given.length) { big = str(given[0]); toks = words(given[1], true); if (toks.length > 1) toks = [{ s: toks.map((x) => x.s).join(" "), hi: true, sp: true }]; toks = toks.concat(words(given[2])); }
+    else {
+      const terms = sc.plan && Array.isArray(sc.plan.terms) ? sc.plan.terms : [];
+      big = terms.length && terms[0] ? str(terms[0].t) : "";
+      const end = str(sc.takeaway), m1 = end.match(/^(.+?[.?!。])(?=\s|$)/), first = m1 ? m1[1] : end;
+      // the word that is the title gets the highlight; a Korean particle stuck to it (콜옵션은) stays outside the highlight
+      let at = -1;
+      if (big) for (let k = first.indexOf(big); k >= 0; k = first.indexOf(big, k + 1)) { const rest = first.slice(k + big.length).split(" ")[0].replace(/[.,?!]+$/, ""); if ((k === 0 || first[k - 1] === " ") && [...rest].length <= 2) { at = k; break; } }
+      if (at < 0) toks = words(first);
+      else { const tail = first.slice(at + big.length), glue = tail.split(" ")[0]; toks = words(first.slice(0, at)).concat([{ s: big, hi: true, sp: true }], glue ? [{ s: glue, hi: false, sp: false }] : [], words(tail.slice(glue.length))); }
+    }
+    if (!big && !toks.length) return;
+    const wrap = (ts, size, wt, maxW) => { const out = []; let cur = [], cw = 0; const sp = tw(" ", size, wt); for (const tk of ts) { const w = tw(tk.s, size, wt), add = (cur.length && tk.sp ? sp : 0) + w; if (cur.length && tk.sp && !tk.nb && cw + add > maxW) { out.push(cur); cur = []; cw = 0; } const x = cw + (cur.length && tk.sp ? sp : 0); cur.push({ ...tk, x, w }); cw = x + w; } if (cur.length) out.push(cur); return out.map((ln) => ({ toks: ln, w: ln.length ? ln[ln.length - 1].x + ln[ln.length - 1].w : 0 })); };
+    let bigL = null, subL = null;
+    if (big) { // one line if it reads at 120 px or more, else two lines cut at a space
+      let lines = [big], bw = tw(big, 1, HW), size = Math.min(200, Math.floor(920 / Math.max(1e-6, bw)));
+      if (size < 120 && big.includes(" ")) { const ws = big.split(" "); let bestK = 1, bm = Infinity; for (let k = 1; k < ws.length; k++) { const m = Math.max(tw(ws.slice(0, k).join(" "), 1, HW), tw(ws.slice(k).join(" "), 1, HW)); if (m < bm) { bm = m; bestK = k; } } lines = [ws.slice(0, bestK).join(" "), ws.slice(bestK).join(" ")]; size = Math.min(200, Math.floor(920 / bm)); }
+      size = Math.max(64, size);
+      bigL = { lines, size, pitch: Math.round(size * 1.1) };
+    }
+    if (toks.length) {
+      const asBig = !big, wt = asBig ? HW : 700;
+      let size = asBig ? 104 : 66, lines = wrap(toks, size, wt, 920);
+      while ((lines.length > 3 || lines.some((l) => l.w > 940)) && size > (asBig ? 56 : 42)) { size -= 4; lines = wrap(toks, size, wt, 920); }
+      subL = { lines: lines.slice(0, 3), size, wt, pitch: Math.round(size * (asBig ? 1.18 : 1.42)), asBig };
+    }
+    // the block sits a little above the middle, as in Design F
+    const hB = bigL ? (bigL.lines.length - 1) * bigL.pitch + bigL.size * 0.8 : 0, hS = subL ? (subL.lines.length - 1) * subL.pitch + subL.size * 0.8 : 0, gap = bigL && subL ? 96 : 0;
+    const top = 900 - (hB + gap + hS) / 2;
+    CARDL = { big: bigL, sub: subL, bigY: top + (bigL ? bigL.size * 0.8 : 0), subY: top + hB + gap + (subL ? subL.size * 0.8 : 0) };
+  }
+  function drawEnd(t) {
+    if (t < M.end.t0) return;
+    // a dark skin's main colour is light, so white letters would not read on it: its card takes a deeper shade
+    const t0 = M.end.t0, d = expoInOut(prog(t, t0, 0.5)), c = camF(t), hb = heroBox(t, c), pad = 6;
+    rr(null, lerp(hb.x0, -pad, d), lerp(hb.y0, -pad, d), lerp(hb.x1 - hb.x0, W + 2 * pad, d), lerp(hb.y1 - hb.y0, H + 2 * pad, d), lerp(hb.r, 0, d), { fill: SK.dark ? mixHex(SK.primary, SK.bg, 0.45) : SK.primary, opacity: clamp(prog(t, t0, 0.1)).toFixed(3) });
+    if (!CARDL) return;
+    const s = 1 + 0.025 * Math.max(0, t - t0 - 0.4), g = G(null, { transform: tf(540, 900, s) }); // the card keeps a slow push so it is never still
+    const L = CARDL;
+    let k = 0;
+    const rise = (line, base, size, wt, t1, parent, fill) => { // letters rise one by one out of a slot
+      const chars = [...line], lw = tw(line, size, wt), x0 = 540 - lw / 2, tg = G(parent, { "clip-path": clipR(0, base - size * 1.02, W, size * 1.2) });
+      chars.forEach((ch, i) => { const p = expoOut(prog(t, t1 + k++ * 0.025, 0.24)); if (ch !== " " && p > 0) text(ch, x0 + tw(chars.slice(0, i).join(""), size, wt), base + lerp(size * 1.1, 0, p), size, wt, fill, "start", tg); });
+    };
+    if (L.big) L.big.lines.forEach((line, li) => rise(line, L.bigY + li * L.big.pitch, L.big.size, HW, t0 + 0.42 + li * 0.05, g, "#FFFFFF"));
+    if (L.sub) {
+      const S = L.sub, t1 = L.big ? t0 + 0.72 + 0.025 * Math.min(12, k) : t0 + 0.42;
+      S.lines.forEach((ln, li) => {
+        const y = L.subY + li * S.pitch, x0 = 540 - ln.w / 2, sp = expoOut(prog(t, t1 + li * 0.12, 0.3));
+        if (sp <= 0) return;
+        const lg = G(g, { "clip-path": clipR(x0 - 30, y - S.size * 1.2, (ln.w + 60) * sp, S.size * 1.7) }); // the line wipes in from the left
+        const hit = 1 + 0.07 * (t >= t1 + 0.35 ? 1 - expoOut(prog(t, t1 + 0.35, 0.22)) : 0);
+        ln.toks.forEach((tk, j) => {
+          const tx = x0 + tk.x;
+          if (tk.hi) { const pw = S.size * 0.24, pr = ln.toks[j + 1] && !ln.toks[j + 1].sp ? S.size * 0.04 : pw, hh = S.size * 1.29, rw = tk.w + pw + pr; rr(lg, tx - pw - (rw * (hit - 1)) / 2, y - S.size * 0.95 - (hh * (hit - 1)) / 2, rw * hit, hh * hit, 10, { fill: SK.accent }); }
+          text(tk.s, tx, y, S.size, S.wt, tk.hi ? (SK.dark ? SK.bg : SK.ink) : "#FFFFFF", "start", lg);
+        });
+      });
+    }
   }
 
   // ---------- the edges of the frame ----------
@@ -373,28 +633,33 @@ export function createDirector(svg, opts = {}) {
     uid = 0;
     el("rect", { x: 0, y: 0, width: W, height: H, fill: SK.bg });
     if (SK.deco !== "none") el("rect", { x: 0, y: 0, width: W, height: H, fill: `url(#${PID}deco)` });
-    const c = camAt(M, t), world = G(null, { transform: `translate(540 960) scale(${c.zoom.toFixed(4)}) translate(${(-c.x).toFixed(1)} ${(-c.y).toFixed(1)})` });
+    const c = camF(t), world = G(null, { transform: `translate(540 960) scale(${c.zoom.toFixed(4)}) translate(${(-c.x).toFixed(1)} ${(-c.y).toFixed(1)})` });
     // focus: while a scene points at some objects, the rest step back
     let fIds = null, fk = 0;
     let fI = -1;
     for (const f of M.focus) if (t >= f.t0 - 0.05 && t < f.t1 + 0.3) { fIds = f.ids; fI = f.i; fk = Math.min(seg(t, f.t0, 0.3, E.out), 1 - seg(t, f.t1, 0.3, E.out)); }
     const dimOf = (o) => { if (!fIds || fk <= 0) return 1; if (fIds.has(o.id) || o.beat === fI) return 1; const p = o.keys[0].p; if ((o.type === "arrow" || o.type === "line" || o.type === "brace") && p.from != null && p.to != null && fIds.has(String(p.from)) && fIds.has(String(p.to))) return 1; if (o.type === "note" && fIds.has(String(p.to))) return 1; if (o.type === "dot" && fIds.has(String(p.plot))) return 1; return lerp(1, 0.3, fk); };
     const order = (o) => (o.type === "arrow" || o.type === "line" ? 0 : o.type === "note" || o.type === "calc" || o.type === "sign" || o.type === "dot" || o.type === "brace" ? 2 : 1);
-    const bot = clearBottom(t), kept = new Map();
-    M.list.slice().sort((a, b) => order(a) - order(b) || a.order - b.order).forEach((o) => safe(() => { if (t < o.tAdd || t > o.tDel + 0.35) return; drawObj(o, t, world, dimOf(o) * edgeKeep(o, t, c, bot, kept)); }));
-    M.sends.forEach((s) => safe(() => drawSend(s, t, world)));
+    const bot = clearBottom(t), kept = new Map(), covered = t > M.end.t0 + 0.5; // once the end card covers the screen the world is not drawn
+    if (!covered) {
+      M.list.slice().sort((a, b) => order(a) - order(b) || a.order - b.order).forEach((o) => safe(() => { if (t < o.tAdd || t > o.tDel + 0.35) return; drawObj(o, t, world, dimOf(o) * edgeKeep(o, t, c, bot, kept)); }));
+      safe(() => drawBirth(t, world, (o) => dimOf(o) * edgeKeep(o, t, c, bot, kept)));
+      M.sends.forEach((s) => safe(() => drawSend(s, t, world)));
+    }
     el("rect", { x: 0, y: 0, width: W, height: 556, fill: `url(#${PID}veil)` });
     el("rect", { x: 0, y: 1796, width: W, height: H - 1796, fill: `url(#${PID}floor)` }); // a picture taller than the frame fades out at the bottom edge
+    safe(() => drawHook(t));
     M.says.forEach((s) => safe(() => drawSay(s, t)));
     M.asks.forEach((a) => safe(() => drawAsk(a, t)));
-    if (brand) { const g = G(null, { opacity: 0.55 }); label(brand, W / 2, H - 56, 34, 800, SK.sub, g); }
+    safe(() => drawEnd(t));
+    if (brand) { const g = G(null, { opacity: 0.55 }); label(brand, W / 2, H - 56, 34, 800, t > M.end.t0 + 0.3 ? "#FFFFFF" : SK.sub, g); }
   }
 
   async function load(script, o = {}) {
     if (o.skin || script.skin) SK = skinOf(o.skin || script.skin);
     if (o.fancy != null) fancy = !!o.fancy; if (o.brand != null) brand = o.brand; if (o.interactive != null) interactive = !!o.interactive;
     FONT = SK.font; mcache.clear(); answers.clear();
-    M = prep(script, { speed: o.speed });
+    M = prep(script, { speed: o.speed, hook: o.hook });
     while (sdefs.firstChild) sdefs.removeChild(sdefs.firstChild);
     gradDef("veil", [[0, SK.bg, 1], [0.84, SK.bg, 1], [1, SK.bg, 0]]);
     gradDef("floor", [[0, SK.bg, 0], [0.75, SK.bg, 1], [1, SK.bg, 1]]);
@@ -402,12 +667,15 @@ export function createDirector(svg, opts = {}) {
     if (SK.deco === "dots") { const pt = el("pattern", { id: PID + "deco", width: 54, height: 54, patternUnits: "userSpaceOnUse" }, sdefs); el("circle", { cx: 27, cy: 27, r: 3, fill: SK.line }, pt); }
     if (SK.deco === "grid") { const pt = el("pattern", { id: PID + "deco", width: 60, height: 60, patternUnits: "userSpaceOnUse" }, sdefs); el("path", { d: "M 60 0 L 0 0 0 60", fill: "none", stroke: SK.line, "stroke-width": 2 }, pt); }
     if (SK.deco === "glow") { const rg = el("radialGradient", { id: PID + "deco", cx: 0.5, cy: 0.56, r: 0.62 }, sdefs); el("stop", { offset: 0, "stop-color": mixHex(SK.bg, SK.primary, 0.2) }, rg); el("stop", { offset: 1, "stop-color": SK.bg }, rg); }
-    try { const sample = JSON.stringify(script) + " 0123456789,.%+-=×÷()−≈"; await Promise.all([700, 800].map((w) => document.fonts.load(`${w} 100px 'Wanted Sans Variable'`, sample).catch(() => null))); await document.fonts.ready; } catch (e) { /* fonts are a nicety */ }
+    try { const sample = JSON.stringify(script) + " 0123456789,.%+-=×÷()−≈"; await Promise.all([700, 800, HW].map((w) => document.fonts.load(`${w} 100px 'Wanted Sans Variable'`, sample).catch(() => null))); await document.fonts.ready; } catch (e) { /* fonts are a nicety */ }
     mcache.clear();
+    // Design F's parts are measured once the fonts are in; each may fail alone without taking the film with it
+    HK = null; HOOKTO = null; BORN = new Map(); HERO = null; CARDL = null;
+    safe(layoutHook); safe(() => { HOOKTO = HK ? hookTarget() : null; }); safe(prepBirth); safe(prepHero); safe(layoutCard);
     seek(0);
     return info();
   }
-  const info = () => ({ dur: M.dur, DUR: M.dur, speed: M.speed, skin: SK.id, beats: M.beats.map((b) => ({ t0: b.t0 / M.speed, dur: b.dur / M.speed, say: b.b.say || (b.b.ask && b.b.ask.q) || "" })), T: [0, ...M.beats.map((b) => b.t0 / M.speed), M.dur], asks: M.asks.map((a) => ({ n: a.n, beat: a.i, t0: a.t0 / M.speed, hold: a.hold / M.speed, t1: a.t1 / M.speed, answer: a.ask.answer, choices: a.ask.choices })), warn: M.warn });
+  const info = () => ({ dur: M.dur, DUR: M.dur, speed: M.speed, skin: SK.id, beats: M.beats.map((b) => ({ t0: b.t0 / M.speed, dur: b.dur / M.speed, say: b.b.say || (b.b.ask && b.b.ask.q) || "" })), T: [0, ...M.beats.map((b) => b.t0 / M.speed), M.end.t0 / M.speed, M.dur], hook: { t0: M.hook.t0 / M.speed, len: M.hook.len / M.speed }, end: { t0: M.end.t0 / M.speed }, asks: M.asks.map((a) => ({ n: a.n, beat: a.i, t0: a.t0 / M.speed, hold: a.hold / M.speed, t1: a.t1 / M.speed, answer: a.ask.answer, choices: a.ask.choices })), warn: M.warn });
   /** which question (if any) is waiting for an answer at time t */
   function pendingAsk(tPublic) { if (!M || !interactive) return null; const t = tPublic * M.speed; for (const a of M.asks) if (answers.get(a.n) == null && t >= a.t0 && t <= a.t1) return { n: a.n, hold: a.hold / M.speed, rects: askRects(a.ask.choices.length) }; return null; }
   /** a tap at stage coordinates: returns the choice index if it hit an answer button of the waiting question */
