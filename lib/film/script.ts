@@ -1,0 +1,561 @@
+// The scene notation ("대본 표기"): a compact text form of a scene script.
+// The model writes this instead of JSON, which costs about half the output tokens for the same film.
+// parseScript() turns it into the Script the engine plays, toText() writes a Script back, applyPatch() merges a repair.
+import type { Script, Beat, Action, Plan, Issue, Props, Quiz } from "./core";
+import { COLS, ROWS, hangOf, dotsDims } from "./core";
+import { ICONS } from "./icons";
+
+export interface Ctx { grid?: Record<string, [number, number]>; units?: Record<string, { pre?: string; suf?: string }> }
+export interface Parsed { script: Script; issues: Issue[]; labels: string[]; dels: string[]; has: Record<string, boolean>; grid: Record<string, [number, number]>; units: Record<string, { pre?: string; suf?: string }> }
+/** How much room a thing needs above and below the line of its row. A circle with a caption is the default; tall things (a balance, a dot grid, a table, a plot) hang down from the row, a bar stands up on it. */
+export type Reach = Record<string, { up: number; down: number }>;
+const UP = 105, DOWN = 145, TOP = 535;
+const BAR_TOP = 300;
+/** Pixels per unit of value for the bars of one short. */
+const barUnit = (values: number[]) => { const top = Math.max(0, ...values.map((v) => Math.abs(v) || 0)); return top > 0 ? BAR_TOP / top : 1; };
+/** The largest value each bar ever takes (the line that adds it and every "set" after). */
+export function barValues(text: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const raw of String(text || "").split("\n")) {
+    const m = /^\s*(bar|set)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
+    if (!m || (m[1] === "set" && out[m[2]] == null)) continue;
+    const v = /^\s*[^\d\s"=-]*(-?\d[\d,]*(?:\.\d+)?)/.exec(m[3]);
+    out[m[2]] = Math.max(out[m[2]] || 0, v ? Math.abs(parseFloat(v[1].replace(/,/g, ""))) : 0);
+  }
+  return out;
+}
+/** Read every line once to learn which ids are tall, before any seat is given out. */
+export function reachOf(text: string): Reach {
+  const out: Reach = {}, bars: Record<string, { v: number; scale: number }> = {};
+  for (const raw of String(text || "").split("\n")) {
+    const m = /^\s*(scale|dots|plot|table|bar|set)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
+    if (!m) continue;
+    const type = m[1], id = m[2], rest = m[3], num = (key: string) => { const q = new RegExp("\\b" + key + "\\s*=\\s*(-?\\d+(?:\\.\\d+)?)").exec(rest); return q ? parseFloat(q[1]) : NaN; };
+    if (type === "scale") out[id] = { up: UP, down: 325 };
+    else if (type === "dots") { const h = dotsDims({ n: num("n") || 100 }).h; out[id] = { up: UP, down: h + 11 }; }
+    else if (type === "plot") { const h = num("h") || 560; out[id] = { up: 155, down: h + 15 }; }
+    else if (type === "table") { const q = /rows\s*=\s*"([^"]*)"/.exec(rest), n = q ? q[1].split("/").length : 2, head = /cols\s*=/.test(rest) ? 1 : 0, rh = num("rowH") || 112; out[id] = { up: UP, down: rh * (n + head) - 55 }; }
+    else if (type === "bar" || (type === "set" && bars[id])) {
+      const v = /^\s*[^\d\s"=-]*(-?\d+(?:\.\d+)?)/.exec(rest), b = bars[id] || (bars[id] = { v: 0, scale: 1 });
+      if (v) b.v = Math.max(b.v, Math.abs(parseFloat(v[1])));
+      out[id] = { up: UP, down: DOWN };
+    }
+  }
+  // bars share one measure: the tallest bar of the short stands BAR_TOP high and the others in proportion
+  const unit = barUnit(Object.keys(bars).map((k) => bars[k].v));
+  Object.keys(bars).forEach((k) => { out[k] = { up: Math.max(UP, bars[k].v * unit + 95), down: DOWN }; });
+  // a tag above or below a thing that fills its row needs room of its own: the row grows by one tag
+  const done = new Set<string>();
+  for (const raw of String(text || "").split("\n")) {
+    const m = /^\s*note\s+[A-Za-z_]\w*\s+@?([A-Za-z_]\w*)\b(.*)$/.exec(raw);
+    if (!m || !out[m[1]] || bars[m[1]]) continue;
+    const side = /\btop\b/.test(m[2].replace(/"[^"]*"/g, "")) ? "up" : "down";
+    if (done.has(m[1] + side)) continue;
+    done.add(m[1] + side); out[m[1]][side] += 95;
+  }
+  return out;
+}
+const PLACED_T = ["node", "box", "icon", "num", "bar", "text", "table", "plot", "scale", "dots"];
+/** Read every line once to learn in which scenes each placed thing is on screen (first scene, last scene), before any seat is given out. */
+export function lifeOf(text: string): Record<string, { a: number; b: number; ord: number }> {
+  const out: Record<string, { a: number; b: number; ord: number }> = {};
+  let n = 0, ord = 0;
+  for (const raw of String(text || "").split("\n")) {
+    const line = raw.trim();
+    if (line[0] === "#") { n++; continue; }
+    const m = n ? /^([a-z]+)\s*(.*)$/.exec(line) : null;
+    if (!m) continue;
+    const op = m[1], rest = m[2];
+    if (PLACED_T.includes(op)) { const id = /^([A-Za-z_]\w*)/.exec(rest); if (id) { if (out[id[1]]) out[id[1]].b = Infinity; else out[id[1]] = { a: n, b: Infinity, ord: ord++ }; } }
+    else if (op === "del") rest.split(/[\s,]+/).forEach((id) => { if (out[id] && out[id].b === Infinity) out[id].b = n; });
+    else if (op === "clear" || op === "keep") {
+      const ids = rest.replace(/\bkeep\s*=\s*/, " keep ").split(/[\s,]+/).filter(Boolean), named = ids.filter((x) => x !== "keep" && x !== "except");
+      if (op === "clear" && named.length === ids.length && named.length) named.forEach((id) => { if (out[id] && out[id].b === Infinity) out[id].b = n; });
+      else Object.keys(out).forEach((id) => { if (!named.includes(id) && out[id].b === Infinity) out[id].b = n; });
+    }
+  }
+  return out;
+}
+/** "GRID s / u d / fu fd / k": the seats of the picture, row by row from the top. One thing in a row sits in the middle, two sit left and right, three across; "-" leaves a seat empty. A row with a tall thing takes the room it needs and the rows under it move down. */
+export function gridSeats(line: string, reach: Reach = {}): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  let y = 0, prevDown = 0, r = 0;
+  for (const row of String(line || "").split("/")) {
+    const ids = row.trim().split(/[\s,]+/).filter(Boolean), cols = ids.length === 1 ? ["M"] : ids.length === 2 ? ["L", "R"] : ["A", "B", "C"];
+    if (r >= 6) break;
+    if (r > 0 && prevDown > DOWN && ids.length > 0 && ids.every((id) => id === "-")) continue; // an empty row left under a tall thing: the tall row already took that room
+    const up = Math.max(UP, ...ids.map((id) => (reach[id] ? reach[id].up : UP))), down = Math.max(DOWN, ...ids.map((id) => (reach[id] ? reach[id].down : DOWN)));
+    y = r === 0 ? TOP + up : y + prevDown + up;
+    ids.slice(0, 3).forEach((id, k) => { if (/^[A-Za-z_]\w*$/.test(id)) out[id] = [COLS[cols[k]], y]; });
+    prevDown = down; r++;
+  }
+  return out;
+}
+
+const ICON_ALIAS: Record<string, string> = { stock: "trendup", share: "trendup", shares: "trendup", graph: "chart", option: "ticket", call: "ticket", put: "ticket", coupon: "ticket", voucher: "ticket", bond: "receipt", loan: "handshake", cash: "money", bill: "money", bills: "money", safe: "vault", deposit: "piggy", savings: "piggy", exporter: "factory", importer: "store", seller: "person", buyer: "person", customer: "person", user: "person", man: "person", woman: "person", worker: "person", investor: "person", team: "people", group: "people", crowd: "people", company: "office", firm: "office", corp: "office", court: "gavel", law: "gavel", judge: "gavel", insurance: "shield", insurer: "umbrella", port: "anchor", vessel: "ship", boat: "ship", cargo: "container", goods: "box", package: "box", parcel: "box", product: "box", letter: "mail", email: "mail", document: "doc", paper: "doc", file: "doc", invoice: "receipt", time: "clock", date: "calendar", home: "house", shop: "store", market: "store", world: "globe", earth: "globe", location: "pin", question: "q", warning: "warn", alert: "warn", ok: "check", no: "x", cross: "x", light: "idea", bulb: "idea", lightbulb: "idea", calculator: "calc", school: "cap", graduation: "cap", pen: "pencil", computer: "laptop", pc: "laptop", mobile: "phone", smartphone: "phone", message: "chat", speech: "chat", thumbsup: "like", thumbsdown: "dislike", happy: "smile", unhappy: "sad", food: "burger", drink: "coffee", clothes: "shirt", fruit: "apple", water: "drop", rain: "cloud", temperature: "thermo", hospital: "medical", doctor: "medical", medicine: "pill", test: "flask", lab: "flask", science: "atom", cpu: "chip", database: "db", server: "db", setting: "gear", settings: "gear", tool: "wrench", tools: "wrench", layers: "stack", energy: "bolt", power: "plug", sport: "ball", photo: "camera", gold: "medal", prize: "trophy", win: "trophy", present: "gift", random: "dice", chance: "dice", probability: "dice", balance: "scale", weight: "scale", security: "lock", protect: "shield", risk: "warn", profit: "trendup", loss: "trenddown", rise: "up", fall: "down", increase: "up", decrease: "down", tax: "percent", rate: "percent", interest: "percent", discount: "tag", price: "tag", sale: "tag", shopping: "cart", delivery: "truck", transport: "truck", flight: "plane", airplane: "plane", rail: "train", bicycle: "bike", launch: "rocket", goal: "target", aim: "target", award: "medal", love: "heart", hot: "fire", fast: "bolt", identity: "id", passport: "id", license: "cert", certificate: "cert", seal: "stamp", approve: "stamp", signature: "sign", agreement: "handshake", deal: "handshake", trade: "handshake", exchange: "handshake", deadline: "hourglass", wait: "hourglass", stopwatch: "timer", apartment: "building", tower: "building", town: "city", country: "flag", nation: "flag", government: "building", customs: "building", account: "wallet", pay: "card", payment: "card", credit: "card", atm: "bank", piggybank: "piggy", treasure: "vault", krw: "won", usd: "dollar", currency: "coins", weather: "cloud", ice: "snow", cold: "snow", gene: "dna", cell: "atom", molecule: "atom", chemistry: "flask", ai: "robot", bot: "robot", mind: "brain", think: "brain", view: "eye", look: "eye", find: "search", magnifier: "search", newspaper: "news", announce: "megaphone", ad: "megaphone", song: "music", sound: "music", charge: "battery", block: "cube", piece: "puzzle", attract: "magnet", study: "book", textbook: "book", read: "book", write: "pencil", exam: "pencil", learner: "student", teacher: "person", professor: "person" };
+interface Tok { s: string; q: boolean; k?: string }
+const POS = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/;
+const NUM = /^-?\d+(?:\.\d+)?$/;
+/** a grid slot: column letter (A B C for three across, L R for two, M for one) and row 1 to 5 */
+const SLOT = /^([ABCLRM])([1-5])$/;
+const slotXY = (s: string): [number, number] | null => { const m = SLOT.exec(s); return m ? [COLS[m[1]], ROWS[+m[2] - 1]] : null; };
+const slotName = (x: unknown, y: unknown): string | null => { const r = ROWS.indexOf(Number(y)); if (r < 0) return null; const c = ["M", "L", "R", "A", "C"].find((k) => COLS[k] === Number(x)); return c ? c + (r + 1) : null; };
+const VAL = /^([^\d\s"=<>@-]*)(-?\d[\d,]*(?:\.\d+)?)([^\d\s"=<>@]*)$/;
+const KV = /^([A-Za-z_][A-Za-z0-9_]*)=(.+)$/;
+const ASCII = /^[\x00-\x7f]*$/;
+const COLORS = new Set(["ink", "blue", "yellow", "pale", "grey", "gray", "green", "red", "white"]);
+const SIDES = new Set(["left", "right", "top", "bottom"]);
+const TONES = new Set(["solid", "soft"]);
+const OPEN = '"“', CLOSE = '"”';
+const ALIAS: Record<string, string> = { c: "color", v: "value", col: "color", colour: "color", text: "str", caption: "cap" };
+const TEXTKEYS = new Set(["cap", "sub", "badge", "str", "why", "next", "xl", "yl", "suf", "pre", "q", "left", "right"]);
+
+function tokens(line: string): Tok[] {
+  const out: Tok[] = [], n = line.length;
+  let i = 0;
+  const endQ = (from: number) => { let j = from + 1; while (j < n && !CLOSE.includes(line[j])) j++; return j; };
+  while (i < n) {
+    while (i < n && /\s/.test(line[i])) i++;
+    if (i >= n) break;
+    if (OPEN.includes(line[i])) { const j = endQ(i); out.push({ s: line.slice(i + 1, j), q: true }); i = j + 1; continue; }
+    let j = i;
+    while (j < n && !/\s/.test(line[j]) && !OPEN.includes(line[j])) j++;
+    const word = line.slice(i, j);
+    if (j < n && OPEN.includes(line[j]) && /^[A-Za-z_][A-Za-z0-9_]*=$/.test(word)) { const e = endQ(j); out.push({ s: line.slice(j + 1, e), q: true, k: word.slice(0, -1) }); i = e + 1; continue; }
+    const m = KV.exec(word);
+    if (m) out.push({ s: m[2], q: false, k: m[1] }); else out.push({ s: word, q: false });
+    i = j;
+  }
+  // an unquoted text value that has spaces: key=지금 주가  ->  key="지금 주가"
+  for (let a = 0; a < out.length; a++) {
+    const t = out[a];
+    if (t.k && !t.q && TEXTKEYS.has(ALIAS[t.k] || t.k)) {
+      while (a + 1 < out.length && !out[a + 1].k && !out[a + 1].q && !POS.test(out[a + 1].s) && !ASCII.test(out[a + 1].s)) { t.s += " " + out[a + 1].s; out.splice(a + 1, 1); }
+    }
+  }
+  return out;
+}
+
+const num = (s: string) => parseFloat(s.replace(/,/g, ""));
+const list = (s: string) => s.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+function kvValue(k: string, t: Tok): unknown {
+  const s = t.s;
+  if (k === "keep" || k === "between") return list(s);
+  if (k === "xr" || k === "yr") return s.split(/\.\.|,|~/).map(num);
+  if (k === "xt" || k === "yt") return list(s).map(num);
+  if (k === "cols") return s.split("|").map((x) => x.trim());
+  if (k === "rows") return s.split(/\s*(?:\/|;)\s*/).filter(Boolean).map((r) => r.split("|").map((x) => x.trim()));
+  if (k === "hi") return s.split(/[;\s]+/).filter(Boolean).map((p) => p.split(/[,.]/).map(num));
+  if (!t.q && NUM.test(s)) return parseFloat(s);
+  if (!t.q && (s === "true" || s === "false")) return s === "true";
+  return s;
+}
+function setValue(p: Props, s: string): boolean {
+  const m = VAL.exec(s);
+  if (!m) return false;
+  p.value = num(m[2]);
+  if (m[1]) p.pre = m[1];
+  if (m[3]) p.suf = m[3];
+  const d = (m[2].split(".")[1] || "").length;
+  if (d > 4) p.dec = d;
+  return true;
+}
+function link(p: Props, s: string): boolean {
+  const k = s.indexOf(">");
+  if (k <= 0 || k === s.length - 1) return false;
+  const a = s.slice(0, k).replace(/-+$/, ""), b = s.slice(k + 1), pa = POS.exec(a), pb = POS.exec(b);
+  if (pa && pb) { p.x = +pa[1]; p.y = +pa[2]; p.x2 = +pb[1]; p.y2 = +pb[2]; } else { p.from = a; p.to = b; }
+  return true;
+}
+function calcTerms(toks: Tok[]): unknown[] {
+  const out: unknown[] = [];
+  for (const t of toks) {
+    if (t.q) { out.push({ s: t.s }); continue; }
+    let s = t.s;
+    while (s.startsWith("(")) { out.push("("); s = s.slice(1); }
+    let tail = 0;
+    while (s.endsWith(")")) { tail++; s = s.slice(0, -1); }
+    if (s) {
+      const m = /^([^\d@-]*)(-?[\d,]*\.?\d+)([^@]*)(?:@(.+))?$/.exec(s);
+      if (m && (s.length > 1 || /\d/.test(s))) {
+        const term: Props = { v: num(m[2]) };
+        if (m[1]) term.pre = m[1];
+        if (m[3]) term.suf = m[3];
+        if (m[4]) term.from = m[4];
+        const d = (m[2].split(".")[1] || "").length;
+        if (d > 4) term.dec = d;
+        out.push(term);
+      } else if (s.includes("@")) { const [a, b] = s.split("@"); out.push({ s: a, from: b }); }
+      else out.push(s);
+    }
+    while (tail-- > 0) out.push(")");
+  }
+  return out;
+}
+/** where the right answer goes among n choices: fixed by the question text, so the order is stable and not always first */
+export function answerSlot(q: string, n: number): number {
+  let h = 7;
+  for (const ch of String(q)) h = (h * 31 + (ch.codePointAt(0) || 0)) % 100003;
+  return n > 0 ? h % n : 0;
+}
+function choiceLine(rest0: string): { q: string; choices: string[]; answer: number; why?: string } {
+  const rest = String(rest0).replace(/\|?\s*\b(before|after)\s*=\s*\d+/gi, " ").replace(/([^|\s])\s+(why\s*=)/i, "$1 | $2");
+  const parts = rest.split("|").map((x) => x.trim()).filter((x) => x !== "");
+  let why: string | undefined, ans = -1;
+  const body: string[] = [];
+  for (const p of parts) {
+    const m = /^(why|ans|answer)\s*[=:]\s*(.*)$/i.exec(p);
+    if (m) { if (m[1].toLowerCase() === "why") why = m[2].replace(/^["“]|["”]$/g, ""); else ans = parseInt(m[2], 10) - 1; } else body.push(p.replace(/^["“]|["”]$/g, ""));
+  }
+  const q = body.shift() || "";
+  let choices = body, right = 0;
+  const star = choices.findIndex((c) => /\(정답\)|✓$/.test(c));
+  if (star >= 0) { right = star; choices = choices.map((c) => c.replace(/\s*(\(정답\)|✓)$/, "")); } else if (ans >= 0 && ans < choices.length) right = ans;
+  // the first choice is the right one in the notation; move it to a slot fixed by the question
+  const correct = choices[right], others = choices.filter((_, i) => i !== right), slot = answerSlot(q, choices.length);
+  const ordered = others.slice();
+  ordered.splice(Math.min(slot, ordered.length), 0, correct);
+  return { q, choices: correct == null ? [] : ordered, answer: Math.min(slot, others.length), why };
+}
+
+const TYPES = new Set(["node", "box", "text", "num", "bar", "icon", "arrow", "line", "brace", "calc", "note", "plot", "dot", "table", "sign", "scale", "dots"]);
+const OPS = new Set(["set", "del", "keep", "clear", "pulse", "send", "focus", "ask", "cam", "pline", "pmark"]);
+
+export function parseScript(text: string, ctx: Ctx = {}): Parsed {
+  const issues: Issue[] = [], script: Script = { beats: [] }, plan: Plan = {}, labels: string[] = [], dels: string[] = [], has: Record<string, boolean> = {};
+  const err = (beat: number, msg: string) => issues.push({ level: "error", beat, code: "syntax", msg });
+  const steps: Record<number, Props> = {}, quiz: Quiz[] = [];
+  const plots: Record<string, { lines: Props[]; marks: Props[] }> = {};
+  const units: Record<string, { pre?: string; suf?: string }> = Object.assign({}, ctx.units || {}); // the unit each object's number carries, so a term that flies out of it keeps it
+  const grid: Record<string, [number, number]> = Object.assign({}, ctx.grid || {});
+  const unseated: string[] = [], seenIds = new Set<string>(), live = new Map<string, number>(); // live: the row of each placed thing now on screen
+  const reach = reachOf(String(text || "")), life = lifeOf(String(text || "")), barV = barValues(String(text || "")), barPx = barUnit(Object.keys(barV).map((k) => barV[k]));
+  let beat: Beat | null = null, n = 0;
+  const raw = String(text || "").replace(/\r/g, "").split("\n");
+  for (let ln = 0; ln < raw.length; ln++) {
+    let line = raw[ln].trim();
+    if (!line || line === "---" || line.startsWith("```") || line.startsWith("//")) continue;
+    // ----- scene header
+    if (line[0] === "#") {
+      const bar = line.indexOf("|"), head = (bar >= 0 ? line.slice(0, bar) : line).slice(1).trim().split(/\s+/), say = bar >= 0 ? line.slice(bar + 1).trim() : "";
+      const label = (head.shift() || "").replace(/[.:)]$/, "");
+      if (head.some((w) => /^(DEL|DELETE|삭제)$/i.test(w))) { dels.push(label); beat = null; continue; }
+      beat = { do: [] };
+      for (const w of head) {
+        let m: RegExpExecArray | null;
+        if ((m = /^s(?:tep)?=?(\d+)$/i.exec(w))) beat.step = +m[1];
+        else if (/^hard!?$/i.test(w)) beat.hard = true;
+        else if ((m = /^dur=(\d+(?:\.\d+)?)$/i.exec(w))) beat.dur = +m[1];
+      }
+      if (say) beat.say = say.replace(/^["“]|["”]$/g, "");
+      script.beats.push(beat);
+      labels.push(label);
+      n = script.beats.length;
+      continue;
+    }
+    let sp = line.search(/\s/), word = sp < 0 ? line : line.slice(0, sp), rest = sp < 0 ? "" : line.slice(sp + 1).trim();
+    // the name of a picture used as if it were a type ("ship s1 ..."): it is an icon of that name
+    if (beat && sp > 0 && !TYPES.has(word) && !OPS.has(word) && (ICONS[word] || ICON_ALIAS[word]) && /^[A-Za-z_]\w*(\s|$)/.test(rest)) { const k = rest.search(/\s/); rest = (k < 0 ? rest : rest.slice(0, k)) + " " + word + (k < 0 ? "" : rest.slice(k)); word = "icon"; }
+    const W = word.toUpperCase().replace(/:$/, "");
+    // ----- header and footer lines
+    if (!beat || ["END", "QUIZ", "TITLE", "GOAL", "ROUTE", "PICTURE", "GRID", "NEEDS", "GIVEN", "STEP", "TERM", "TRAP", "PART", "VIEWER"].includes(W) && word === word.toUpperCase()) {
+      if (W === "TITLE") { script.title = rest; has.title = true; continue; }
+      if (W === "VIEWER") { plan.viewer = rest; continue; }
+      if (W === "GOAL") { plan.goal = rest; has.goal = true; continue; }
+      if (W === "ROUTE") { plan.route = rest; has.route = true; continue; }
+      if (W === "NEEDS") { plan.needs = rest; has.needs = true; continue; }
+      if (W === "PICTURE") { plan.picture = rest; has.picture = true; continue; }
+      if (W === "GRID") { plan.grid = rest; has.grid = true; Object.assign(grid, gridSeats(rest, reach)); continue; }
+      if (W === "GIVEN") {
+        plan.given = (plan.given || []).concat(rest.split(/\s*[;|]\s*/).filter(Boolean).map((g) => { const k = g.indexOf("="), v = (k < 0 ? g : g.slice(0, k)).trim(); return { v: NUM.test(v) ? parseFloat(v) : v, is: k < 0 ? "" : g.slice(k + 1).trim() }; }));
+        has.given = true;
+        continue;
+      }
+      if (W === "STEP") {
+        const m = /^(\d+)[.:)]?\s*(.*)$/.exec(rest);
+        if (m) { const [q, idea] = m[2].split(/\s*=>\s*/); steps[+m[1]] = { q: (q || "").trim(), idea: (idea || "").trim() }; has.step = true; } else err(0, `Line ${ln + 1}: STEP needs a number: "STEP 3 question => idea".`);
+        continue;
+      }
+      if (W === "TERM") {
+        plan.terms = (plan.terms || []).concat(rest.split(/\s*[;|]\s*/).filter(Boolean).map((g) => { const k = g.indexOf("="); return { t: (k < 0 ? g : g.slice(0, k)).trim(), plain: k < 0 ? "" : g.slice(k + 1).trim() }; }));
+        has.term = true;
+        continue;
+      }
+      if (W === "TRAP") { plan.trap = rest; has.trap = true; continue; }
+      if (W === "PART") {
+        const m = /^(\d+)\s*\/\s*(\d+)\s*(.*)$/.exec(rest);
+        if (m) plan.part = { n: +m[1], of: +m[2], next: m[3].replace(/^[|\s]*(next\s*[=:])?\s*/i, "").replace(/^["“]|["”]$/g, "") };
+        has.part = true;
+        continue;
+      }
+      if (W === "END") { script.takeaway = rest; has.end = true; beat = null; continue; }
+      if (W === "QUIZ") { const c = choiceLine(rest); if (c.choices.length >= 2) quiz.push(c); else err(0, `Line ${ln + 1}: QUIZ needs a question and at least two choices separated by "|".`); has.quiz = true; beat = null; continue; }
+      if (!beat) { if (script.beats.length || /^[a-z]/.test(word)) err(0, `Line ${ln + 1}: "${word}" is outside a scene. Start a scene with "#n | sentence".`); continue; }
+    }
+    // ----- lines inside a scene
+    if (!ASCII.test(word)) { issues.push({ level: "warn", beat: n, code: "syntax", msg: `Line ${ln + 1}: skipped a line that is not notation ("${line.slice(0, 30)}").` }); continue; }
+    const acts = beat.do as Action[], op = word.toLowerCase(), toks = tokens(rest);
+    const bare = (t: Tok) => !t.q && !t.k;
+    if (op === "focus") { beat.focus = (beat.focus || []).concat(toks.filter(bare).flatMap((t) => list(t.s))); continue; }
+    if (op === "ask") { const c = choiceLine(rest); beat.ask = c; if (c.choices.length < 2) err(n, `Line ${ln + 1}: ask needs a question and 2 or 3 choices separated by "|".`); continue; }
+    if (op === "cam") { const c: Props = {}; for (const t of toks) { const m = POS.exec(t.s); if (t.k) c[t.k] = kvValue(t.k, t); else if (m) { c.x = +m[1]; c.y = +m[2]; } } beat.cam = c; continue; }
+    if (op === "del" || op === "pulse") { const at = toks.find((t) => t.k === "at"); toks.filter(bare).flatMap((t) => list(t.s)).forEach((id) => { acts.push(Object.assign({ op, id }, at ? { at: parseFloat(at.s) } : {})); if (op === "del") live.delete(id); }); continue; }
+    if (op === "keep" || op === "clear") {
+      const kv = toks.find((t) => t.k === "keep"), ids = toks.filter(bare).flatMap((t) => list(t.s)).filter((x) => x !== "keep" && x !== "except");
+      if (op === "clear" && !kv && ids.length && !/\b(keep|except)\b/.test(rest)) ids.forEach((id) => { acts.push({ op: "del", id }); live.delete(id); });
+      else { const keepIds = kv ? list(kv.s) : ids; acts.push({ op: "clear", keep: keepIds }); Array.from(live.keys()).forEach((k) => { if (!keepIds.includes(k)) live.delete(k); }); }
+      continue;
+    }
+    if (op === "send") {
+      const a: Action = { op: "send" };
+      for (const t of toks) { if (t.k) a[ALIAS[t.k] || t.k] = kvValue(ALIAS[t.k] || t.k, t); else if (t.q) a.str = t.s; else if (!link(a, t.s)) { if (COLORS.has(t.s)) a.color = t.s; else if (ASCII.test(t.s) && a.icon == null) a.icon = t.s; else a.str = a.str ? a.str + " " + t.s : t.s; } }
+      if (a.from == null || a.to == null) err(n, `Line ${ln + 1}: send needs "from>to".`);
+      acts.push(a);
+      continue;
+    }
+    if (op === "pline" || op === "pmark") {
+      const plot = toks[0] && bare(toks[0]) ? toks[0].s : "", st = plots[plot];
+      if (!st) { err(n, `Line ${ln + 1}: ${op} names plot "${plot}" which was not added.`); continue; }
+      const at = toks.find((t) => t.k === "at");
+      if (op === "pline") {
+        const L: Props = { id: toks[1] && bare(toks[1]) ? toks[1].s : "l" + st.lines.length, pts: [] };
+        for (const t of toks.slice(2)) { const m = POS.exec(t.s); if (t.k) L[ALIAS[t.k] || t.k] = kvValue(ALIAS[t.k] || t.k, t); else if (t.q) L.str = t.s; else if (m) L.pts.push([+m[1], +m[2]]); else if (COLORS.has(t.s)) L.color = t.s; else if (t.s === "dash") L.dash = true; }
+        const k = st.lines.findIndex((x) => x.id === L.id);
+        if (k >= 0) st.lines[k] = L; else st.lines.push(L);
+        acts.push(Object.assign({ op: "set", id: plot, lines: st.lines.map((x) => Object.assign({}, x)) }, at ? { at: parseFloat(at.s) } : {}));
+      } else {
+        const M: Props = {};
+        for (const t of toks.slice(1)) { if (t.k) M[t.k] = kvValue(t.k, t); else if (t.q) M.str = t.s; else if (NUM.test(t.s) && M.x == null) M.x = parseFloat(t.s); else M.str = M.str ? M.str + " " + t.s : t.s; }
+        st.marks.push(M);
+        acts.push(Object.assign({ op: "set", id: plot, marks: st.marks.map((x) => Object.assign({}, x)) }, at ? { at: parseFloat(at.s) } : {}));
+      }
+      continue;
+    }
+    const isSet = op === "set", isAdd = TYPES.has(op);
+    if (!isSet && !isAdd) { err(n, `Line ${ln + 1}: unknown word "${word}". A scene line starts with an object type (node, box, icon, calc ...) or set, del, keep, clear, pulse, send, focus, ask.`); continue; }
+    const id = toks.length && bare(toks[0]) ? toks.shift()!.s : "";
+    if (!id || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(id)) { err(n, `Line ${ln + 1}: "${word}" needs an id (letters and digits) right after it.`); continue; }
+    const a: Action = isSet ? { op: "set", id } : { id, type: op };
+    const type = isSet ? "" : op, strs: string[] = [], loose: string[] = [];
+    if (type === "calc") {
+      const k = toks.findIndex((t, i) => i > 0 && !!t.k), body = k < 0 ? toks : toks.slice(0, k), tail = k < 0 ? [] : toks.slice(k);
+      const p0 = body.length && !body[0].q ? POS.exec(body[0].s) : null;
+      if (p0) { a.x = +p0[1]; a.y = +p0[2]; body.shift(); }
+      else if (body.length && !body[0].q && slotXY(body[0].s)) body.shift(); // a calculation finds its own place
+      a.terms = calcTerms(body);
+      for (const t of tail) if (t.k) a[ALIAS[t.k] || t.k] = kvValue(ALIAS[t.k] || t.k, t);
+      // units: a number that flies out of an object keeps that object's unit; "suf=" names the unit of the result
+      const ts = a.terms as unknown[], eq = ts.findIndex((x) => x === "=" || x === "≈");
+      ts.forEach((x, k) => {
+        if (!x || typeof x !== "object") return;
+        const tm = x as Props;
+        if (typeof tm.v !== "number" || tm.pre != null || tm.suf != null) return;
+        const u = tm.from != null ? units[String(tm.from)] : undefined;
+        if (u && (u.pre || u.suf)) { if (u.pre) tm.pre = u.pre; if (u.suf) tm.suf = u.suf; }
+        else if ((eq >= 0 && k > eq) || tm.from == null) { if (a.pre != null) tm.pre = a.pre; if (a.suf != null) tm.suf = a.suf; }
+      });
+      delete a.pre; delete a.suf;
+      const res = eq >= 0 ? (ts.slice(eq + 1).find((x) => x && typeof x === "object") as Props | undefined) : undefined;
+      if (res) units[id] = { pre: res.pre, suf: res.suf };
+      acts.push(a);
+      continue;
+    }
+    let gotPos = false;
+    for (const t of toks) {
+      if (t.k) { const k = ALIAS[t.k] || t.k; a[k] = kvValue(k, t); continue; }
+      if (t.q) { strs.push(t.s); continue; }
+      const s = t.s, m = POS.exec(s);
+      if (m && !gotPos) { a.x = +m[1]; a.y = +m[2]; gotPos = true; continue; }
+      const sl = gotPos ? null : slotXY(s);
+      if (sl) { a.x = sl[0]; a.y = sl[1]; gotPos = true; continue; }
+      if ((["arrow", "line", "brace"].includes(type) || type === "") && s.includes(">") && link(a, s)) continue;
+      if (type === "sign" && /[>~|]/.test(s) && !POS.test(s)) { a.between = s.split(/[>~|]/).filter(Boolean); continue; }
+      if (type === "dot" && /^[A-Za-z_]\w*\.[A-Za-z_]\w*$/.test(s)) { [a.plot, a.line] = s.split("."); continue; }
+      if (type === "note" && a.to == null && !SIDES.has(s) && /^@?[A-Za-z_]\w*$/.test(s)) { a.to = s.replace(/^@/, ""); continue; }
+      if (COLORS.has(s)) { a.color = s === "gray" ? "grey" : s; continue; }
+      if (SIDES.has(s) && (type === "note" || type === "brace" || isSet)) { a.side = s; continue; }
+      if (TONES.has(s)) { a.tone = s; continue; }
+      if (s === "dash" || s === "both" || s === "hard") { a[s] = true; continue; }
+      if (type === "icon" && a.name == null && ASCII.test(s)) { const nm = s.toLowerCase(); a.name = ICON_ALIAS[nm] || nm; continue; }
+      if ((isSet || ["node", "box", "num", "bar", "text"].includes(type)) && a.value == null && setValue(a, s)) continue;
+      loose.push(s);
+    }
+    if (!strs.length && loose.length && loose.some((x) => !ASCII.test(x) || !/[A-Za-z]/.test(x))) { strs.push(loose.join(" ")); loose.length = 0; }
+    if (loose.length) err(n, `Line ${ln + 1}: could not read "${loose.join(" ")}" in "${line.slice(0, 60)}". Put text in double quotes and write other settings as key=value.`);
+    if (strs.length) {
+      if (type === "scale") { a.left = a.left ?? strs[0]; if (strs[1] != null) a.right = a.right ?? strs[1]; }
+      else if (type === "dots") a.cap = a.cap ?? strs[0];
+      else if (type === "icon" || type === "num") a.cap = a.cap ?? strs[0];
+      else { a.str = strs[0]; if (strs[1] != null) a[type === "box" ? "sub" : "cap"] = strs[1]; }
+    }
+    if (type === "plot") plots[id] = { lines: [], marks: [] };
+    if (type === "bar") a.scale = barPx; else if (isSet && barV[id] != null) delete a.scale; // the engine sets the measure of the bars
+    if (a.value != null) units[id] = { pre: a.pre, suf: a.suf };
+    // not in the GRID line and no place given: the engine seats it. The whole short is known, so nothing lands on a seat that is taken later,
+    // and the picture keeps reading from the top down in the order things appear.
+    if (!isSet && !gotPos && !grid[id] && PLACED_T.includes(type)) {
+      const isTall = (k: string) => !!reach[k] && (reach[k].down > DOWN || reach[k].up > UP);
+      const me = life[id] || { a: n, b: Infinity, ord: 0 };
+      // the things without a seat that this scene adds sit together in one row
+      const mates = isTall(id) ? [id] : [id].concat(Object.keys(life).filter((k) => k !== id && !grid[k] && life[k].a === me.a && !isTall(k)).sort((p, q) => life[p].ord - life[q].ord)).slice(0, 3);
+      const span = { a: me.a, b: Math.max(...mates.map((k) => (life[k] ? life[k].b : Infinity))) };
+      const rows = new Map<number, string[]>();
+      Object.keys(grid).forEach((k) => { rows.set(grid[k][1], (rows.get(grid[k][1]) || []).concat(k)); });
+      const ys = Array.from(rows.keys()).sort((p, q) => p - q), nowYs = Array.from(live.values()), lowNow = nowYs.length ? Math.max(...nowYs) : 0;
+      const busy = (y: number) => (rows.get(y) || []).filter((k) => life[k] && life[k].a <= span.b && span.a <= life[k].b);
+      const plain = (y: number) => (rows.get(y) || []).every((k) => !isTall(k));
+      const cols = mates.length === 1 ? ["M"] : mates.length === 2 ? ["L", "R"] : ["A", "B", "C"];
+      let done = false;
+      if (!isTall(id)) {
+        // 1. a row nobody uses while these things are on screen. The row just under what is on screen now comes first.
+        const free = ys.filter((y) => !busy(y).length && plain(y)), under = free.filter((y) => y > lowNow), over = free.filter((y) => y < lowNow);
+        const y = under.length ? under[0] : over.length ? over[over.length - 1] : null;
+        if (y != null) { mates.forEach((k, j) => { grid[k] = [COLS[cols[j]], y]; }); done = true; }
+        // 2. one thing alone: a free side of a row that is in use now, the lowest such row first (the newest part of a picture is at its bottom)
+        if (!done && mates.length === 1) for (const y2 of ys.filter((v) => nowYs.includes(v)).reverse()) {
+          if (!plain(y2)) continue; // a tall thing fills its row
+          const xs = busy(y2).map((k) => grid[k][0]), x = [COLS.C, COLS.A].find((c) => xs.every((v) => Math.abs(v - c) >= 340));
+          if (x != null) { grid[id] = [x, y2]; done = true; break; }
+        }
+      }
+      if (!done) { // 3. a new row right under the rows that have been used so far; the rows still waiting for their things move down to make room
+        const seenYs = ys.filter((y) => (rows.get(y) || []).some((k) => seenIds.has(k))), base = seenYs.length ? seenYs[seenYs.length - 1] : null;
+        const up = Math.max(UP, ...mates.map((k) => (reach[k] ? reach[k].up : UP))), down = Math.max(DOWN, ...mates.map((k) => (reach[k] ? reach[k].down : DOWN)));
+        const baseDown = base == null ? 0 : Math.max(DOWN, ...(rows.get(base) || []).map((k) => (reach[k] ? reach[k].down : DOWN)));
+        const y = base == null ? TOP + up : base + baseDown + up;
+        ys.filter((v) => base == null || v > base).forEach((v) => (rows.get(v) || []).forEach((k) => { grid[k] = [grid[k][0], grid[k][1] + up + down]; }));
+        mates.forEach((k, j) => { grid[k] = [COLS[cols[j]], y]; });
+      }
+      mates.forEach((k) => unseated.push(k));
+    }
+    // a seat from the GRID line, when the line itself gives no place
+    if (!isSet && !gotPos && grid[id] && !["arrow", "line", "brace", "note", "sign", "dot"].includes(type)) { a.x = grid[id][0]; a.y = grid[id][1]; gotPos = true; a._seat = true; }
+    // tall things hang down from their row instead of straddling it
+    if (!isSet && gotPos && typeof a.y === "number" && ["node", "box", "icon", "num", "bar", "text", "table", "plot", "scale", "dots"].includes(type)) { seenIds.add(id); live.set(id, a.y as number); }
+    if (!isSet && gotPos && (a._seat || ROWS.includes(a.y as number))) { const hang = hangOf(type, a); if (hang != null) a.y = (a.y as number) - 80 + hang; }
+    delete a._seat;
+    acts.push(a);
+  }
+  if (unseated.length) issues.push({ level: "warn", beat: 0, code: "seat", msg: `No seat in GRID for: ${unseated.join(", ")}. They were given free seats of the picture.` });
+  const ks = Object.keys(steps).map(Number).sort((x, y) => x - y);
+  if (ks.length) plan.steps = ks.map((k) => steps[k]);
+  if (Object.keys(plan).length) script.plan = plan;
+  if (quiz.length) script.quiz = quiz;
+  if (script.beats.length && !script.takeaway && !has.end) { const last = script.beats[script.beats.length - 1]; if (last.say) script.takeaway = last.say.replace(/\*/g, ""); }
+  return { script, issues, labels, dels, has, grid, units };
+}
+
+// ---------- writing a Script back as notation ----------
+const qt = (s: unknown) => '"' + String(s ?? "").replace(/"/g, "'") + '"';
+const KEYORDER = ["w", "h", "r", "size", "scale", "frac", "dec", "tone", "side", "name", "badge", "cap", "sub", "curve", "show", "px", "label", "rowH", "xl", "yl", "at", "opacity", "align"];
+function valTok(p: Props): string | null { return p.value == null ? null : (p.pre || "") + String(p.value) + (p.suf || ""); }
+function actLine(a: Action): string[] {
+  const op = a.op || (a.type ? "add" : "set");
+  if (op === "del" || op === "pulse") return [`${op} ${a.id}${a.at != null ? " at=" + a.at : ""}`];
+  if (op === "clear") return [Array.isArray(a.keep) && a.keep.length ? `keep ${a.keep.join(" ")}` : "clear"];
+  if (op === "send") return [`send ${a.from}>${a.to}${a.icon ? " " + a.icon : ""}${a.str != null ? " " + qt(a.str) : ""}${a.color ? " c=" + a.color : ""}${a.at != null ? " at=" + a.at : ""}`];
+  const p: Props = Object.assign({}, a), type = op === "add" ? String(a.type) : "";
+  const out: string[] = [op === "add" ? `${type} ${a.id}` : `set ${a.id}`];
+  const used = new Set(["op", "id", "type"]);
+  const use = (...k: string[]) => k.forEach((x) => used.add(x));
+  if (type === "calc") {
+    use("x", "y", "terms", "_autoY");
+    for (const t of Array.isArray(p.terms) ? p.terms : []) {
+      if (typeof t === "number") out.push(String(t));
+      else if (typeof t === "string") out.push(t);
+      else if (t && typeof t === "object") { const tt = t as Props; out.push(tt.v != null && typeof tt.v === "number" ? `${tt.pre || ""}${tt.v}${tt.suf || ""}${tt.from ? "@" + tt.from : ""}` : tt.from ? `${tt.s ?? tt.str ?? tt.v}@${tt.from}` : qt(tt.s ?? tt.str ?? tt.v)); }
+    }
+  } else {
+    if (["arrow", "line", "brace"].includes(type) && p.from != null && p.to != null) { out.push(`${p.from}>${p.to}`); use("from", "to"); }
+    else if (["arrow", "line", "brace"].includes(type) && p.x2 != null) { out.push(`${p.x},${p.y}>${p.x2},${p.y2}`); use("x", "y", "x2", "y2"); }
+    if (type === "sign" && Array.isArray(p.between)) { out.push(p.between.join("~")); use("between"); }
+    if (type === "dot" && p.plot != null) { out.push(`${p.plot}.${p.line ?? ""}`); use("plot", "line"); }
+    if (type === "note" && p.to != null) { out.push(String(p.to)); use("to"); }
+    if (p.x != null && p.y != null && !used.has("x")) { out.push(slotName(p.x, p.y) || `${p.x},${p.y}`); use("x", "y"); }
+    if (type === "icon" && p.name != null) { out.push(String(p.name)); use("name"); }
+    const v = valTok(p);
+    if (v != null && (op === "set" || ["node", "box", "num", "bar", "text"].includes(type))) { out.push(v); use("value", "pre", "suf"); }
+    if (p.side != null && (type === "note" || type === "brace")) { out.push(String(p.side)); use("side"); }
+    if (type === "scale") { out.push(qt(p.left ?? ""), qt(p.right ?? "")); use("left", "right"); }
+    if (p.str != null && type !== "icon" && type !== "num") { out.push(qt(p.str)); use("str"); }
+    if (p.color != null) { out.push("c=" + p.color); use("color"); }
+    if (p.dash === true) { out.push("dash"); use("dash"); }
+    if (p.both === true) { out.push("both"); use("both"); }
+  }
+  const rest = Object.keys(p).filter((k) => !used.has(k) && p[k] != null).sort((x, y) => (KEYORDER.indexOf(x) + 99) % 99 - (KEYORDER.indexOf(y) + 99) % 99);
+  const lines: string[] = [];
+  for (const k of rest) {
+    const v = p[k];
+    if (k === "lines" && Array.isArray(v)) { v.forEach((L: Props) => lines.push(`pline ${a.id} ${L.id} ${(L.pts || []).map((q: number[]) => q.join(",")).join(" ")}${L.color ? " c=" + L.color : ""}${L.dash ? " dash" : ""}${L.str != null ? " " + qt(L.str) : ""}`)); continue; }
+    if (k === "marks" && Array.isArray(v)) { v.forEach((M: Props) => lines.push(`pmark ${a.id} ${M.x}${M.str != null ? " " + qt(M.str) : ""}`)); continue; }
+    if (k === "xr" || k === "yr") out.push(`${k}=${v[0]}..${v[1]}`);
+    else if (k === "xt" || k === "yt" || k === "keep") out.push(`${k}=${v.join(",")}`);
+    else if (k === "cols") out.push(`cols=${qt(v.join("|"))}`);
+    else if (k === "rows") out.push(`rows=${qt(v.map((r: unknown[]) => r.join("|")).join(" / "))}`);
+    else if (k === "hi") out.push(`hi=${qt(v.map((r: number[]) => r.join(",")).join(" "))}`);
+    else if (typeof v === "number" || typeof v === "boolean") out.push(`${k}=${v}`);
+    else if (typeof v === "string") out.push(/^[\x21-\x7e]+$/.test(v) && !/[="]/.test(v) ? `${k}=${v}` : `${k}=${qt(v)}`);
+  }
+  return [out.join(" "), ...lines];
+}
+const choiceText = (c: { q?: string; choices: string[]; answer: number; why?: string }) => [c.q || "", c.choices[c.answer], ...c.choices.filter((_, i) => i !== c.answer)].join(" | ") + (c.why ? " | why=" + c.why : "");
+
+export function toText(script: Script, opt: { plan?: boolean } = {}): string {
+  const L: string[] = [], p = script.plan || {};
+  if (script.title) L.push("TITLE " + script.title);
+  if (opt.plan !== false) {
+    if (p.goal) L.push("GOAL " + p.goal);
+    if (p.route) L.push("ROUTE " + p.route);
+    if (p.picture) L.push("PICTURE " + p.picture);
+    if (p.grid) L.push("GRID " + p.grid);
+    if (p.needs) L.push("NEEDS " + p.needs);
+    if (p.given && p.given.length) L.push("GIVEN " + p.given.map((g) => `${g.v}=${g.is || ""}`).join("; "));
+    (p.steps || []).forEach((s, i) => L.push(`STEP ${i + 1} ${s.q || ""} => ${s.idea || ""}`));
+    if (p.terms && p.terms.length) L.push("TERM " + p.terms.map((t) => `${t.t}=${t.plain || ""}`).join("; "));
+    if (p.trap) L.push("TRAP " + p.trap);
+    if (p.part && (p.part.of || 1) > 1) L.push(`PART ${p.part.n}/${p.part.of}${p.part.next ? " next=" + p.part.next : ""}`);
+  }
+  (script.beats || []).forEach((b, i) => {
+    L.push(`#${i + 1}${b.step != null ? " s" + b.step : ""}${b.hard ? " hard" : ""}${b.say ? " | " + b.say : ""}`);
+    (b.do || []).forEach((a) => L.push(...actLine(a)));
+    if (b.cam) L.push(`cam ${b.cam.x ?? 540},${b.cam.y ?? 960}${b.cam.zoom != null ? " zoom=" + b.cam.zoom : ""}`);
+    if (b.focus && b.focus.length) L.push("focus " + b.focus.join(" "));
+    if (b.ask) L.push("ask " + choiceText(b.ask));
+  });
+  if (script.takeaway) L.push("END " + script.takeaway);
+  (script.quiz || []).forEach((q) => L.push("QUIZ " + choiceText(q)));
+  return L.join("\n");
+}
+
+/** Merge a repair: scenes with the same number replace the old ones, "#5a" goes in after scene 5, "#7 DEL" removes scene 7. */
+export function applyPatch(base: Script, patchText: string): { script: Script; issues: Issue[]; changed: string[] } {
+  const b0 = parseScript(toText(base)); // the seats and units the unchanged scenes already use
+  const p = parseScript(patchText, { grid: b0.grid, units: b0.units }), out: Script = Object.assign({}, base, { plan: Object.assign({}, base.plan || {}) }), changed: string[] = [];
+  const byLabel = new Map<string, Beat>();
+  p.labels.forEach((l, i) => byLabel.set(l.toLowerCase(), p.script.beats[i]));
+  const dels = new Set(p.dels.map((x) => x.toLowerCase())), beats: Beat[] = [];
+  const extras = (k: number) => [...byLabel.keys()].filter((l) => new RegExp(`^${k}[a-z]$`).test(l) || new RegExp(`^${k}\\.\\d+$`).test(l)).sort().forEach((l) => { beats.push(byLabel.get(l)!); changed.push("+" + l); });
+  extras(0);
+  (base.beats || []).forEach((b, i) => {
+    const k = String(i + 1);
+    if (dels.has(k)) changed.push("-" + k);
+    else if (byLabel.has(k)) { beats.push(byLabel.get(k)!); changed.push("~" + k); }
+    else beats.push(b);
+    extras(i + 1);
+  });
+  out.beats = beats;
+  const pp = p.script.plan || {}, plan = out.plan as Plan;
+  if (p.has.title && p.script.title) out.title = p.script.title;
+  if (p.has.goal) plan.goal = pp.goal;
+  if (p.has.route) plan.route = pp.route;
+  if (p.has.needs) plan.needs = pp.needs;
+  if (p.has.picture) plan.picture = pp.picture;
+  if (p.has.grid) plan.grid = pp.grid;
+  if (p.has.given) { const seen = new Set((pp.given || []).map((g) => String(g.v))); plan.given = (pp.given || []).concat((plan.given || []).filter((g) => !seen.has(String(g.v)))); }
+  if (p.has.step) plan.steps = pp.steps;
+  if (p.has.term) plan.terms = pp.terms;
+  if (p.has.trap) plan.trap = pp.trap;
+  if (p.has.end && p.script.takeaway) out.takeaway = p.script.takeaway;
+  if (p.has.quiz && p.script.quiz) out.quiz = p.script.quiz;
+  return { script: out, issues: p.issues, changed };
+}

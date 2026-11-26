@@ -17,7 +17,8 @@ export async function getPdfJs(): Promise<PdfJs> {
 
 export async function openPdf(data: ArrayBuffer): Promise<PdfDoc> {
   const pdfjs = await getPdfJs();
-  return pdfjs.getDocument({ data: new Uint8Array(data.slice(0)) }).promise;
+  // 글자표(CMap)를 파일 안에 넣지 않은 한글 PDF도 글자를 읽을 수 있게 한글 글자표를 같이 둔다 (public/pdfjs/cmaps)
+  return pdfjs.getDocument({ data: new Uint8Array(data.slice(0)), cMapUrl: "/pdfjs/cmaps/", cMapPacked: true }).promise;
 }
 
 export interface PdfPage {
