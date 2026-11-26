@@ -168,7 +168,10 @@ export async function makeShort(sid: string, k: number, opts: { ahead?: boolean 
   if (b && (opts.ahead || (b.kind === "short" && b.sid === sid && b.k === k) || !makeRoom())) return false;
   const my = new AbortController();
   ctl = my;
-  set({ busy: { kind: "short", sid, k, message: "계획한 순서대로 대본을 쓰기 시작하는 중", titles: [], t0: Date.now(), ...(opts.ahead ? { ahead: true } : {}) }, error: null });
+  const busy: GenBusy = { kind: "short", sid, k, message: "계획한 순서대로 대본을 쓰기 시작하는 중", titles: [], t0: Date.now() };
+  // 미리 만들기는 화면에 떠 있는 앞선 오류 안내를 지우지 않는다 (사람이 누른 것이 아니다)
+  if (opts.ahead) set({ busy: { ...busy, ahead: true } });
+  else set({ busy, error: null });
   try {
     const { data, usage } = await postStream<FilmShortResult>(
       "/api/film/short",
