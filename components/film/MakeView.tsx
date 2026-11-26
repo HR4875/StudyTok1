@@ -1,7 +1,7 @@
 "use client";
 // 내 자료로 만들기: 주제, 파일, 붙여 넣은 글로 시리즈를 계획하고 1편까지 만든다. 모양은 확정안의 쪽 고르기 화면.
 import { useEffect, type DragEvent, type FormEvent } from "react";
-import { initGen, makePlan, stopGen, useGen } from "@/lib/film/gen";
+import { blocking, initGen, makePlan, stopGen, useGen } from "@/lib/film/gen";
 import { HOST } from "@/lib/film/host";
 import { pagesIn, pickPages } from "@/lib/film/plan";
 import { FILM_LIMITS } from "@/lib/film/types";
@@ -152,7 +152,7 @@ export default function MakeView() {
   const busy = gen.busy && gen.busy.kind === "plan" ? gen.busy : null;
   const ok = gen.avail === "ok";
   // 한 번에 하나만 만든다: 다른 편을 만드는 동안에는 새 계획을 세울 수 없다
-  const making = !!gen.busy && gen.busy.kind === "short";
+  const making = blocking(gen) && gen.busy?.kind === "short";
   // 서버 확인이 앞에서 실패했으면 이 화면에 들어올 때 다시 묻는다
   useEffect(() => {
     initGen();
@@ -167,7 +167,7 @@ export default function MakeView() {
   };
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!ok || gen.busy || d.reading) return;
+    if (!ok || blocking(gen) || d.reading) return;
     void submit();
   };
 

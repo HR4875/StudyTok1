@@ -18,6 +18,8 @@ export interface GenBusy {
   titles: string[];
   /** 시작한 시각 (Date.now) */
   t0: number;
+  /** 보는 동안 다음 편을 미리 만드는 중: 사람이 직접 누른 만들기가 오면 자리를 내준다 */
+  ahead?: boolean;
 }
 
 export interface GenError {
@@ -39,6 +41,8 @@ export interface GenState {
 
 let gen: GenState = { avail: "wait", mock: false, busy: null, error: null };
 let ctl: AbortController | null = null;
+/** 이 화면을 연 뒤에 사람이 누른 만들기가 한 번이라도 됐는지. 그 뒤부터만 미리 만든다: 만들기에 허락을 묻는 곳에서, 보는 도중에 허락 창이 뜨지 않게 */
+let used = false;
 let asking = false;
 let tries = 0;
 let retryTimer = 0;
@@ -65,6 +69,8 @@ export function useGen(): GenState {
   );
 }
 export const getGen = (): GenState => gen;
+/** 사람이 직접 누른 것을 만드는 중인지. 미리 만드는 편은 직접 누른 만들기에 자리를 내주므로 단추를 막지 않는다 */
+export const blocking = (g: GenState): boolean => !!g.busy && !g.busy.ahead;
 
 /** 다시 물어볼 때까지 기다리는 시간(ms). 세 번까지만 스스로 다시 묻고, 그 뒤로는 연결이 돌아오거나 화면을 다시 볼 때 묻는다. */
 const RETRY_MS = [1500, 5000, 12000];
@@ -134,30 +140,55 @@ function fail(kind: "plan" | "short", sid: string, k: number, e: unknown): void 
   set({ busy: null, error: { kind, sid, k, message: err.message, code: err.code }, ...(DEAD.has(err.code) ? { avail: "none" as const } : {}) });
 }
 
-/** 계획의 k편을 만든다. 이미 볼 수 있는 편이거나 다른 것을 만드는 중이면 아무것도 하지 않는다. 성공하면 true */
-export async function makeShort(sid: string, k: number): Promise<boolean> {
+/**
+ * 미리 만들던 편(busy.ahead)은 사람이 직접 누른 만들기에 자리를 내준다: 그 요청을 멈추고 true를 돌려준다.
+ * 직접 누른 것을 만드는 중이면 false (한 번에 하나만 만든다).
+ */
+function makeRoom(): boolean {
+  if (!gen.busy) return true;
+  if (!gen.busy.ahead) return false;
+  ctl?.abort();
+  return true;
+}
+
+/**
+ * 계획의 k편을 만든다. 이미 볼 수 있는 편이거나 다른 것을 만드는 중이면 아무것도 하지 않는다. 성공하면 true.
+ * ahead: 사람이 누른 것이 아니라, 앞 편을 보는 동안 미리 만들어 두는 것. 이 화면을 연 뒤 만들기를 한 번이라도 한 사람에게만 하고,
+ * 다른 것을 만드는 중이면 시작하지 않고, 실패해도 알리지 않는다 (끝 화면과 목록에 만들기 단추가 그대로 있다).
+ */
+export async function makeShort(sid: string, k: number, opts: { ahead?: boolean } = {}): Promise<boolean> {
   const s = getSeries(sid);
-  if (gen.busy || gen.avail !== "ok" || !s || !s.plan || !s.plan.shorts[k - 1]) return false;
+  if (gen.avail !== "ok" || !s || !s.plan || !s.plan.shorts[k - 1]) return false;
   // 이미 있는 편은 다시 만들지 않는다. 다만 이 기기에 남은 대본을 읽지 못하게 됐으면 그 자리에 다시 만든다.
   const have = s.shorts[k];
   if (have && (have.from !== "mine" || loadShort(sid, k)?.scenes)) return false;
-  ctl = new AbortController();
-  set({ busy: { kind: "short", sid, k, message: "계획한 순서대로 대본을 쓰기 시작하는 중", titles: [], t0: Date.now() }, error: null });
+  if (opts.ahead && !used) return false;
+  const b = gen.busy;
+  // 미리 만들던 바로 그 편을 눌렀으면 그대로 둔다
+  if (b && (opts.ahead || (b.kind === "short" && b.sid === sid && b.k === k) || !makeRoom())) return false;
+  const my = new AbortController();
+  ctl = my;
+  set({ busy: { kind: "short", sid, k, message: "계획한 순서대로 대본을 쓰기 시작하는 중", titles: [], t0: Date.now(), ...(opts.ahead ? { ahead: true } : {}) }, error: null });
   try {
     const { data, usage } = await postStream<FilmShortResult>(
       "/api/film/short",
       { planText: planToText(s.plan), k },
-      { signal: ctl.signal, onStatus: (message) => setBusy({ message }) },
+      { signal: my.signal, onStatus: (message) => ctl === my && setBusy({ message }) },
     );
     if (!data || typeof data.raw !== "string" || !data.scenes) throw new ApiError("받은 대본을 읽지 못했어요. 다시 눌러 주세요", "BAD_OUTPUT");
     addShort(sid, k, { raw: data.raw, secs: Math.round(data.secs), calls: data.calls, fix: data.fix, errs: data.errs, usd: usage?.usd ?? 0, model: data.model });
-    set({ busy: null });
+    used = true;
+    if (ctl === my) set({ busy: null });
     return true;
   } catch (e) {
-    fail("short", sid, k, e);
+    // 자리를 내준 요청(ctl이 이미 다른 것)은 화면의 상태를 건드리지 않는다. 미리 만들기의 실패는 조용히 넘긴다.
+    if (ctl === my) {
+      if (opts.ahead) set({ busy: null });
+      else fail("short", sid, k, e);
+    }
     return false;
   } finally {
-    ctl = null;
+    if (ctl === my) ctl = null;
   }
 }
 
@@ -166,23 +197,29 @@ export async function makeShort(sid: string, k: number): Promise<boolean> {
  * source는 쪽마다 [p.N] 표시를 붙인 글, label은 자료 이름(없으면 주제를 쓴다).
  */
 export async function makePlan(topic: string, source: string, label: string): Promise<string | null> {
-  if (gen.busy || gen.avail !== "ok") return null;
-  ctl = new AbortController();
+  if (gen.avail !== "ok" || !makeRoom()) return null;
+  const my = new AbortController();
+  ctl = my;
   set({ busy: { kind: "plan", sid: "", k: 0, message: "자료를 읽고 가장 쉬운 설명 순서를 고르는 중", titles: [], t0: Date.now() }, error: null });
   let id: string | null = null;
   try {
     const { data, usage } = await postStream<FilmPlanResult>(
       "/api/film/plan",
       { topic, source: source.slice(0, FILM_LIMITS.sourceChars), max: FILM_LIMITS.planDefault },
-      { signal: ctl.signal, onStatus: (message) => setBusy({ message }), onFound: (titles) => setBusy({ titles, message: `${titles.length}편째 계획하는 중` }) },
+      {
+        signal: my.signal,
+        onStatus: (message) => ctl === my && setBusy({ message }),
+        onFound: (titles) => ctl === my && setBusy({ titles, message: `${titles.length}편째 계획하는 중` }),
+      },
     );
     if (!data || typeof data.planText !== "string" || !data.shorts) throw new ApiError("계획을 끝까지 받지 못했어요. 자료를 조금 줄이거나 다시 눌러 주세요", "BAD_OUTPUT");
     id = addSeries({ kicker: "내 자료 · " + (label || topic || "주제").slice(0, 40), planText: data.planText, secs: Math.round(data.secs), cut: data.cut, usd: usage?.usd ?? 0 });
-    set({ busy: null });
+    used = true;
+    if (ctl === my) set({ busy: null });
   } catch (e) {
-    fail("plan", "", 0, e);
+    if (ctl === my) fail("plan", "", 0, e);
   } finally {
-    ctl = null;
+    if (ctl === my) ctl = null;
   }
   if (id) void makeShort(id, 1);
   return id;

@@ -4,6 +4,8 @@
 // 편마다 새로 마운트된다 (FilmApp이 sid-k를 key로 준다).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { H, SKINS, SKIN_LIST, W } from "@/lib/film";
+import { makeShort, useGen } from "@/lib/film/gen";
+import { HOST } from "@/lib/film/host";
 import { SPEEDS, getPrefs, getSeries, loadShort, titleOf, totalOf, useFilmStore, type LoadedShort } from "@/lib/film/store";
 import EndSheet from "./EndSheet";
 import { secs } from "./format";
@@ -162,6 +164,9 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
   }, [view.info]);
 
   const info = view.info;
+  // 다음 편을 미리 만들기 시작할 때가 됐는지: 재생 중이고, 띄운 곳이 정한 만큼(HOST.prefetchAt) 봤을 때
+  const scenes = info ? info.beats.length : 0;
+  const due = view.started && !view.ended && scenes > 0 && view.beat + 1 >= Math.ceil(scenes * HOST.prefetchAt);
   const ser = getSeries(sid);
   const ttl = (ser?.kind === "ex" ? "맛보기" : k + "편") + " · " + titleOf(sid, k);
   const label = (ser?.kind === "ex" ? "맛보기 · " : "") + titleOf(sid, k);
@@ -323,11 +328,31 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
             </span>
           </div>
         </div>
+        <Ahead sid={sid} k={k} due={due} />
         {sets && <Settings api={api} onClose={() => setSets(false)} />}
         {view.ended && <EndSheet sid={sid} k={k} script={script} entry={sh.entry} onReplay={() => api.current?.replay()} />}
       </div>
     </div>
   );
+}
+
+/**
+ * 내 시리즈의 한 편을 보는 동안 다음 편을 미리 만든다: 끝 화면에 닿았을 때 기다리지 않게.
+ * 한 편을 보는 동안 한 번만 시작한다. 다른 것을 만드는 중이면 그것이 끝난 뒤에 시작하고, 사람이 다른 만들기를 누르면 자리를 내준다 (gen.ts).
+ * 그리는 것은 없다. 만들기 상태가 바뀔 때 재생기 전체가 다시 그려지지 않게 따로 둔 것이다.
+ */
+function Ahead({ sid, k, due }: PlayerProps & { due: boolean }) {
+  const gen = useGen();
+  const tried = useRef(false);
+  const can = gen.avail === "ok" && !gen.busy;
+  useEffect(() => {
+    if (tried.current || !due || !can) return;
+    const s = getSeries(sid);
+    if (!s || s.kind !== "mine" || k >= totalOf(s)) return;
+    tried.current = true;
+    void makeShort(sid, k + 1, { ahead: true });
+  }, [due, can, sid, k]);
+  return null;
 }
 
 /** 보기 설정 바텀 시트: 속도, 영상 디자인, 소리를 칩으로 고른다 (확정안의 설정 시트) */

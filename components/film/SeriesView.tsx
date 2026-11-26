@@ -1,7 +1,7 @@
 "use client";
 // 시리즈 한 개: 트랙 라벨, 제목, 편 목록. 있는 편은 바로 보고, 없는 편은 그 자리에서 만든다.
 import { useEffect, useState } from "react";
-import { initGen, makeShort, stopGen, useGen, type GenState } from "@/lib/film/gen";
+import { blocking, initGen, makeShort, stopGen, useGen, type GenState } from "@/lib/film/gen";
 import { HOST } from "@/lib/film/host";
 import { loadShort, madeKs, removeSeries, seenOf, titleOf, totalOf, useFilmStore, getSeries, type Series } from "@/lib/film/store";
 import { secs } from "./format";
@@ -52,7 +52,7 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
     );
   else if (gen.avail === "ok")
     action = (
-      <button className={"btn small " + (first ? "primary" : "ghost")} type="button" disabled={!!gen.busy} onClick={() => void makeShort(sid, k)}>
+      <button className={"btn small " + (first ? "primary" : "ghost")} type="button" disabled={blocking(gen)} onClick={() => void makeShort(sid, k)}>
         {sh ? "다시 만들기" : "만들기"}
       </button>
     );
@@ -100,7 +100,7 @@ function DeleteSeries({ id }: { id: string }) {
 
 function noteOf(gen: GenState, id: string): string {
   // 한 번에 하나만 만든다: 다른 곳에서 만드는 중이면 단추가 꺼져 있는 까닭을 알린다
-  if (gen.busy && (gen.busy.kind === "plan" || gen.busy.sid !== id)) return "지금 다른 것을 만드는 중이에요. 한 번에 하나씩 만들어서, 끝나면 여기서도 만들 수 있어요.";
+  if (gen.busy && blocking(gen) && (gen.busy.kind === "plan" || gen.busy.sid !== id)) return "지금 다른 것을 만드는 중이에요. 한 번에 하나씩 만들어서, 끝나면 여기서도 만들 수 있어요.";
   if (gen.avail === "ok")
     return HOST.seriesReady + (gen.mock ? " 지금은 예시 모드라 AI를 부르지 않고 준비된 대본으로 답해요." : "");
   if (gen.avail === "wait") return "새 편을 만들 수 있는지 확인하는 중이에요.";

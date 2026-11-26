@@ -2,7 +2,7 @@
 // 한 편이 끝난 뒤 올라오는 끝 화면 (확정안): 개념 카드(그림 칸, 이름, 한 줄 정리, 용어), 퀴즈 두 개와 해설 시트, 완주 칸.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Script } from "@/lib/film";
-import { makeShort, initGen, useGen } from "@/lib/film/gen";
+import { blocking, makeShort, initGen, useGen } from "@/lib/film/gen";
 import { entryOf, getSeries, markSeen, seenOf, titleOf, totalOf, useFilmStore, type Series, type ShortEntry } from "@/lib/film/store";
 import { burstFrom } from "./fx";
 import Still from "./Still";
@@ -169,7 +169,14 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
         {`다음 편 보기 →`}
       </a>
     );
-  else if (k < n && gen.avail === "ok" && !gen.busy)
+  else if (k < n && gen.busy && gen.busy.kind === "short" && gen.busy.sid === sid && gen.busy.k === k + 1)
+    // 보는 동안 미리 만들기 시작한 다음 편이 아직 끝나지 않았다: 다 되면 이 자리가 "다음 편 보기"로 바뀐다
+    next = (
+      <button type="button" className="btn primary" disabled>
+        {`다음 ${k + 1}편 만드는 중…`}
+      </button>
+    );
+  else if (k < n && gen.avail === "ok" && !blocking(gen))
     next = (
       <button
         type="button"
