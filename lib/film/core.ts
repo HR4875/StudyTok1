@@ -734,7 +734,7 @@ export function boxOf(m: Model, o: MObj, p: Props, t: number): Box | null {
     case "text": { const s = p.size || 56, w = Math.min(p.maxW || 1000, approxW(p.str, s)); return p.align === "left" ? { x0: x, y0: y - s * 0.62, x1: x + w, y1: y + s * 0.62 } : { x0: x - w / 2, y0: y - s * 0.62, x1: x + w / 2, y1: y + s * 0.62 }; }
     case "num": { const s = p.size || 120, w = approxW((p.pre || "") + fmtV(Number(p.value) || 0, p.dec) + (p.suf || ""), s); return { x0: x - w / 2, y0: y - s * 0.62 - (p.cap ? 62 : 0), x1: x + w / 2, y1: y + s * 0.62 }; }
     case "icon": { const s = p.size || 160, capW = p.cap ? Math.min(340, approxW(p.cap, 42)) / 2 : 0, hw = Math.max(s / 2, capW); return { x0: x - hw, y0: y - s / 2, x1: x + hw, y1: y + s / 2 + (p.cap ? 62 : 0) }; }
-    case "bar": { const w = p.w || 120, h = Math.abs(barSlot(o, p)); return { x0: x - w / 2, y0: y - h - (p.value != null ? 70 : 0), x1: x + w / 2, y1: y + (p.str ? 78 : 0) }; }
+    case "bar": { const w = p.w || 120, h = Math.abs(barSlot(o, p)); return { x0: x - w / 2, y0: y - h - (p.value != null ? 95 : 0), x1: x + w / 2, y1: y + (p.str ? 82 : 44) }; } // a pillar: its number's pill rides 95 px over the top, its floor and name reach 82 px under the seat
     case "calc": { const s = calcSize(p), ts = normTerms(p), w = ts.reduce((a, q) => a + approxW(q.text, s), 0) + Math.max(0, ts.length - 1) * s * 0.34; return { x0: x - w / 2, y0: y - s * 0.7, x1: x + w / 2, y1: y + s * 0.7 }; }
     case "plot": { const map = plotMap(p); return { x0: map.x0 - 70, y0: map.y1 - map.h - 50, x1: map.x0 + map.w + 20, y1: map.y1 + 70 }; }
     case "table": { const d = tableDims(p); return { x0: d.x0, y0: d.y0, x1: d.x0 + d.w, y1: d.y0 + d.h }; }
