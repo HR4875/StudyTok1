@@ -57,7 +57,7 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
     <div className="relative flex h-full flex-col overflow-hidden bg-[var(--paper)]">
       {/* 제목 띠: 오션 블루 + 흰 글씨 STUDY T@K */}
       <header className="shrink-0 bg-[var(--ocean)] px-6 pb-6 pt-[max(18px,env(safe-area-inset-top))] text-white">
-        <div className="flex items-center gap-2 text-[12.5px] font-medium text-white/85">
+        <div className="flex items-center gap-2 text-[13px] font-medium text-white/85">
           <span>Our semester&apos;s best study?</span>
           <button
             type="button"
@@ -98,7 +98,7 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
         >
           <span className="absolute left-0 top-0 rounded-br-[12px] bg-[var(--ink)] px-3 py-1 text-[13px] font-bold text-white">Track #1 : 업로드</span>
           <span className="font-display block text-[26px] leading-tight text-[var(--ink)]">{drag ? "여기에 놓으세요" : "PDF 올리기"}</span>
-          <span className="mt-1.5 block text-[13.5px] font-medium text-[var(--muted)]">강의 PDF · 교재 사진 · 필기 사진</span>
+          <span className="mt-1.5 block text-[14px] font-medium text-[var(--muted)]">강의 PDF · 교재 사진 · 필기 사진</span>
         </button>
         <input
           ref={input}
@@ -120,9 +120,9 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
               {o.name}
             </button>
           ))}
-          <span className="rounded-[8px] bg-[var(--red)] px-2 py-1 text-[12px] font-extrabold leading-none text-white">NEW</span>
+          <span className="rounded-[8px] bg-[var(--red)] px-2 py-1 text-[13px] font-extrabold leading-none text-white">NEW</span>
         </div>
-        <p className="mt-2 text-[12.5px] font-medium text-[var(--muted)]">
+        <p className="mt-2 text-[13px] font-medium text-[var(--muted)]">
           {mode === "motion" ? "같은 카드로 영상을 만들어서 생성 비용은 그대로예요." : "보는 중에도 언제든 모션으로 바꿀 수 있어요."}
         </p>
 
@@ -136,7 +136,7 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
         </div>
 
         {apiReady !== null ? (
-          <p className="mt-4 text-[12.5px] font-medium text-[var(--muted)]">
+          <p className="mt-4 text-[13px] font-medium text-[var(--muted)]">
             {apiReady ? "AI 연결됨 · 올리면 Claude가 바로 만들어요" : "아직 AI 키가 없어요 · PDF 읽기와 쪽 고르기까지 해 볼 수 있어요"}
           </p>
         ) : null}

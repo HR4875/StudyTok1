@@ -50,7 +50,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         onClick={onClose}
       />
       <div
-        className={`absolute inset-x-0 bottom-0 max-h-[82%] overflow-y-auto rounded-t-[28px] bg-white px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.2)] transition-transform duration-250 ease-out ${
+        className={`absolute inset-x-0 bottom-0 max-h-[82%] overflow-y-auto rounded-t-[24px] bg-white px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.2)] transition-transform duration-250 ease-out ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
       >
