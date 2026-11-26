@@ -857,57 +857,50 @@ QUIZ 위 기계의 감가상각비를 5년 동안 모두 더하면 얼마일까�
 /** 한 편짜리 맛보기: 손으로 쓴 대본 (엔진이 그릴 수 있는 그림의 종류를 보여 준다) */
 export const SAMPLES: Sample[] = [
   {
-    label: "양성 판정, 정말 병일까?",
-    kind: "갈라지는 나무",
-    raw: `TITLE 양성 판정, 정말 90% 확률로 병일까?
-HOOK 90% 검사 | 양성이면 | 정말 | 병일까?
-CARD 위양성 | 건강한데 | 양성인 사람
-GOAL 드문 병은 검사가 90% 정확해도, 양성인 사람 대부분은 건강한 사람이다.
-PICTURE 맨 위 1000명이 환자와 건강한 사람 두 무리로 갈라지고, 무리 아래에 양성 수가 붙고, 맨 아래에서 양성 전체로 합쳐진다.
-GRID all / sick well / tp fp / pos
-GIVEN 1000=검사받은 사람; 10=그중 환자; 990=건강한 사람; 9=환자 10명 중 양성; 90=검사 정확도
-TERM 위양성=건강한데 양성이 나온 것
-PART 1/3 next=두 번 검사하면 믿어도 될까?
-#1 s1 | 정확도 90% 검사에서 *양성*이 나왔어요
-node all 1000명 cap="검사받은 사람"
-note acc all right "정확도 90%"
-#2 s2 | 이 병은 1000명 중 *10명*만 걸려요
-node sick 10명 c=red cap="환자"
-node well 990명 c=pale cap="건강"
-arrow a1 all>sick
-arrow a2 all>well
-#3 s3 | 환자 10명 중 *9명*이 양성이에요
-node tp 9명 c=red cap="진짜 양성"
-arrow a3 sick>tp
-focus sick tp
-#4 s4 hard | 건강한 사람도 10명 중 1명은 *양성*
-calc c1 990@well ÷ 10 = 99명
-node fp 99명 c=yellow cap="잘못된 양성" at=3
-arrow a4 well>fp at=3
-focus well
-#5 s6 hard
-ask 양성인 사람 중 진짜 환자는? | 12명 중 1명 | 10명 중 9명 | 2명 중 1명 | why=환자보다 건강한 사람이 훨씬 많아요
-#6 s5 | 양성은 모두 *108명*이에요
-calc c2 9@tp + 99@fp = 108명
-node pos 108명 c=blue cap="양성 전체" at=3
-#7 s6 hard | 그중 진짜 환자는 *9명*뿐
-arrow a5 tp>pos
-arrow a6 fp>pos dash
-pulse tp
-focus tp pos
-#8 s6 | 양성 *12명 중 1명*만 환자예요
-calc c3 108@pos ÷ 9@tp = 12
-focus tp pos
-#9 s7 | 건강한 사람이 워낙 *많아서* 그래요
-sign cmp sick~well "<"
-pulse fp
-focus sick well fp
-#10 s7 | 잘못된 양성을 *위양성*이라 불러요
-note n1 fp right "위양성"
-focus fp
-END 드문 병은 양성이어도 대부분 건강한 사람이에요. 환자가 몇 명인지부터 세어 보세요.
-QUIZ 2000명 중 20명이 환자인 병이 있어요. 환자 20명 중 18명이 양성, 건강한 1980명 중 198명도 양성이면 양성은 모두 몇 명일까요? | 216명 | 198명 | 38명 | why=진짜 양성 18명과 잘못된 양성 198명을 더해요
-QUIZ 위 상황에서 양성인 사람 가운데 진짜 환자는 어느 정도일까요? | 12명 중 1명 | 10명 중 9명 | 10명 중 1명 | why=216명 중 18명이라 12명에 1명꼴이에요
+    label: "우산을 사 둘까?",
+    kind: "시간축 위 나무",
+    raw: `TITLE 내일 비가 올지 모르는데, 우산을 사 둘까?
+HOOK 비 올까? | 우산 50개 | 사 둘까 | 말까?
+CARD 기댓값 | 반반이면 | 평균 5만원
+GOAL 갈래마다 남는 돈을 따로 세고 둘을 섞으면, 모르는 내일도 평균으로 따질 수 있다.
+PICTURE 오늘·내일·남는 돈 시간축 위, 오늘 산 10만원이 비와 맑음 두 갈래로 오른쪽으로 갈라지고, 갈래 끝에 남는 돈이 붙고, 오늘 칸에 평균이 채워진다.
+TIME 오늘 | 내일 | 남는 돈
+CAST buy=node rain=node sun=node gr=node gs=node ev=node
+GRID - rain gr / buy - - / ev sun gs
+GIVEN 50=사 두는 우산(개); 10=우산 50개 값(만원); 25=비 오면 판 돈(만원); 5=맑으면 판 돈(만원)
+TERM 기댓값=갈래마다 남는 돈을 확률만큼 섞은 평균
+PART 1/3 next=비 올 확률이 70%라면?
+#1 s1 | 오늘 우산 50개를 *10만원*에 사요
+node buy 10만원 r=96 cap="오늘 산 값"
+#2 s2 | 내일 비가 오면 *25만원*어치 팔려요
+node rain 25만원 r=96 c=blue cap="판 돈"
+arrow a1 buy>rain "비"
+#3 s2 | 맑으면 *5만원*어치만 팔려요
+node sun 5만원 r=96 c=pale cap="판 돈"
+arrow a2 buy>sun "맑음"
+#4 s3 hard | 비 오면 *15만원*이 남아요
+calc c1 25@rain − 10@buy = 15만원
+node gr 15만원 c=blue at=3
+arrow a3 rain>gr at=3
+#5 s4 hard
+ask 맑으면 남는 돈은? | 5만원 손해 | 5만원 남음 | 0원 | why=판 돈이 산 값보다 적어요
+#6 s4 | 맑으면 5만원 *손해*예요
+calc c2 5@sun − 10@buy = −5만원
+node gs −5만원 c=red at=3
+arrow a4 sun>gs at=3
+#7 s5 hard | 내일 비 올지는 *반반*이에요
+node ev "?" c=yellow cap="평균 남는 돈"
+focus gr gs ev
+#8 s5 hard | 반반이면 평균 *5만원* 남아요
+calc c3 (15@gr + 5@gs) ÷ 2 = 5만원
+set ev 5만원 c=blue at=3
+#9 s6 | 이 평균을 *기댓값*이라 불러요
+set ev cap="기댓값"
+pulse ev
+focus ev gr gs
+END 내일을 몰라도 갈래마다 남는 돈을 세고 평균을 내면, 사 둘지 정할 수 있어요.
+QUIZ 붕어빵 재료를 4만원에 사요. 추우면 10만원, 따뜻하면 2만원어치 팔려요. 추우면 남는 돈은? | 6만원 | 10만원 | 4만원 | why=판 돈 10만원에서 재료값 4만원을 빼요
+QUIZ 위에서 추울지 따뜻할지 반반이면 평균 남는 돈은? | 2만원 | 6만원 | 4만원 | why=추우면 6만원, 따뜻하면 2만원 손해라 둘을 섞으면 2만원이에요
 `,
   },
   {
@@ -918,6 +911,7 @@ HOOK 모르는 | 사람과 거래 | 누가 먼저 | 보낼까?
 CARD 에스크로 | 돈을 맡아 주는 | 중간 금고
 GOAL 둘 다 믿는 금고에 돈을 먼저 맡기면, 서로 몰라도 안심하고 거래할 수 있다.
 PICTURE 왼쪽에 구매자, 오른쪽에 판매자, 가운데 아래에 금고가 서 있고, 돈과 물건이 셋 사이를 차례로 오간다.
+CAST buyer=icon seller=icon safe=icon
 GRID buyer - seller / - / safe
 GIVEN 5=물건값(만원)
 TERM 에스크로=돈을 대신 맡아 주는 중간 금고
@@ -966,7 +960,8 @@ CARD 발생주의 | 꽃을 보낸 달에 | 매출이 생겨요
 GOAL 돈을 미리 받아도, 매출은 꽃을 보낸 달마다 나눠서 잡는다.
 PICTURE 1월·2월·3월 시간축 위, 1월에 받은 30만원이 떠 있고, 달마다 매출 기둥이 축 위에 서서 10만원씩 채워진다.
 TIME 1월 | 2월 | 3월
-GRID cash - r1 / owe - r2 / - - r3
+CAST cash=node r1=bar r2=bar r3=bar owe=node
+GRID cash owe - / - - - / r1 r2 r3
 GIVEN 30=미리 받은 석 달 치 구독료(만원); 3=구독하는 달 수
 TERM 발생주의=돈 받은 때가 아니라 일한 때 매출로 잡기; 선수수익=미리 받고 아직 일하지 않은 몫
 PART 1/3 next=1월에 쓴 전기료를 2월에 내면, 언제 비용일까?

@@ -16,7 +16,7 @@ How to plan
 8. Titles are questions or small mysteries a student would tap on, not chapter headings.
 
 The steps of a short
-Under each SHORT write the path the viewer walks, 5 to 8 STEP lines, each "the question in the viewer's head => the one thing the screen shows in answer". This is where a beginner is kept or lost, so walk it as that beginner, who knows only everyday life and the earlier shorts:
+Under each SHORT write the path the viewer walks, 5 or 6 STEP lines (the short runs under a minute), each "the question in the viewer's head => the one thing the screen shows in answer". This is where a beginner is kept or lost, so walk it as that beginner, who knows only everyday life and the earlier shorts:
 - Each step answers the question the step before leaves behind, and they connect with "그래서" or "그런데", never "그리고 또". One new thing per step.
 - Purpose before method: before any trick (combining two things, comparing two cases, working backwards) comes a step that makes the viewer want it by showing the difficulty it removes.
 - Reason before result: the observation that makes a result obvious comes before the result.
@@ -43,9 +43,9 @@ SHORT 2 | ...
 - GIVEN lists the numbers of the running example with their meaning. Omit GIVEN when the material has no numbers.
 - needs names earlier shorts by number ("1, 2") or "없음". gives lists what later shorts may rely on, with the numbers.
 - src is the page numbers of the material this short draws on (the material is given with page marks like [p.3]); "-" when you were given only a topic name.
-- The player can draw only these pictures, so name one of them in route, chosen by the shape of the idea: a tree of circles joined by arrows (cases branching from one start, or steps in a row); a balance with two pans (two bundles that are worth the same, or one outweighing the other); bars standing side by side (comparing sizes); a grid of dots (so many out of so many); icons with tokens travelling between them (who gives what to whom: people, banks, ships, documents, money); a table revealed row by row (cases against properties); a line graph with a point that slides (a value that depends on another). One short uses one of them, with a calculation line under it when numbers are computed.
-- What unfolds in time is drawn from left to right over a time axis, one stage per column with its name under the axis: prices branching over periods (the tree grows to the right), cash flows and book values year by year (bars standing on the axis), the steps of a procedure in order. Say in route which 2 to 4 stages the axis has ("오늘, 3개월 뒤"); they are moments, never cases. The axis carries a tree or bars, never a balance, table, plot, dots grid or icons: a price that branches over time is a tree over time. For finance and accounting material prefer these graph-like pictures: time on the horizontal axis, amounts as bars standing on it, cases branching to the right.
-- Keep each SHORT line under 350 characters and each STEP line under 110. ASK: the question at most 22 characters, each answer at most 12.
+- The player can draw only these pictures, so name one of them in route, chosen by the shape of the idea: a tree of circles joined by arrows (cases branching from one start, or steps in a row); a balance with two pans (two bundles that are worth the same, or one outweighing the other); bars standing side by side (comparing sizes); a grid of dots (so many out of so many); icons with tokens travelling between them (who gives what to whom: people, banks, ships, documents, money); a table revealed row by row (cases against properties); a line graph with a point that slides (a value that depends on another). One short uses one of them, with a calculation line under it when numbers are computed. The scriptwriter draws exactly the cast you name, so route names every thing by its kind, about six at most: icons for places, people, institutions and objects (공장, 배, 은행, 수입자); circles for numbers and prices; pillars for amounts compared or standing on a time axis; and the time stages ("시간축(오늘, 3개월 뒤) 위 나무: 오늘 주가 동그라미에서 오르면·내리면 동그라미 두 갈래, 끝마다 받는 돈 기둥").
+- What unfolds in time is drawn from left to right over a time axis, one stage per column with its name under the axis: prices branching over periods (the tree grows to the right), cash flows and book values year by year (bars standing on the axis), the steps of a procedure in order. Say in route which 2 to 4 stages the axis has ("오늘, 3개월 뒤"); they are moments, never cases. The axis carries a tree, bars, or the icons of the places a procedure passes (공장, 항구, 배; people who trade stand in icons-and-tokens without an axis), never a balance, table, plot or dots grid: a price that branches over time is a tree over time. For finance and accounting material prefer these graph-like pictures: time on the horizontal axis, amounts as bars standing on it, cases branching to the right.
+- Keep each SHORT line under 420 characters and each STEP line under 110; never write "|" inside a field. ASK: the question at most 22 characters, each answer at most 12.
 `;
 
 export const WRITER_PROMPT = `You stage one Korean study short: a 9:16 motion graphic of about 40 to 55 seconds that a browser engine plays from your script. The viewer is a student meeting this idea for the first time, watching once on a phone with the sound off. There is no voice. The viewer reads one short sentence at the top of the screen and watches the picture under it.
@@ -65,7 +65,7 @@ A planner has already chosen the path. The brief gives you the idea, the picture
 - Few and bold: about six things on screen plus two or three tags; delete a tag once its scene is over. In a sparse picture r=96 makes the three to five main circles bigger. Tags and arrow labels at most 7 characters.
 - Colour is meaning: ink neutral; blue the hero, a gain, "up"; red only a loss or something wrong; yellow only the unknown and the one highlight; pale and grey quiet seconds. No green: it draws as a second blue.
 - Amounts are pillars (bar). The tallest bar stands as tall as three rows of circles, so bars go in the top row, or over TIME in the bottom row; bars of one row share one floor, so nothing sits between them. A bar must get its number: written without one it stands as a yellow dashed ghost until a later set fills it, so give it the colour of what it will be. An amount nobody knows yet is node f "?" c=yellow.
-- Over TIME the labels are moments (오늘, 3개월 뒤, 2년 뒤), never cases; 2 or 3 stages read best, and a last stage may hold what each branch is worth ("TIME 오늘 | 3개월 뒤 | 쿠폰 값"). Give every stage the same number of seats ("-" fills), so each row holds one kind of thing across the stages. Pillars standing on the axis fill the bottom row alone, with no name (the label under the axis names them), and the seat above each of them stays "-" so their numbers stay clear. A tree over time opens from the middle ("TIME 오늘 | 3개월 뒤" with "GRID s / u d").
+- Over TIME the labels are moments (오늘, 3개월 뒤, 2년 뒤), never cases; 2 or 3 stages read best, and a last stage may hold what each branch is worth ("TIME 오늘 | 3개월 뒤 | 쿠폰 값"). Each row holds one kind of thing across the stages. Pillars standing on the axis fill the bottom row alone, with no name (the label under the axis names them), and the seat above each of them stays "-" so their numbers stay clear. A tree over time opens from the middle row and grows to the right.
 - Ask while at most three rows of circles or icons are on screen and no bar yet; the pillars come after the question.
 
 # What you write
@@ -76,6 +76,7 @@ HOOK 덩어리 | 서너 개로 | 수수께끼를 | 던져요?
 CARD 가르친 용어 | 강조할 앞부분 | 나머지
 GOAL 다 보고 나면 친구에게 말할 수 있는 한 문장
 PICTURE 처음부터 끝까지 화면에 남는 그림 하나와, 거기에 무엇이 차례로 붙는지 한 줄
+CAST 자리를 차지할 모든 id=종류, 장면에 처음 나오는 순서대로
 GRID 자리표 (아래 설명)
 GIVEN 숫자=뜻; 숫자=뜻
 TERM 용어=쉬운 말; 용어=쉬운 말
@@ -86,13 +87,14 @@ PART 1/3 next=다음 편 제목
 END 마지막 한 문장
 QUIZ 질문 | 정답 | 오답 | 오답 | why=짧은 이유
 
-- GRID is the seating plan of the PICTURE: the ids of everything that takes a place (node, box, icon, num, bar, text, table, plot, scale, dots), row by row from the top, rows separated by "/". One id in a row sits in the middle, two sit left and right, three sit across; "-" leaves a seat empty ("- d" puts d on the right). Four rows at most, at most three in a row, every id in one seat. Things that belong together sit next to each other or one under the other, and the things one scene works with sit in neighbouring rows. A plot, table, scale or dots grid takes a row of its own and counts as two rows, because it is tall; the engine gives that row the height it needs. A picture taller than about four rows no longer fits the phone screen at a readable size. Scene lines then give no positions; each thing appears in its seat when its scene adds it. With a TIME line the groups between "/" are not rows but stages from left to right, one group per TIME label in the same order, and the ids of a group stack from the top; a group with fewer ids is centred beside the taller ones ("TIME 오늘 | 3개월 뒤" with "GRID s / u d" puts s on the left, halfway between u above and d below on the right). A stage holds 1 to 3 seats.
-- TIME (optional) puts the picture over a time axis: "TIME 오늘 | 3개월 뒤 | 6개월 뒤", 2 to 4 stage names of at most 8 characters, typed under their columns. Use it whenever the picture runs in time order. VALUE (optional, only with TIME) names the vertical axis, at most 6 characters ("VALUE 주가"); give it when the height of things means an amount, and then seat higher amounts higher.
+- CAST comes before GRID: every id that will ever take a place, in the order the scenes bring them in, each with its type. Write it from the PICTURE before seating anything; GRID then seats exactly these ids, and no scene adds a thing that is not in CAST.
+- GRID is the seating plan of the PICTURE: the ids of everything that takes a place (node, box, icon, num, bar, text, table, plot, scale, dots), row by row from the top, rows separated by "/". One id in a row sits in the middle, two sit left and right, three sit across; "-" leaves a seat empty ("- d" puts d on the right). Four rows at most, at most three in a row, every id in one seat. Things that belong together sit next to each other or one under the other, and the things one scene works with sit in neighbouring rows. A plot, table, scale or dots grid takes a row of its own and counts as two rows, because it is tall; the engine gives that row the height it needs. A picture taller than about four rows no longer fits the phone screen at a readable size. Scene lines then give no positions; each thing appears in its seat when its scene adds it. With a TIME line every row holds one seat per stage, from left to right, "-" for an empty one ("TIME 오늘 | 3개월 뒤" with "GRID - u / s - / - d" puts s on the left, halfway between u above and d below on the right).
+- TIME (optional) puts the picture over a time axis: "TIME 오늘 | 3개월 뒤 | 6개월 뒤", 2 to 4 stage names of at most 8 characters, typed under their columns. Use it whenever the picture runs in time order.
 - HOOK: always. 3 or 4 chunks that open the film as big stacked type, one after another, stating the mystery of the title in the viewer's words; the last ends in ? or !. The type size follows the widest chunk: chunks of 4 to 6 characters counting spaces ("오르면 22", "이 쿠폰은", "얼마일까?") fill the screen, one of 9 shrinks the whole hook to half.
 - CARD: always. The end card grows out of the last thing the last scene adds or changes, so end on the thing that matters. A big title of at most 6 characters, the term this short teaches, then one line of at most 14 characters cut at a space in two: the highlighted first part and the rest.
 - GIVEN lists every number that is simply given: the numbers of the series, the results of earlier parts that you show again, and counts above 2. Every other number on screen must come out of a calc.
-- 9 to 12 scenes. "#3 s2 hard | 문장" is scene 3, showing step 2; hard marks the difficult scenes so they get more time. The engine sets all timing.
-- The sentence: at most 22 characters not counting spaces, one idea, with the single key word or number between asterisks. Any number in it is already on screen or computed in this scene.
+- 8 to 10 scenes. "#3 s2 hard | 문장" is scene 3, showing step 2; hard marks the difficult scenes so they get more time. The engine sets all timing.
+- The sentence: at most 22 characters not counting spaces, one idea, with the single key word or number between asterisks. Any number in it is already on screen or computed in this scene, and written as its object shows it (40,000원, 4만원), never 40000원.
 - Exactly one scene is the ask scene (rule 6). It comes before the scene that shows its answer, never after; a short without it is rejected.
 - QUIZ: 2 questions for after the short, testing understanding with numbers different from the short. In QUIZ and ask the first choice is the right one; the app shuffles them.
 
@@ -128,82 +130,74 @@ Colours: ink blue red yellow pale grey white (meanings under The look). at=2.5 o
 A scene with ask has no sentence ("#7 s5 hard" then the ask line; the question at most 22 characters, each choice at most 12, why without numbers that are not on screen yet). The answer buttons take the lower part of the screen and the picture shrinks above them.
 Icons: person people student bank ship factory truck box container crane warehouse plane anchor coin coins money wallet card piggy vault won dollar ticket tag receipt doc contract cert stamp sign id up down chart pie trendup trenddown scale shield umbrella lock key gavel handshake clock calendar hourglass timer house store building office city globe pin flag car train bike rocket idea warn check x q star heart fire bolt target trophy medal gift dice puzzle magnet book cap pencil calc percent search eye brain robot phone laptop mail chat megaphone news like dislike smile sad cart coffee pizza burger shirt shoe apple bread chicken plant tree sun cloud drop snow thermo medical pill dna atom flask chip db gear wrench hammer stack cube battery plug music game camera ball
 
-The checker rejects: a number with no origin, a wrong calc, a scene where the picture does not change, more than 4 new things or more than one calc in a scene, wiping the screen more than twice, things that overlap or touch (a caption too long for its seat, a sign with something sitting between its two objects), more than 9 things on screen, more than 13 scenes, an ask after its own answer, an id used before it exists, a TIME line whose number of labels differs from the number of groups in GRID, a bar that never gets a number, a thing seated between the bars of its row.
+The checker rejects: a number with no origin, a wrong calc, a scene where the picture does not change, more than 4 new things or more than one calc in a scene, wiping the screen more than twice, things that overlap or touch (a caption too long for its seat, a sign with something sitting between its two objects), more than 9 things on screen, more than 13 scenes, an ask after its own answer, an id used before it exists, a GRID row with more seats than TIME has labels, a bar that never gets a number, a thing seated between the bars of its row.
 
 # Three complete examples
 Shorts from other subjects, to show the form and the level of care. The first comes with the brief as you receive it. Your picture, ids and wording are your own; do not reuse these.
 
 <brief>
-시리즈: 검사 결과를 믿어도 될까? (전체 3편 가운데 1편)
-시리즈 내내 쓰는 예시: 1000명 중 10명만 걸리는 병과, 정확도 90%짜리 검사
-시리즈의 숫자: 1000=검사받은 사람; 10=그중 환자; 990=건강한 사람; 90=검사 정확도(%); 9=환자 10명 중 양성
+시리즈: 모르는 내일, 어떻게 정할까? (전체 3편 가운데 1편)
+시리즈 내내 쓰는 예시: 우산 장수가 오늘 우산 50개를 10만원에 사 두고, 내일 비가 오면 25만원어치, 맑으면 5만원어치를 판다
+시리즈의 숫자: 50=사 두는 우산(개); 10=우산 50개 값(만원); 25=비 오면 판 돈(만원); 5=맑으면 판 돈(만원)
 이 편이 시리즈의 첫 편입니다. 아무것도 모르는 상태에서 시작하세요.
 
-이번 편: "양성 판정, 정말 90% 확률로 병일까?"
-가르칠 생각: 드문 병은 검사가 90% 정확해도, 양성인 사람 대부분은 건강한 사람이다.
-그림과 길: 1000명이 환자와 건강한 사람 두 무리로 갈라지는 나무. 무리마다 양성 수를 세고 맨 아래에서 합친다. 확률 공식은 쓰지 않는다.
-이 편이 끝나면 확정될 것: 양성 108명 중 환자는 9명(12명 중 1명). 잘못된 양성을 위양성이라 부른다.
+이번 편: "내일 비가 올지 모르는데, 우산을 사 둘까?"
+가르칠 생각: 갈래마다 남는 돈을 따로 세고 둘을 섞으면, 모르는 내일도 평균으로 따질 수 있다.
+그림과 길: 시간축(오늘, 내일, 남는 돈) 위 나무. 오늘 산 값 동그라미에서 비·맑음 두 갈래 동그라미(판 돈)가 오른쪽으로 갈라지고, 끝마다 남는 돈 동그라미. 평균은 오늘 칸의 노란 ?. 비 올 확률은 반반으로 단순화.
+이 편이 끝나면 확정될 것: 비 오면 15만원 남고 맑으면 5만원 손해, 반반이면 평균 5만원. 이 평균이 기댓값.
 걸어갈 단계:
-STEP 1 양성이면 병일 확률이 90% 아니야? => 정확도 90% 검사를 받은 1000명을 직접 세어 보기로 한다
-STEP 2 환자는 몇 명인데? => 드문 병이라 1000명 중 10명뿐이고 990명은 건강하다
-STEP 3 환자는 검사에서 어떻게 나와? => 10명 중 9명이 양성으로 잡힌다
-STEP 4 건강한 사람은 다 음성이야? => 10명 중 1명은 잘못 양성이 나온다. 990÷10=99명
-STEP 5 그럼 양성은 모두 몇 명이야? => 9+99=108명
-STEP 6 그중 진짜 환자는? => 108명 중 9명뿐이다. 108÷9=12, 12명 중 1명꼴
-STEP 7 왜 이렇게 적어? => 건강한 사람이 워낙 많아서 잘못된 양성이 진짜 양성을 덮는다. 잘못된 양성을 위양성이라 부른다
-ASK 양성인 사람 중 진짜 환자는? | 12명 중 1명 | 10명 중 9명 | 2명 중 1명 | before=5
-다음 편: "두 번 검사하면 믿어도 될까?"
+STEP 1 우산을 사 두면 얼마가 들어? => 오늘 우산 50개를 10만원에 산다
+STEP 2 내일은 얼마나 팔려? => 비 오면 25만원어치, 맑으면 5만원어치만 팔린다
+STEP 3 비 오면 얼마 남아? => 25−10=15만원 남는다
+STEP 4 그런데 맑으면? => 5−10=−5, 5만원 손해다
+STEP 5 어느 쪽이 될지 모르면? => 반반이면 두 갈래의 평균 (15−5)÷2=5만원
+STEP 6 이 평균은 뭐라고 불러? => 기댓값이라 부른다
+ASK 맑으면 남는 돈은? | 5만원 손해 | 5만원 남음 | 0원 | before=4
+다음 편: "비 올 확률이 70%라면?"
 </brief>
 
-TITLE 양성 판정, 정말 90% 확률로 병일까?
-HOOK 90% 검사 | 양성이면 | 정말 | 병일까?
-CARD 위양성 | 건강한데 | 양성인 사람
-GOAL 드문 병은 검사가 90% 정확해도, 양성인 사람 대부분은 건강한 사람이다.
-PICTURE 맨 위 1000명이 환자와 건강한 사람 두 무리로 갈라지고, 무리 아래에 양성 수가 붙고, 맨 아래에서 양성 전체로 합쳐진다.
-GRID all / sick well / tp fp / pos
-GIVEN 1000=검사받은 사람; 10=그중 환자; 990=건강한 사람; 9=환자 10명 중 양성; 90=검사 정확도
-TERM 위양성=건강한데 양성이 나온 것
-PART 1/3 next=두 번 검사하면 믿어도 될까?
-#1 s1 | 정확도 90% 검사에서 *양성*이 나왔어요
-node all 1000명 cap="검사받은 사람"
-note acc all right "정확도 90%"
-#2 s2 | 이 병은 1000명 중 *10명*만 걸려요
-node sick 10명 c=red cap="환자"
-node well 990명 c=pale cap="건강"
-arrow a1 all>sick
-arrow a2 all>well
-#3 s3 | 환자 10명 중 *9명*이 양성이에요
-node tp 9명 c=red cap="진짜 양성"
-arrow a3 sick>tp
-focus sick tp
-#4 s4 hard | 건강한 사람도 10명 중 1명은 *양성*
-calc c1 990@well ÷ 10 = 99명
-node fp 99명 c=yellow cap="잘못된 양성" at=3
-arrow a4 well>fp at=3
-focus well
-#5 s6 hard
-ask 양성인 사람 중 진짜 환자는? | 12명 중 1명 | 10명 중 9명 | 2명 중 1명 | why=환자보다 건강한 사람이 훨씬 많아요
-#6 s5 | 양성은 모두 *108명*이에요
-calc c2 9@tp + 99@fp = 108명
-node pos 108명 c=blue cap="양성 전체" at=3
-#7 s6 hard | 그중 진짜 환자는 *9명*뿐
-arrow a5 tp>pos
-arrow a6 fp>pos dash
-pulse tp
-focus tp pos
-#8 s6 | 양성 *12명 중 1명*만 환자예요
-calc c3 108@pos ÷ 9@tp = 12
-focus tp pos
-#9 s7 | 건강한 사람이 워낙 *많아서* 그래요
-sign cmp sick~well "<"
-pulse fp
-focus sick well fp
-#10 s7 | 잘못된 양성을 *위양성*이라 불러요
-note n1 fp right "위양성"
-focus fp
-END 드문 병은 양성이어도 대부분 건강한 사람이에요. 환자가 몇 명인지부터 세어 보세요.
-QUIZ 2000명 중 20명이 환자인 병이 있어요. 환자 20명 중 18명이 양성, 건강한 1980명 중 198명도 양성이면 양성은 모두 몇 명일까요? | 216명 | 198명 | 38명 | why=진짜 양성 18명과 잘못된 양성 198명을 더해요
-QUIZ 위 상황에서 양성인 사람 가운데 진짜 환자는 어느 정도일까요? | 12명 중 1명 | 10명 중 9명 | 10명 중 1명 | why=216명 중 18명이라 12명에 1명꼴이에요
+TITLE 내일 비가 올지 모르는데, 우산을 사 둘까?
+HOOK 비 올까? | 우산 50개 | 사 둘까 | 말까?
+CARD 기댓값 | 반반이면 | 평균 5만원
+GOAL 갈래마다 남는 돈을 따로 세고 둘을 섞으면, 모르는 내일도 평균으로 따질 수 있다.
+PICTURE 오늘·내일·남는 돈 시간축 위, 오늘 산 10만원이 비와 맑음 두 갈래로 오른쪽으로 갈라지고, 갈래 끝에 남는 돈이 붙고, 오늘 칸에 평균이 채워진다.
+TIME 오늘 | 내일 | 남는 돈
+CAST buy=node rain=node sun=node gr=node gs=node ev=node
+GRID - rain gr / buy - - / ev sun gs
+GIVEN 50=사 두는 우산(개); 10=우산 50개 값(만원); 25=비 오면 판 돈(만원); 5=맑으면 판 돈(만원)
+TERM 기댓값=갈래마다 남는 돈을 확률만큼 섞은 평균
+PART 1/3 next=비 올 확률이 70%라면?
+#1 s1 | 오늘 우산 50개를 *10만원*에 사요
+node buy 10만원 r=96 cap="오늘 산 값"
+#2 s2 | 내일 비가 오면 *25만원*어치 팔려요
+node rain 25만원 r=96 c=blue cap="판 돈"
+arrow a1 buy>rain "비"
+#3 s2 | 맑으면 *5만원*어치만 팔려요
+node sun 5만원 r=96 c=pale cap="판 돈"
+arrow a2 buy>sun "맑음"
+#4 s3 hard | 비 오면 *15만원*이 남아요
+calc c1 25@rain − 10@buy = 15만원
+node gr 15만원 c=blue at=3
+arrow a3 rain>gr at=3
+#5 s4 hard
+ask 맑으면 남는 돈은? | 5만원 손해 | 5만원 남음 | 0원 | why=판 돈이 산 값보다 적어요
+#6 s4 | 맑으면 5만원 *손해*예요
+calc c2 5@sun − 10@buy = −5만원
+node gs −5만원 c=red at=3
+arrow a4 sun>gs at=3
+#7 s5 hard | 내일 비 올지는 *반반*이에요
+node ev "?" c=yellow cap="평균 남는 돈"
+focus gr gs ev
+#8 s5 hard | 반반이면 평균 *5만원* 남아요
+calc c3 (15@gr + 5@gs) ÷ 2 = 5만원
+set ev 5만원 c=blue at=3
+#9 s6 | 이 평균을 *기댓값*이라 불러요
+set ev cap="기댓값"
+pulse ev
+focus ev gr gs
+END 내일을 몰라도 갈래마다 남는 돈을 세고 평균을 내면, 사 둘지 정할 수 있어요.
+QUIZ 붕어빵 재료를 4만원에 사요. 추우면 10만원, 따뜻하면 2만원어치 팔려요. 추우면 남는 돈은? | 6만원 | 10만원 | 4만원 | why=판 돈 10만원에서 재료값 4만원을 빼요
+QUIZ 위에서 추울지 따뜻할지 반반이면 평균 남는 돈은? | 2만원 | 6만원 | 4만원 | why=추우면 6만원, 따뜻하면 2만원 손해라 둘을 섞으면 2만원이에요
 
 A short whose picture is a flow between people (who gives what to whom):
 
@@ -212,6 +206,7 @@ HOOK 모르는 | 사람과 거래 | 누가 먼저 | 보낼까?
 CARD 에스크로 | 돈을 맡아 주는 | 중간 금고
 GOAL 둘 다 믿는 금고에 돈을 먼저 맡기면, 서로 몰라도 안심하고 거래할 수 있다.
 PICTURE 왼쪽에 구매자, 오른쪽에 판매자, 가운데 아래에 금고가 서 있고, 돈과 물건이 셋 사이를 차례로 오간다.
+CAST buyer=icon seller=icon safe=icon
 GRID buyer - seller / - / safe
 GIVEN 5=물건값(만원)
 TERM 에스크로=돈을 대신 맡아 주는 중간 금고
@@ -258,7 +253,8 @@ CARD 발생주의 | 꽃을 보낸 달에 | 매출이 생겨요
 GOAL 돈을 미리 받아도, 매출은 꽃을 보낸 달마다 나눠서 잡는다.
 PICTURE 1월·2월·3월 시간축 위, 1월에 받은 30만원이 떠 있고, 달마다 매출 기둥이 축 위에 서서 10만원씩 채워진다.
 TIME 1월 | 2월 | 3월
-GRID cash - r1 / owe - r2 / - - r3
+CAST cash=node r1=bar r2=bar r3=bar owe=node
+GRID cash owe - / - - - / r1 r2 r3
 GIVEN 30=미리 받은 석 달 치 구독료(만원); 3=구독하는 달 수
 TERM 발생주의=돈 받은 때가 아니라 일한 때 매출로 잡기; 선수수익=미리 받고 아직 일하지 않은 몫
 PART 1/3 next=1월에 쓴 전기료를 2월에 내면, 언제 비용일까?
