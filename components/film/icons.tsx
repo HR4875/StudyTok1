@@ -25,6 +25,13 @@ const ICONS = {
     </>
   ),
   check: <path d="M5 12.5l4.5 4.5L19 7.5" {...stroke(2.8)} />,
+  close: <path d="M6 6l12 12M18 6L6 18" {...stroke(2.6)} />,
+  gear: (
+    <>
+      <circle cx="12" cy="12" r="3.4" {...stroke(2.4)} />
+      <path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M5.5 18.5l2.1-2.1M16.4 7.6l2.1-2.1" {...stroke(2.4)} />
+    </>
+  ),
   up: <path d="M12 16V5m0 0L7.5 9.5M12 5l4.5 4.5M5 19h14" {...stroke(2.2)} />,
   prev: (
     <>
