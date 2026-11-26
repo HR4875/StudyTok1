@@ -243,7 +243,8 @@ export function createDirector(svg, opts = {}) {
         } else if (hw > r) rr(q, p.x - hw, p.y - r, hw * 2, r * 2, r, { fill: c, stroke: p.outline ? col(p.outline) : "none", "stroke-width": 6 }); // a long value: the circle widens into a pill
         else el("circle", { cx: p.x, cy: p.y, r, fill: c, stroke: p.outline ? col(p.outline) : "none", "stroke-width": 6 }, q);
         const v = shownValue(o, p), fg = p.frac != null && p.frac < 0.999 ? SK.ink : onFill(c);
-        if (v != null && v !== "") { if (p.value != null) number(String(v), p.x, p.y, p.size || r * 0.62, 800, fg, q, fitW); else label(v, p.x, p.y, p.size || r * 0.62, 800, fg, q, "middle", fitW); }
+        // a circle written with only a dash for its value ("node pier -") is a stop on a path with nothing to say: it is drawn empty
+        if (v != null && v !== "" && !/^[-–—·]$/.test(String(v).trim())) { if (p.value != null) number(String(v), p.x, p.y, p.size || r * 0.62, 800, fg, q, fitW); else label(v, p.x, p.y, p.size || r * 0.62, 800, fg, q, "middle", fitW); }
         if (p.cap) label(p.cap, p.x, p.y + r + 40, 42, 700, SK.sub, q, "middle", 340, true);
         break;
       }

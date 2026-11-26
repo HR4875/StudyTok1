@@ -122,7 +122,9 @@ export function normTerms(p: Props): Term[] {
     }
     if (typeof raw === "object") {
       const v = typeof raw.v === "number" ? raw.v : typeof raw.v === "string" && /^-?[\d,]+(\.\d+)?$/.test(raw.v.trim()) ? parseFloat(raw.v.replace(/,/g, "")) : NaN;
-      if (isFinite(v)) out.push({ kind: "num", v, text: (raw.pre ?? p.pre ?? "") + fmtV(v, raw.dec ?? p.dec) + (raw.suf ?? p.suf ?? ""), from: raw.from == null ? undefined : String(raw.from), color: raw.color });
+      // "−10000원" is written with the typographic minus the notation uses as its operator: the sign belongs to the number (it is drawn as written, and counted as negative)
+      const pre = String(raw.pre ?? p.pre ?? ""), sign = /[−–]\s*$/.test(pre) && v >= 0 ? -1 : 1;
+      if (isFinite(v)) out.push({ kind: "num", v: v * sign, text: pre + fmtV(v, raw.dec ?? p.dec) + (raw.suf ?? p.suf ?? ""), from: raw.from == null ? undefined : String(raw.from), color: raw.color });
       else if (raw.s != null || raw.str != null || typeof raw.v === "string") out.push({ kind: "txt", text: String(raw.s ?? raw.str ?? raw.v), from: raw.from == null ? undefined : String(raw.from), color: raw.color });
     }
   }
@@ -504,8 +506,10 @@ export function prep(script: Script, opt: { speed?: number; hook?: boolean } = {
       if (b.cam) { next = Object.assign({}, cur, b.cam); held = next; }
       else if (b.ask) { // a question first tries to leave the picture where it is; the buttons take the lower part of the screen
         const base = held || plan(k), here = all[k], hi = ASK_Y - 70;
+        // over a time axis the picture is one graph: a part of it without its axis reads as a broken one, so the whole is shown a little smaller before a part is
+        const whole = m.list.some((o) => o.type === "axis") ? 0.62 : 0.8;
         if (base && (!here || sees(base, here, hi))) next = base;
-        else if (here && roomy(here, true, 0.8)) next = camOf(fitBox(here, true));
+        else if (here && roomy(here, true, whole)) next = camOf(fitBox(here, true));
         else if (here) { // a big picture: show what the scenes just before were about, at a size that can still be read
           let c: Rect | null = core[k];
           for (let j = k - 1; j >= 0 && j >= k - 2; j--) { const v = join(c, core[j]); if (v && c && !roomy(v, true, 0.8)) break; c = v; if (wipe[j]) break; }
@@ -968,13 +972,14 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
       terms.forEach((x, k) => {
         if (x.from && !seenIds.has(x.from)) err(n, "ref", `calc "${a.id}": term ${x.text} flies from "${x.from}" which does not exist yet.`);
         if (x.kind === "num" && (eq < 0 || k < eq)) {
-          if (!ok(x.v as number)) err(n, "orphan", `calc "${a.id}" uses ${x.text}, but that number has not been shown before and is not in GIVEN. Show where it comes from first.`);
-          else if (!x.from && !TRIVIAL.has(x.v as number) && near(seen, x.v as number)) warn(n, "from", `calc "${a.id}": give term ${x.text} a "from" so the viewer sees which object it comes from.`);
+          const av = Math.abs(x.v as number); // where a number comes from is asked of its size: "−1,000" comes from the 1,000 on screen
+          if (!ok(av)) err(n, "orphan", `calc "${a.id}" uses ${x.text}, but that number has not been shown before and is not in GIVEN. Show where it comes from first.`);
+          else if (!x.from && !TRIVIAL.has(av) && near(seen, av)) warn(n, "from", `calc "${a.id}": give term ${x.text} a "from" so the viewer sees which object it comes from.`);
         }
       });
       const c = checkCalc(terms);
       if (c && !c.ok) err(n, "math", `calc "${a.id}" is wrong: the left side is ${fmtV(c.lhs)}, but the result shown is ${fmtV(c.rhs)}.`);
-      if (eq >= 0) terms.slice(eq + 1).forEach((x) => { if (x.kind === "num") { seen.add(x.v as number); computed.add(x.v as number); } });
+      if (eq >= 0) terms.slice(eq + 1).forEach((x) => { if (x.kind === "num") { seen.add(Math.abs(x.v as number)); computed.add(Math.abs(x.v as number)); } });
       const operands = terms.filter((x, k) => x.kind === "num" && (eq < 0 || k < eq)).length;
       if (operands > 3 || calcSize(a) < 44) err(n, "fit", `calc "${a.id}" is too long to read on a phone (${operands} numbers before "="; 3 at most). Split it into two calculations in two scenes.`);
       terms.forEach((x) => { if (x.from) { const src = m.objs.get(x.from); if (src && !(src.tAdd <= t0 + dur && src.tDel > t0 + 0.2)) warn(n, "from", `calc "${a.id}": term ${x.text} comes from "${x.from}", which is no longer on screen. Keep that result in a node or box.`); } });
