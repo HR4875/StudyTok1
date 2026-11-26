@@ -2,13 +2,13 @@
 // The model writes this instead of JSON, which costs about half the output tokens for the same film.
 // parseScript() turns it into the Script the engine plays, toText() writes a Script back, applyPatch() merges a repair.
 import type { Script, Beat, Action, Plan, Issue, Props, Quiz } from "./core";
-import { COLS, ROWS, hangOf, dotsDims } from "./core";
+import { COLS, ROWS, hangOf, dotsDims, approxW } from "./core";
 import { dict } from "./ease";
 import { ICONS } from "./icons";
 
 /** The unit an object's number carries, the number itself, and the words written on the object (a label may name another number with its own unit). */
 export interface UnitOf { pre?: string; suf?: string; v?: number; texts?: string[] }
-export interface Ctx { grid?: Record<string, [number, number]>; units?: Record<string, UnitOf> }
+export interface Ctx { grid?: Record<string, [number, number]>; units?: Record<string, UnitOf>; time?: boolean }
 export interface Parsed { script: Script; issues: Issue[]; labels: string[]; dels: string[]; has: Record<string, boolean>; grid: Record<string, [number, number]>; units: Record<string, UnitOf> }
 /** How much room a thing needs above and below the line of its row. A circle with a caption is the default; tall things (a balance, a dot grid, a table, a plot) hang down from the row, a bar stands up on it. */
 export type Reach = Record<string, { up: number; down: number }>;
@@ -94,6 +94,33 @@ export function gridSeats(line: string, reach: Reach = dict()): Record<string, [
   }
   return out;
 }
+/** "TIME 오늘 | 3개월 뒤" with "GRID s / u d": the groups of GRID are stages in time order, seated as columns from left to right over a time axis.
+ *  The ids of a group stack from the top; a group with fewer seats than the tallest one is centred beside it, so a tree opens from the middle
+ *  (s sits halfway between u and d). "-" leaves a seat empty. Rows take the room their tallest thing needs, as in gridSeats. */
+export const TIME_XS: Record<number, number[]> = { 1: [540], 2: [290, 790], 3: [200, 540, 880], 4: [165, 415, 665, 915] };
+export function timeSeats(line: string, reach: Reach = dict()): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = dict();
+  const groups = String(line || "").split("/").map((g) => g.trim().split(/[\s,]+/).filter(Boolean).slice(0, 4)).slice(0, 4), xs = TIME_XS[groups.length] || TIME_XS[4];
+  const R = Math.max(1, ...groups.map((g) => g.length));
+  const at: { id: string; c: number; f: number }[] = [];
+  groups.forEach((g, c) => g.forEach((id, j) => at.push({ id, c, f: (R - g.length) / 2 + j })));
+  const up = (id: string) => (reach[id] ? reach[id].up : UP), down = (id: string) => (reach[id] ? reach[id].down : DOWN);
+  // a thing halfway between two rows needs room in both
+  const ys: number[] = [];
+  let prevDown = 0;
+  for (let r = 0; r < R; r++) {
+    const here = at.filter((a) => a.id !== "-" && Math.abs(a.f - r) <= 0.5);
+    const u = Math.max(UP, ...here.map((a) => up(a.id)));
+    ys.push(r === 0 ? TOP + u : ys[r - 1] + prevDown + u);
+    prevDown = Math.max(DOWN, ...here.map((a) => down(a.id)));
+  }
+  const yAt = (f: number) => { const a = Math.floor(f), b = Math.min(R - 1, Math.ceil(f)); return ys[a] + (ys[b] - ys[a]) * (f - a); };
+  at.forEach((a) => { if (/^[A-Za-z_]\w*$/.test(a.id)) out[a.id] = [xs[a.c], Math.round(yAt(a.f))]; });
+  return out;
+}
+/** How far under its row line a thing reaches with its caption: the line of the time axis goes 40 under the lowest of these.
+ *  A bar with no name under it stands on its row line, so the axis goes right there and the bar stands on the axis. */
+const footOf = (type: string, reachDown: number, named: boolean) => (type === "bar" ? (named ? 84 : -40) : type === "node" || type === "icon" || type === "box" || type === "num" || type === "text" ? Math.min(reachDown, DOWN) : reachDown);
 
 const ICON_ALIAS: Record<string, string> = dict({ stock: "trendup", share: "trendup", shares: "trendup", graph: "chart", option: "ticket", call: "ticket", put: "ticket", coupon: "ticket", voucher: "ticket", bond: "receipt", loan: "handshake", cash: "money", bill: "money", bills: "money", safe: "vault", deposit: "piggy", savings: "piggy", exporter: "factory", importer: "store", seller: "person", buyer: "person", customer: "person", user: "person", man: "person", woman: "person", worker: "person", investor: "person", team: "people", group: "people", crowd: "people", company: "office", firm: "office", corp: "office", court: "gavel", law: "gavel", judge: "gavel", insurance: "shield", insurer: "umbrella", port: "anchor", vessel: "ship", boat: "ship", cargo: "container", goods: "box", package: "box", parcel: "box", product: "box", letter: "mail", email: "mail", document: "doc", paper: "doc", file: "doc", invoice: "receipt", time: "clock", date: "calendar", home: "house", shop: "store", market: "store", world: "globe", earth: "globe", location: "pin", question: "q", warning: "warn", alert: "warn", ok: "check", no: "x", cross: "x", light: "idea", bulb: "idea", lightbulb: "idea", calculator: "calc", school: "cap", graduation: "cap", pen: "pencil", computer: "laptop", pc: "laptop", mobile: "phone", smartphone: "phone", message: "chat", speech: "chat", thumbsup: "like", thumbsdown: "dislike", happy: "smile", unhappy: "sad", food: "burger", drink: "coffee", clothes: "shirt", fruit: "apple", water: "drop", rain: "cloud", temperature: "thermo", hospital: "medical", doctor: "medical", medicine: "pill", test: "flask", lab: "flask", science: "atom", cpu: "chip", database: "db", server: "db", setting: "gear", settings: "gear", tool: "wrench", tools: "wrench", layers: "stack", energy: "bolt", power: "plug", sport: "ball", photo: "camera", gold: "medal", prize: "trophy", win: "trophy", present: "gift", random: "dice", chance: "dice", probability: "dice", balance: "scale", weight: "scale", security: "lock", protect: "shield", risk: "warn", profit: "trendup", loss: "trenddown", rise: "up", fall: "down", increase: "up", decrease: "down", tax: "percent", rate: "percent", interest: "percent", discount: "tag", price: "tag", sale: "tag", shopping: "cart", delivery: "truck", transport: "truck", flight: "plane", airplane: "plane", rail: "train", bicycle: "bike", launch: "rocket", goal: "target", aim: "target", award: "medal", love: "heart", hot: "fire", fast: "bolt", identity: "id", passport: "id", license: "cert", certificate: "cert", seal: "stamp", approve: "stamp", signature: "sign", agreement: "handshake", deal: "handshake", trade: "handshake", exchange: "handshake", deadline: "hourglass", wait: "hourglass", stopwatch: "timer", apartment: "building", tower: "building", town: "city", country: "flag", nation: "flag", government: "building", customs: "building", account: "wallet", pay: "card", payment: "card", credit: "card", atm: "bank", piggybank: "piggy", treasure: "vault", krw: "won", usd: "dollar", currency: "coins", weather: "cloud", ice: "snow", cold: "snow", gene: "dna", cell: "atom", molecule: "atom", chemistry: "flask", ai: "robot", bot: "robot", mind: "brain", think: "brain", view: "eye", look: "eye", find: "search", magnifier: "search", newspaper: "news", announce: "megaphone", ad: "megaphone", song: "music", sound: "music", charge: "battery", block: "cube", piece: "puzzle", attract: "magnet", study: "book", textbook: "book", read: "book", write: "pencil", exam: "pencil", learner: "student", teacher: "person", professor: "person" });
 interface Tok { s: string; q: boolean; k?: string }
@@ -244,6 +271,20 @@ function choiceLine(rest0: string): { q: string; choices: string[]; answer: numb
 const TYPES = new Set(["node", "box", "text", "num", "bar", "icon", "arrow", "line", "brace", "calc", "note", "plot", "dot", "table", "sign", "scale", "dots"]);
 const OPS = new Set(["set", "del", "keep", "clear", "pulse", "send", "focus", "ask", "cam", "pline", "pmark"]);
 
+/** The time axis of a TIME picture: a line under the lowest thing of the whole short, from left of the first column to right of the last,
+ *  with a stage label under each column; with VALUE a line up the left end to above the highest thing. The parser adds it as the first action of scene 1. */
+function axisAction(stages: string[], vname: string | undefined, rows: Map<string, { y: number; type: string; named: boolean }>, reach: Reach): Action {
+  const xs = TIME_XS[stages.length] || TIME_XS[4], gap = xs.length > 1 ? xs[1] - xs[0] : 300;
+  let low = 0, high = Infinity;
+  rows.forEach((r, id) => { low = Math.max(low, r.y + footOf(r.type, reach[id] ? reach[id].down : DOWN, r.named)); high = Math.min(high, r.y - (reach[id] ? reach[id].up : UP)); });
+  if (!rows.size) { low = TOP + UP + DOWN; high = TOP; }
+  const a: Action = { id: "_axis", type: "axis", auto: true, x: Math.max(52, xs[0] - Math.min(115, gap * 0.45)), y: Math.round(low + 40), x2: Math.min(1000, xs[xs.length - 1] + Math.min(115, gap * 0.45)), labels: stages.slice(), xs: xs.slice() };
+  if (vname) { a.vname = vname; a.y2 = Math.round(high - 40); }
+  // a label wider than its column is typed smaller; the drawing measures the real text, this only keeps the estimate honest
+  a.size = Math.min(40, ...stages.map((l) => Math.floor((40 * (gap - 24)) / Math.max(1, approxW(l, 40)))));
+  return a;
+}
+
 export function parseScript(text: string, ctx: Ctx = {}): Parsed {
   const issues: Issue[] = [], script: Script = { beats: [] }, plan: Plan = {}, labels: string[] = [], dels: string[] = [], has: Record<string, boolean> = dict();
   const err = (beat: number, msg: string) => issues.push({ level: "error", beat, code: "syntax", msg });
@@ -255,6 +296,19 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
   const reach = reachOf(String(text || "")), life = lifeOf(String(text || "")), barV = barValues(String(text || "")), barPx = barUnit(Object.keys(barV).map((k) => barV[k]));
   let beat: Beat | null = null, n = 0;
   const raw = String(text || "").replace(/\r/g, "").split("\n");
+  const warnH = (msg: string, code = "syntax") => issues.push({ level: "warn", beat: 0, code, msg });
+  const errT = (msg: string) => issues.push({ level: "error", beat: 0, code: "time", msg });
+  const cut = (rest: string) => rest.split("|").map((x) => x.trim().replace(/^["“]|["”]$/g, "")).filter(Boolean);
+  const chars = (x: string) => Array.from(x.replace(/\s/g, "")).length;
+  // TIME changes how GRID is read, and it may come after GRID, so it is read first
+  const timeRaw = raw.find((l) => /^\s*TIME\s/.test(l));
+  let stages: string[] | null = null, timeOn = false; // stages: valid labels; timeOn: GRID is read as stages and the axis is drawn
+  if (timeRaw) {
+    const ls = cut(timeRaw.trim().slice(4));
+    if (ls.length < 2 || ls.length > 4) errT(`TIME has ${ls.length} stage label${ls.length === 1 ? "" : "s"}; write 2 to 4, separated by "|" ("TIME 오늘 | 3개월 뒤").`);
+    else { stages = ls; script.time = ls; const long = ls.filter((x) => chars(x) > 8); if (long.length) errT(`The stage label${long.length > 1 ? "s" : ""} ${long.map((x) => `"${x}"`).join(", ")} of TIME ${long.length > 1 ? "are" : "is"} too long to sit under ${long.length > 1 ? "their columns" : "its column"}; 8 characters at most.`); }
+  }
+  const placedRow = new Map<string, { y: number; type: string; named: boolean }>(); // the row line of every placed thing, for the axis under them all
   for (let ln = 0; ln < raw.length; ln++) {
     let line = raw[ln].trim();
     if (!line || line === "---" || line.startsWith("```") || line.startsWith("//")) continue;
@@ -281,14 +335,25 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     if (beat && sp > 0 && !TYPES.has(word) && !OPS.has(word) && (ICONS[word] || ICON_ALIAS[word]) && /^[A-Za-z_]\w*(\s|$)/.test(rest)) { const k = rest.search(/\s/); rest = (k < 0 ? rest : rest.slice(0, k)) + " " + word + (k < 0 ? "" : rest.slice(k)); word = "icon"; }
     const W = word.toUpperCase().replace(/:$/, "");
     // ----- header and footer lines
-    if (!beat || ["END", "QUIZ", "TITLE", "GOAL", "ROUTE", "PICTURE", "GRID", "NEEDS", "GIVEN", "STEP", "TERM", "TRAP", "PART", "VIEWER"].includes(W) && word === word.toUpperCase()) {
+    if (!beat || ["END", "QUIZ", "TITLE", "GOAL", "ROUTE", "PICTURE", "GRID", "NEEDS", "GIVEN", "STEP", "TERM", "TRAP", "PART", "VIEWER", "HOOK", "CARD", "TIME", "VALUE"].includes(W) && word === word.toUpperCase()) {
       if (W === "TITLE") { script.title = rest; has.title = true; continue; }
       if (W === "VIEWER") { plan.viewer = rest; continue; }
       if (W === "GOAL") { plan.goal = rest; has.goal = true; continue; }
       if (W === "ROUTE") { plan.route = rest; has.route = true; continue; }
       if (W === "NEEDS") { plan.needs = rest; has.needs = true; continue; }
       if (W === "PICTURE") { plan.picture = rest; has.picture = true; continue; }
-      if (W === "GRID") { plan.grid = rest; has.grid = true; Object.assign(grid, gridSeats(rest, reach)); continue; }
+      if (W === "GRID") {
+        plan.grid = rest; has.grid = true;
+        const groups = rest.split("/").filter((g) => g.trim()).length;
+        if (stages && groups !== stages.length) errT(`TIME names ${stages.length} stages but GRID has ${groups} group${groups === 1 ? "" : "s"}. With TIME every group of GRID (the part between "/") is one stage, from left to right: give one group per label.`);
+        timeOn = !!stages && groups === stages.length;
+        Object.assign(grid, timeOn ? timeSeats(rest, reach) : gridSeats(rest, reach));
+        continue;
+      }
+      if (W === "TIME") { has.time = true; continue; } // read before the scenes
+      if (W === "VALUE") { has.value = true; const v = rest.replace(/^["“]|["”]$/g, "").trim(); if (!timeRaw) warnH(`VALUE names the vertical axis of a TIME picture; without a TIME line it was left out.`, "time"); else if (chars(v) > 6) errT(`VALUE "${v}" is too long to stand beside the top of the vertical axis; 6 characters at most.`); else if (v) script.vname = v; continue; }
+      if (W === "HOOK") { has.hook = true; const k = cut(rest); if (k.length < 3 || k.length > 4) warnH(`HOOK has ${k.length} chunk${k.length === 1 ? "" : "s"}; it needs 3 or 4 separated by "|", so it was left out and the title opens the short.`, "hook"); else { script.hook = k; const long = k.filter((x) => chars(x) > 7); if (long.length) warnH(`HOOK chunk${long.length > 1 ? "s" : ""} ${long.map((x) => `"${x}"`).join(", ")} ${long.length > 1 ? "are" : "is"} longer than 7 characters and will be drawn small.`, "hook"); } continue; }
+      if (W === "CARD") { has.card = true; const k = cut(rest).slice(0, 3); if (k.length) { script.card = k; if (chars(k[0]) > 8) warnH(`The big title of CARD ("${k[0]}") is longer than 8 characters and will be drawn small.`, "card"); } continue; }
       if (W === "GIVEN") {
         plan.given = (plan.given || []).concat(rest.split(/\s*[;|]\s*/).filter(Boolean).map((g) => { const k = g.indexOf("="), v = (k < 0 ? g : g.slice(0, k)).trim(); return { v: NUM.test(v) ? parseFloat(v) : v, is: k < 0 ? "" : g.slice(k + 1).trim() }; }));
         has.given = true;
@@ -323,10 +388,10 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     if (op === "ask") { const c = choiceLine(rest); beat.ask = c; if (c.choices.length < 2) err(n, `Line ${ln + 1}: ask needs a question and 2 or 3 choices separated by "|".`); continue; }
     if (op === "cam") { const c: Props = {}; for (const t of toks) { const m = POS.exec(t.s); if (t.k) c[t.k] = kvValue(t.k, t); else if (m) { c.x = +m[1]; c.y = +m[2]; } } beat.cam = c; continue; }
     if (op === "del" || op === "pulse") { const at = toks.find((t) => t.k === "at"); toks.filter(bare).flatMap((t) => list(t.s)).forEach((id) => { acts.push(Object.assign({ op, id }, at ? { at: parseFloat(at.s) } : {})); if (op === "del") live.delete(id); }); continue; }
-    if (op === "keep" || op === "clear") {
+    if (op === "keep" || op === "clear") { // the time axis is the floor of the picture: wiping the things on it leaves it
       const kv = toks.find((t) => t.k === "keep"), ids = toks.filter(bare).flatMap((t) => list(t.s)).filter((x) => x !== "keep" && x !== "except");
       if (op === "clear" && !kv && ids.length && !/\b(keep|except)\b/.test(rest)) ids.forEach((id) => { acts.push({ op: "del", id }); live.delete(id); });
-      else { const keepIds = kv ? list(kv.s) : ids; acts.push({ op: "clear", keep: keepIds }); Array.from(live.keys()).forEach((k) => { if (!keepIds.includes(k)) live.delete(k); }); }
+      else { const keepIds = (kv ? list(kv.s) : ids).concat(timeOn || ctx.time ? ["_axis"] : []); acts.push({ op: "clear", keep: keepIds }); Array.from(live.keys()).forEach((k) => { if (!keepIds.includes(k)) live.delete(k); }); }
       continue;
     }
     if (op === "send") {
@@ -421,6 +486,7 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       else { a.str = strs[0]; if (strs[1] != null) a[type === "box" ? "sub" : "cap"] = strs[1]; }
     }
     if (type === "plot") plots[id] = { lines: [], marks: [] };
+    if ((timeOn || ctx.time) && (type === "arrow" || type === "line") && a.from != null) a.across = true; // see lineEnds
     if (type === "bar") a.scale = barPx; else if (isSet && barV[id] != null) delete a.scale; // the engine sets the measure of the bars
     {
       const words = [a.str, a.cap, a.sub, a.badge, a.left, a.right].filter((x): x is string => typeof x === "string" && x !== ""), was = units[id];
@@ -468,11 +534,15 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     if (!isSet && !gotPos && grid[id] && !["arrow", "line", "brace", "note", "sign", "dot"].includes(type)) { a.x = grid[id][0]; a.y = grid[id][1]; gotPos = true; a._seat = true; }
     // tall things hang down from their row instead of straddling it
     if (!isSet && gotPos && typeof a.y === "number" && ["node", "box", "icon", "num", "bar", "text", "table", "plot", "scale", "dots"].includes(type)) { seenIds.add(id); live.set(id, a.y as number); }
-    if (!isSet && gotPos && (a._seat || ROWS.includes(a.y as number))) { const hang = hangOf(type, a); if (hang != null) a.y = (a.y as number) - 80 + hang; }
+    const hung = !isSet && gotPos && (a._seat || ROWS.includes(a.y as number)) ? hangOf(type, a) : null;
+    if (hung != null) a.y = (a.y as number) - 80 + hung;
+    // the row line it stands on; a tall thing given as a position (a script written back by toText) was hung from its row, so the line is found again
+    if (!isSet && typeof a.y === "number" && PLACED_T.includes(type)) { const h = hangOf(type, a); placedRow.set(id, { y: hung != null || h == null ? (a.y as number) - (hung != null ? hung - 80 : 0) : (a.y as number) + 80 - h, type, named: a.str != null && a.str !== "" }); }
     delete a._seat;
     acts.push(a);
   }
   if (unseated.length) issues.push({ level: "warn", beat: 0, code: "seat", msg: `No seat in GRID for: ${unseated.join(", ")}. They were given free seats of the picture.` });
+  if (timeOn && stages && script.beats.length) script.beats[0].do = [axisAction(stages, script.vname, placedRow, reach) as Action].concat((script.beats[0].do || []) as Action[]);
   const ks = Object.keys(steps).map(Number).sort((x, y) => x - y);
   if (ks.length) plan.steps = ks.map((k) => steps[k]);
   if (Object.keys(plan).length) script.plan = plan;
@@ -488,7 +558,7 @@ function valTok(p: Props): string | null { return p.value == null ? null : (p.pr
 function actLine(a: Action): string[] {
   const op = a.op || (a.type ? "add" : "set");
   if (op === "del" || op === "pulse") return [`${op} ${a.id}${a.at != null ? " at=" + a.at : ""}`];
-  if (op === "clear") return [Array.isArray(a.keep) && a.keep.length ? `keep ${a.keep.join(" ")}` : "clear"];
+  if (op === "clear") { const k = Array.isArray(a.keep) ? a.keep.filter((x: unknown) => x !== "_axis") : []; return [k.length ? `keep ${k.join(" ")}` : "clear"]; } // the TIME line brings the axis back
   if (op === "send") return [`send ${a.from}>${a.to}${a.icon ? " " + a.icon : ""}${a.str != null ? " " + qt(a.str) : ""}${a.color ? " c=" + a.color : ""}${a.at != null ? " at=" + a.at : ""}`];
   const p: Props = Object.assign({}, a), type = op === "add" ? String(a.type) : "";
   const out: string[] = [op === "add" ? `${type} ${a.id}` : `set ${a.id}`];
@@ -539,6 +609,11 @@ const choiceText = (c: { q?: string; choices: string[]; answer: number; why?: st
 export function toText(script: Script, opt: { plan?: boolean } = {}): string {
   const L: string[] = [], p = script.plan || {};
   if (script.title) L.push("TITLE " + script.title);
+  if (script.hook && script.hook.length) L.push("HOOK " + script.hook.join(" | "));
+  if (script.card && script.card.length) L.push("CARD " + script.card.join(" | "));
+  if (opt.plan === false && script.time && p.grid) L.push("GRID " + p.grid); // a TIME picture is read from its GRID
+  if (script.time && script.time.length) L.push("TIME " + script.time.join(" | "));
+  if (script.time && script.vname) L.push("VALUE " + script.vname);
   if (opt.plan !== false) {
     if (p.goal) L.push("GOAL " + p.goal);
     if (p.route) L.push("ROUTE " + p.route);
@@ -553,7 +628,7 @@ export function toText(script: Script, opt: { plan?: boolean } = {}): string {
   }
   (script.beats || []).forEach((b, i) => {
     L.push(`#${i + 1}${b.step != null ? " s" + b.step : ""}${b.hard ? " hard" : ""}${b.say ? " | " + b.say : ""}`);
-    (b.do || []).forEach((a) => L.push(...actLine(a)));
+    (b.do || []).forEach((a) => { if (!(a && a.type === "axis" && a.auto)) L.push(...actLine(a)); }); // the parser adds the axis again from TIME
     if (b.cam) L.push(`cam ${b.cam.x ?? 540},${b.cam.y ?? 960}${b.cam.zoom != null ? " zoom=" + b.cam.zoom : ""}`);
     if (b.focus && b.focus.length) L.push("focus " + b.focus.join(" "));
     if (b.ask) L.push("ask " + choiceText(b.ask));
@@ -566,7 +641,7 @@ export function toText(script: Script, opt: { plan?: boolean } = {}): string {
 /** Merge a repair: scenes with the same number replace the old ones, "#5a" goes in after scene 5, "#7 DEL" removes scene 7. */
 export function applyPatch(base: Script, patchText: string): { script: Script; issues: Issue[]; changed: string[] } {
   const b0 = parseScript(toText(base)); // the seats and units the unchanged scenes already use
-  const p = parseScript(patchText, { grid: b0.grid, units: b0.units }), out: Script = Object.assign({}, base, { plan: Object.assign({}, base.plan || {}) }), changed: string[] = [];
+  const p = parseScript(patchText, { grid: b0.grid, units: b0.units, time: !!base.time }), out: Script = Object.assign({}, base, { plan: Object.assign({}, base.plan || {}) }), changed: string[] = [];
   const byLabel = new Map<string, Beat>();
   p.labels.forEach((l, i) => byLabel.set(l.toLowerCase(), p.script.beats[i]));
   const dels = new Set(p.dels.map((x) => x.toLowerCase())), beats: Beat[] = [];
@@ -581,6 +656,10 @@ export function applyPatch(base: Script, patchText: string): { script: Script; i
   });
   out.beats = beats;
   const pp = p.script.plan || {}, plan = out.plan as Plan;
+  if (p.has.hook) { if (p.script.hook) out.hook = p.script.hook; else delete out.hook; }
+  if (p.has.card && p.script.card) out.card = p.script.card;
+  if (p.has.time) { if (p.script.time) out.time = p.script.time; else delete out.time; }
+  if (p.has.value) { if (p.script.vname) out.vname = p.script.vname; else delete out.vname; }
   if (p.has.title && p.script.title) out.title = p.script.title;
   if (p.has.goal) plan.goal = pp.goal;
   if (p.has.route) plan.route = pp.route;
@@ -593,5 +672,12 @@ export function applyPatch(base: Script, patchText: string): { script: Script; i
   if (p.has.trap) plan.trap = pp.trap;
   if (p.has.end && p.script.takeaway) out.takeaway = p.script.takeaway;
   if (p.has.quiz && p.script.quiz) out.quiz = p.script.quiz;
+  // the time axis lies under the whole picture and opens scene 1: measure it again on the merged scenes and put it back in its place
+  const isAxis = (a: Action) => !!a && a.type === "axis" && !!a.auto;
+  out.beats = out.beats.map((b) => ((b.do || []).some(isAxis) ? Object.assign({}, b, { do: (b.do || []).filter((a) => !isAxis(a)) }) : b));
+  if (out.time && out.beats.length) {
+    const again = parseScript(toText(out)).script.beats[0], ax = again && (again.do || []).find(isAxis);
+    if (ax) out.beats[0] = Object.assign({}, out.beats[0], { do: [ax].concat(out.beats[0].do || []) });
+  }
   return { script: out, issues: p.issues, changed };
 }
