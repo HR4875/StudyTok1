@@ -860,6 +860,8 @@ export const SAMPLES: Sample[] = [
     label: "양성 판정, 정말 병일까?",
     kind: "갈라지는 나무",
     raw: `TITLE 양성 판정, 정말 90% 확률로 병일까?
+HOOK 90% 검사 | 양성이면 | 정말 | 병일까?
+CARD 위양성 | 건강한데 | 양성인 사람
 GOAL 드문 병은 검사가 90% 정확해도, 양성인 사람 대부분은 건강한 사람이다.
 PICTURE 맨 위 1000명이 환자와 건강한 사람 두 무리로 갈라지고, 무리 아래에 양성 수가 붙고, 맨 아래에서 양성 전체로 합쳐진다.
 GRID all / sick well / tp fp / pos
@@ -871,7 +873,7 @@ node all 1000명 cap="검사받은 사람"
 note acc all right "정확도 90%"
 #2 s2 | 이 병은 1000명 중 *10명*만 걸려요
 node sick 10명 c=red cap="환자"
-node well 990명 c=green cap="건강"
+node well 990명 c=pale cap="건강"
 arrow a1 all>sick
 arrow a2 all>well
 #3 s3 | 환자 10명 중 *9명*이 양성이에요
@@ -912,6 +914,8 @@ QUIZ 위 상황에서 양성인 사람 가운데 진짜 환자는 어느 정도�
     label: "중고거래, 누가 먼저?",
     kind: "주고받는 흐름",
     raw: `TITLE 모르는 사람과 중고거래, 누가 먼저 보낼까?
+HOOK 모르는 | 사람과 거래 | 누가 먼저 | 보낼까?
+CARD 에스크로 | 돈을 맡아 주는 | 중간 금고
 GOAL 둘 다 믿는 금고에 돈을 먼저 맡기면, 서로 몰라도 안심하고 거래할 수 있다.
 PICTURE 왼쪽에 구매자, 오른쪽에 판매자, 가운데 아래에 금고가 서 있고, 돈과 물건이 셋 사이를 차례로 오간다.
 GRID buyer - seller / - / safe
@@ -922,8 +926,8 @@ PART 1/2 next=수수료는 누가 낼까?
 icon buyer person cap="구매자"
 icon seller person cap="판매자"
 #2 s1 hard | 누가 먼저 보내죠? 둘 다 *불안해요*
-note n1 buyer bottom "돈 먼저? 불안"
-note n2 seller bottom "물건 먼저? 불안"
+note n1 buyer bottom "돈 먼저?"
+note n2 seller bottom "물건 먼저?"
 sign q buyer~seller "?"
 #3 s2 | 그래서 둘 다 믿는 *금고*를 세워요
 del n1 n2 q
@@ -954,43 +958,50 @@ QUIZ 물건이 끝내 오지 않으면 금고에 있던 돈은 어떻게 될까�
 `,
   },
   {
-    label: "열지 않고 세는 사탕",
-    kind: "저울",
-    raw: `TITLE 상자 속 사탕, 열지 않고 셀 수 있을까?
-GOAL 수평인 저울 양쪽에서 똑같이 덜어 내면, 모르는 수만 남아서 답이 보인다.
-PICTURE 가운데 저울 하나가 끝까지 서 있고 접시에 올린 것만 바뀐다. 저울 아래에 덜어 낸 수와 답이 차례로 놓인다.
-GRID sc / off ans
-GIVEN 3=왼쪽 접시의 사탕; 7=오른쪽 접시의 사탕
-TERM 방정식=모르는 수가 들어 있는 식
-PART 1/2 next=양쪽에 똑같이 곱해도 될까?
-#1 s1 | 상자에 사탕이 *몇 개* 들었을까요?
-scale sc "상자 + 3개" "사탕 7개"
-#2 s2 | 수평이니까 양쪽 무게가 *같아요*
-note eq sc top "수평 = 같다"
-pulse sc
-#3 s3 hard | 왼쪽에서 3개를 덜면 *기울어요*
-del eq
-node off 3개 c=red cap="덜어 낸 사탕"
-set sc left="상자" tilt=0.8
-#4 s4 hard
-ask 다시 수평이 되려면 오른쪽은? | 3개를 던다 | 7개를 던다 | 그대로 둔다 | why=양쪽에서 똑같이 덜어야 해요
-#5 s4 hard | 오른쪽에서도 똑같이 *3개*를 덜어요
-calc c1 7@sc − 3@off = 4개
-set sc right="사탕 4개" tilt=0 at=3
-#6 s5 | 상자 하나가 사탕 *4개*와 수평이에요
-node ans 4개 c=green cap="상자 속 사탕"
-#7 s5 | 열지 않고도 답은 *4개*예요
-pulse ans
-focus sc ans
-#8 s6 | 양쪽에서 같은 수를 빼면 *그대로 수평*
-note same sc top "똑같이 빼기"
-pulse sc
-#9 s6 | 이렇게 푸는 식이 *방정식*이에요
-note name ans right "방정식의 답"
-focus ans
-END 저울 양쪽에서 똑같이 덜어 내면, 상자를 열지 않고도 속에 든 수를 알 수 있어요.
-QUIZ 저울 왼쪽에 상자 하나와 사탕 5개, 오른쪽에 사탕 12개가 수평이에요. 상자 안에는 몇 개가 들었을까요? | 7개 | 17개 | 5개 | why=양쪽에서 5개씩 덜면 12에서 5를 뺀 7개가 남아요
-QUIZ 수평인 저울의 왼쪽에서만 사탕 2개를 덜었어요. 다시 수평이 되려면 어떻게 해야 할까요? | 오른쪽에서도 2개를 던다 | 오른쪽에 2개를 더 올린다 | 그대로 둔다 | why=양쪽에서 같은 만큼 덜어야 수평이 유지돼요
+    label: "미리 받은 구독료, 언제 매출?",
+    kind: "시간축 위 기둥",
+    raw: `TITLE 석 달 치 구독료를 1월에 받으면, 다 1월 매출일까?
+HOOK 미리 받은 | 30만원 | 다 1월 | 매출일까?
+CARD 발생주의 | 꽃을 보낸 달에 | 매출이 생겨요
+GOAL 돈을 미리 받아도, 매출은 꽃을 보낸 달마다 나눠서 잡는다.
+PICTURE 1월·2월·3월 시간축 위, 1월에 받은 30만원이 떠 있고, 달마다 매출 기둥이 축 위에 서서 10만원씩 채워진다.
+TIME 1월 | 2월 | 3월
+GRID cash - r1 / owe - r2 / - - r3
+GIVEN 30=미리 받은 석 달 치 구독료(만원); 3=구독하는 달 수
+TERM 발생주의=돈 받은 때가 아니라 일한 때 매출로 잡기; 선수수익=미리 받고 아직 일하지 않은 몫
+PART 1/3 next=1월에 쓴 전기료를 2월에 내면, 언제 비용일까?
+#1 s1 | 1월에 꽃 구독료 *30만원*을 받았어요
+node cash 30만원 cap="받은 돈"
+#2 s1 | 꽃은 석 달 동안 *매달* 보내요
+note n1 cash right "석 달 치"
+#3 s2 hard
+ask 1월 매출은 얼마일까요? | 10만원 | 30만원 | 0원 | why=1월엔 한 달 치 꽃만 보냈어요
+#4 s3 | 매출은 꽃을 *보낸 달*에 생겨요
+del n1
+bar r1 c=blue
+bar r2 c=blue
+bar r3 c=blue
+#5 s4 hard | 한 달 치는 *30만원 ÷ 3*이에요
+calc c1 30@cash ÷ 3 = 10만원
+set r1 10만원 at=3
+#6 s5 | 그래서 1월 매출은 *10만원*뿐이에요
+pulse r1
+focus cash r1
+#7 s6 hard | 남은 *20만원*은 아직 보낼 꽃 값이에요
+calc c2 30@cash − 10@r1 = 20만원
+node owe 20만원 c=pale cap="아직 보낼 꽃" at=3
+#8 s6 | 미리 받은 이 몫이 *선수수익*이에요
+note n2 owe right "선수수익"
+focus owe
+#9 s7 | 일한 만큼만 매출, 이게 *발생주의*예요
+focus r1 owe
+#10 s7 | 2월, 3월에 보내면 *10만원*씩 채워져요
+set r2 10만원
+set r3 10만원 at=1
+focus r1 r2 r3
+END 돈을 미리 받아도, 매출은 꽃을 보낸 달마다 나눠서 잡아요.
+QUIZ 6개월 치 수업료 60만원을 1월에 받았어요. 1월 매출은 얼마일까요? | 10만원 | 60만원 | 0원 | why=60만원을 6개월로 나눠 한 달에 10만원씩이에요
+QUIZ 위 학원이 1월 말에 아직 수업해 줘야 하는 몫은 얼마일까요? | 50만원 | 10만원 | 60만원 | why=60만원에서 1월에 번 10만원을 빼요
 `,
   },
 ];
