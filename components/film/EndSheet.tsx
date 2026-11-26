@@ -24,6 +24,7 @@ export function costLine(e: ShortEntry, s: Series | null): string {
   if (e.from === "built") {
     const c = e.cost;
     const fix = c.fix === "rewrite" ? " (자동 점검 뒤 한 번 다시 쓴 것)" : c.fix === "patch" ? " (자동 점검에 걸린 장면 하나만 고친 것)" : "";
+    if (e.edited) return `Sonnet 5.5가 쓴 대본을 사람이 연출만 다듬은 편이에요. AI 비용은 대본 ${usd(c.write)}에 시리즈 계획 몫 ${usd(share)}를 더해 ${usd(c.write + share)}였습니다.`;
     return `Sonnet 5.5가 ${c.secs}초 만에 쓴 대본 그대로예요${fix}. AI 비용은 대본 ${usd(c.write)}에 시리즈 계획 몫 ${usd(share)}를 더해 ${usd(c.write + share)}였습니다.`;
   }
   const m = e.made;

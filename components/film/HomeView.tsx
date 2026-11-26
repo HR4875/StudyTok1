@@ -102,6 +102,10 @@ export default function HomeView({ paused }: { paused: boolean }) {
   useFilmStore();
   const mine = listSeries("mine");
   const built = listSeries("built");
+  // 사람이 다듬은 편이 있으면 "그대로"라고 말하지 않는다
+  const touched = (e: unknown) => !!e && (e as { from?: string; edited?: boolean }).from === "built" && !!(e as { edited?: boolean }).edited;
+  const heroEdited = touched(built.find((s) => s.id === "bino")?.shorts[1]);
+  const anyEdited = built.some((s) => Object.values(s.shorts).some(touched));
   return (
     <>
       {/* 제목 띠: 오션 블루 + 흰 글씨 STUDY T@K (확정안 시작 화면) */}
@@ -146,7 +150,8 @@ export default function HomeView({ paused }: { paused: boolean }) {
             <span className="tag">
               <b />
               <span>
-                AI가 쓴 그대로<span className="long"> 재생 중</span>
+                {heroEdited ? "AI가 쓰고 사람이 다듬음" : "AI가 쓴 그대로"}
+                <span className="long"> 재생 중</span>
               </span>
             </span>
           </a>
@@ -166,7 +171,7 @@ export default function HomeView({ paused }: { paused: boolean }) {
           </div>
         </Section>
       ) : null}
-      <Section title="바로 볼 수 있는 시리즈" hint="AI가 계획하고 쓴 대본을 손대지 않고 그대로 실었어요.">
+      <Section title="바로 볼 수 있는 시리즈" hint={anyEdited ? "AI가 계획하고 쓴 대본이에요. 사람이 다듬은 편은 끝 화면에 적어 두었어요." : "AI가 계획하고 쓴 대본을 손대지 않고 그대로 실었어요."}>
         <div className="cards">
           {built.map((s) => (
             <SeriesCard key={s.id} s={s} />

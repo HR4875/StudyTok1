@@ -56,7 +56,7 @@ export interface MadeShort {
 }
 
 export type ShortEntry =
-  | { from: "built"; raw: string; cost: BuiltShort["cost"] }
+  | { from: "built"; raw: string; cost: BuiltShort["cost"]; edited?: boolean }
   | { from: "mine"; raw: string; made: MadeShort }
   | { from: "ex"; raw: string; label: string; kind: string };
 
@@ -214,7 +214,7 @@ function build(made: Made): Map<string, Series> {
   for (const b of BUILT_SERIES) {
     const plan = builtPlan(b.id, b.planText);
     const shorts: Record<number, ShortEntry> = {};
-    for (const [k, v] of Object.entries(b.shorts)) shorts[Number(k)] = { from: "built", raw: v.raw, cost: v.cost };
+    for (const [k, v] of Object.entries(b.shorts)) shorts[Number(k)] = { from: "built", raw: v.raw, cost: v.cost, edited: v.edited };
     // 내장 시리즈에서 아직 없던 편을 이 기기에서 만들었으면 이어 붙인다
     for (let k = 1; k <= plan.shorts.length; k++) {
       const m = made.shorts[keyOf(b.id, k)];

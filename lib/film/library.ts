@@ -1,11 +1,13 @@
 // 내장 시리즈와 맛보기. 실제 제작 과정(계획 → 대본 → 자동 점검 → 한 번의 수리)을 그대로 거쳐 만들어 둔 결과라서
 // AI 키가 없어도 바로 볼 수 있고, 서버의 예시 모드(MOCK_AI=1)도 이 내용으로 답한다.
-// 글은 모델이 쓴 표기 그대로다: planText는 기획 모델의 답, raw는 대본 모델의 답(자동 점검 통과본).
+// 글은 모델이 쓴 표기 그대로다: planText는 기획 모델의 답, raw는 대본 모델의 답(자동 점검 통과본). 사람이 다듬은 편은 edited: true로 표시한다.
 // cost는 만들 때 잰 값이다 (Sonnet 5.5 API 가격, 대본 지시문 캐시 기준, 달러). fix는 자동 점검 뒤 한 번 고친 방법.
 
 export interface BuiltShort {
   raw: string;
   cost: { write: number; secs: number; fix: "" | "patch" | "rewrite" };
+  /** 모델이 쓴 대본을 사람이 다듬었으면 true. 화면에서 "AI가 쓴 그대로"라고 말하지 않는다. */
+  edited?: boolean;
 }
 
 export interface BuiltSeries {
@@ -153,52 +155,55 @@ ASK 배당이 있으면 p는? | 작아진다 | 커진다 | 같다 | before=5
     shorts: {
       1: {
         cost: { write: 0.0168, secs: 14, fix: "" },
+        edited: true,
         raw: `TITLE 3개월 뒤 주가가 22 아니면 18뿐이라면, 21에 살 권리의 값은?
+HOOK 오르면 22 | 내리면 18 | 이 쿠폰은 | 얼마일까?
+CARD 콜옵션 | 오를 때만 | 쓰는 쿠폰
 GOAL 콜옵션은 만기에 주가가 올랐을 때만 1을 벌고 내렸을 때는 0이다.
-PICTURE 오늘 주가 20이 3개월 뒤 22와 18로 갈라지는 동그라미 나무 하나가 왼쪽에서 오른쪽으로 시간 순서대로 자라 끝까지 남고, 그 끝에 콜 쿠폰의 가치가 차례로 붙는다.
-GRID cpn now k / up f down / cu - cd
+PICTURE 시간축 위에서 오늘 주가 20이 3개월 뒤 22와 18로 갈라지는 나무가 왼쪽에서 오른쪽으로 자라고, 두 가지 끝마다 쿠폰의 값이 기둥으로 선다.
 TIME 오늘 | 3개월 뒤 | 쿠폰 값
+GRID cpn now f / up - down / cu - cd
 GIVEN 20=오늘 주가; 22=3개월 뒤 오르면 주가; 18=3개월 뒤 내리면 주가; 21=행사가격
 TERM 콜옵션=정해 둔 값에 살 수 있는 권리 쿠폰; 행사가격=쿠폰에 적힌 값
 PART 1/14 next=콜 하나는 주식 몇 주만큼 출렁일까?
-#1 s1 | 오늘 주가 *20*, 3개월 뒤엔 둘 중 하나예요
-node now 20원 cap="오늘 주가"
-#2 s1 | 오르면 *22*, 내리면 18뿐이에요
-node up 22원 c=green cap="오르면"
-node down 18원 c=red cap="내리면"
-arrow a1 now>up
-arrow a2 now>down
-#3 s2 | 여기에 *쿠폰* 한 장이 있어요
-icon cpn ticket cap="쿠폰"
-note n1 cpn right "3개월 뒤 21원에 살 권리"
+#1 s1 | 오늘 주가는 *20원*이에요
+node now 20원 r=96 cap="오늘 주가"
+#2 s1 | 3개월 뒤엔 *22* 아니면 18뿐이에요
+node up 22원 r=96 c=blue
+node down 18원 r=96 c=red
+arrow a1 now>up "오르면"
+arrow a2 now>down "내리면"
+#3 s2 | 여기 *쿠폰* 한 장이 있어요
+icon cpn ticket cap="21원에 살 권리"
 #4 s2 | 이 쿠폰의 이름이 *콜옵션*이에요
-note n2 cpn bottom "콜옵션"
-node k 21원 c=yellow cap="행사가격"
-#5 s3 hard | 22원 주식을 *21원*에 살 수 있어요
-del cpn n1 n2
-focus up k
-note n3 up right "시장 22원"
+note n2 cpn top "콜옵션"
+#5 s3 hard | 22원짜리를 *21원*에 살 수 있어요
+focus up cpn
+note n3 up top "시장 22원"
 #6 s3 hard | 시장보다 싸게 사니 *1원* 이득이에요
-calc c1 22@up − 21@k = 1원
-node cu 1원 c=green cap="오를 때 쿠폰" at=3
-arrow a3 up>cu
+calc c1 22@up − 21@cpn = 1원
+note p1 up right "쿠폰 1원" c=blue at=3
+focus up cpn
 #7 s4 hard
 ask 주가가 18이 되면 쿠폰은 얼마? | 0 | 3 | -3 | why=포기하면 되니까 손해는 없어요
-#8 s4 hard | 18원 주식을 굳이 21원에 *살 이유*가 없죠
+#8 s4 hard | 18원짜리를 굳이 21원에 *살 이유*가 없죠
 del n3
-focus down k
-note n4 down right "시장 18원"
-#9 s4 | 쿠폰은 쓰지 않고 *포기*해요
-node cd 0원 c=red cap="내릴 때 쿠폰" at=2
-arrow a4 down>cd at=2
-#10 s5 | 나무 끝에 *1*과 0이 붙었어요
+focus down cpn
+note n4 down bottom "시장 18원"
+#9 s4 | 쿠폰은 쓰지 않고 버려요. *0원*이에요
 del n4
-focus cu cd
-#11 s5 | 그럼 오늘 쿠폰 값은 *얼마*일까요?
-node f "?" c=yellow cap="오늘 쿠폰 값 f"
-arrow a5 cu>f dash
-arrow a6 cd>f dash
-END 콜옵션은 주가가 오르면 1을 벌고 내리면 0이에요. 오늘 값 f는 다음 편부터 찾아봐요.
+note p0 down right "쿠폰 0원" c=red
+focus down cpn
+#10 s5 | 오르면 *1원*, 내리면 0원이에요
+del p1 p0
+bar cu 1원 c=blue
+bar cd 0원 c=red
+arrow a3 up>cu
+arrow a4 down>cd
+#11 s5 | 그럼 오늘은 *얼마*에 사야 할까요?
+node f "?" c=yellow cap="오늘 쿠폰 값"
+focus cpn f cu cd
+END 콜옵션은 주가가 오르면 1을 벌고 내리면 0이에요. 오늘 값은 다음 편부터 찾아봐요.
 QUIZ 행사가격 50원인 콜옵션이에요. 만기에 주가가 60원이 되면 쿠폰 가치는 얼마일까요? | 10원 | 60원 | 50원 | why=60원짜리를 50원에 사니 10원 이득이에요
 QUIZ 행사가격 50원인 콜옵션이에요. 만기에 주가가 40원이 되면 쿠폰 가치는 얼마일까요? | 0원 | 10원 | -10원 | why=싸게 살 수 없으니 쿠폰을 포기해 0원이에요
 `,
