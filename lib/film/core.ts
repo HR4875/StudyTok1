@@ -161,7 +161,8 @@ export function checkCalc(terms: Term[]): { ok: boolean; lhs: number; rhs: numbe
   const tol = Math.max(Math.abs(rhs) * 0.004, 0.6 * Math.pow(10, -shown));
   const ways = [lhs];
   if (left.some((t) => t.kind === "num" && pct(t))) { i = 0; hundredths = true; ways.push(sum()); }
-  if (pct(right[0])) ways.push(...ways.map((v) => v * 100));
+  // a percent result: the reading as written ("20% + 30% = 50%"), or the hundredth reading times 100 ("1만 ÷ 3만 = 33%", "10% × 10% = 1%")
+  if (pct(right[0])) ways.splice(0, ways.length, lhs, ways[ways.length - 1] * 100);
   return { ok: ways.some((v) => Math.abs(v - rhs) <= tol), lhs, rhs };
 }
 
@@ -426,8 +427,10 @@ export function prep(script: Script, opt: { speed?: number; hook?: boolean } = {
     const t1 = Math.max(bm.t0 + bm.dur - 0.02, o.tAdd + 0.1), p = stateOfEnd(o, t1), want = String(p.side || "right");
     const others: Box[] = [], segs: { s: number[]; now: boolean }[] = [], mine: Record<string, number> = dict(); // mine: how far out the tags this thing already has reach, per side
     m.list.forEach((q) => {
-      if (q === o || !(q.tAdd < o.tDel && q.tDel > o.tAdd) || q.id === String(p.to)) return;
+      if (q === o || !(q.tAdd < o.tDel && q.tDel > o.tAdd)) return;
       const tq = Math.max(t1, q.tAdd + 0.6);
+      // the thing the tag hangs on is no obstacle, but when that thing is a line, the line's own label is
+      if (q.id === String(p.to)) { if (q.type === "arrow" || q.type === "line") { const lb = lineLabel(m, q.keys[0].p, tq); if (lb) others.push(lb); } return; }
       if (q.type === "arrow" || q.type === "line") {
         const qp = q.keys[0].p;
         if (qp.from == null || qp.to == null) return;
@@ -631,7 +634,11 @@ export function beatAt(m: Model, t: number): BeatM | null {
 // ---------- geometry (estimates; the drawing code measures real text) ----------
 export interface Box { x0: number; y0: number; x1: number; y1: number }
 export const plotMap = (p: Props) => {
-  const w = p.w || 800, h = p.h || 560, x0 = (p.x || 540) - w / 2, y1 = (p.y || 1100) + h / 2;
+  let w = p.w || 800, x0 = (p.x || 540) - w / 2;
+  const h = p.h || 560, y1 = (p.y || 1100) + h / 2;
+  // the numbers of the vertical axis stand left of it ("20,000" is 120 wide): the plot gives up that much of its width so they stay on screen
+  const lab = Math.min(150, Math.max(0, ...(Array.isArray(p.yt) ? p.yt : []).map((v: unknown) => approxW(fmtV(Number(v)), 36)))), need = ZONE.x0 + lab + 20;
+  if (lab > 0 && x0 < need && w - (need - x0) > 300) { w -= need - x0; x0 = need; }
   const xr = Array.isArray(p.xr) && p.xr.length === 2 ? p.xr : [0, 1], yr = Array.isArray(p.yr) && p.yr.length === 2 ? p.yr : [0, 1];
   return { x0, y1, w, h, xr, yr, sx: (v: number) => x0 + ((v - xr[0]) / (xr[1] - xr[0] || 1)) * w, sy: (v: number) => y1 - ((v - yr[0]) / (yr[1] - yr[0] || 1)) * h };
 };
@@ -785,10 +792,18 @@ export function noteBox(m: Model, p: Props, t: number, side?: string): (Box & { 
   return { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2, cx: x, cy: y, w, h, tip };
 }
 /** The point other things aim at (arrows, flying numbers, tokens), with the radius to stop short of it. */
-export function anchorOf(m: Model, id: string, t: number): Anchor | null {
+export function anchorOf(m: Model, id: string, t: number, deep = 0): Anchor | null {
   const o = m.objs.get(String(id));
   if (!o) return null;
   const p = stateOf(o, t), b = boxOf(m, o, p, t);
+  // a tag hung on a line sits at the middle of that line, and a tag hung on another tag sits on the thing that tag names: neither is dropped
+  if ((o.type === "arrow" || o.type === "line") && p.from != null && p.to != null && deep < 3) {
+    const A = anchorOf(m, String(p.from), t, deep + 1), B = anchorOf(m, String(p.to), t, deep + 1);
+    if (!A || !B) return null;
+    const [a, c] = lineEnds(A, B, p);
+    return { x: (a[0] + c[0]) / 2, y: (a[1] + c[1]) / 2, r: 10, box: null };
+  }
+  if (o.type === "note" && p.to != null && deep < 3) return anchorOf(m, String(p.to), t, deep + 1);
   if (o.type === "node") return { x: p.x, y: p.y, r: (p.r || 80) + 8, hw: nodeHalf(p) + 8, box: b };
   if (o.type === "icon") return { x: p.x, y: p.y, r: (p.size || 160) / 2 + 6, box: b };
   if (o.type === "box" && b && p.cap) { const w = p.w || 240, h = p.h || 120; return { x: p.x, y: p.y, r: 0, box: b, body: { x0: p.x - w / 2, y0: p.y - h / 2, x1: p.x + w / 2, y1: p.y + h / 2 } }; }
@@ -897,11 +912,23 @@ export function describe(script: Script, opt: { speed?: number } = {}): string {
 
 // ---------- checks ----------
 const TRIVIAL = new Set([0, 1, 2]);
+/** "5만원" is 50,000 written the Korean way: a number before 만, 천, 억 (천만, 백만, 십만 …) also counts as its full amount. */
+const BIG: Record<string, number> = { 천만: 1e7, 백만: 1e6, 십만: 1e5, 만: 1e4, 천억: 1e11, 백억: 1e10, 십억: 1e9, 억: 1e8, 조: 1e12, 천: 1e3 };
+const BIG_RE = /(\d[\d,]*(?:\.\d+)?)\s*(천만|백만|십만|천억|백억|십억|만|억|조|천)/g;
+const SIZED = /^\s*(?:천만|백만|십만|천억|백억|십억|만|억|조|천|%)/;
+/** The quantities of a text in the order they stand, each with its full amount: [5, 50000] for "5만원", [5, 5] for "5개". */
+export function amountsIn(s: unknown): [number, number][] {
+  const bare = quantitiesIn(s);
+  if (typeof s !== "string") return bare.map((v) => [v, v]);
+  const full = quantitiesIn(s.replace(BIG_RE, (_all, n: string, u: string) => `${parseFloat(n.replace(/,/g, "")) * BIG[u]} `));
+  return bare.map((v, k) => [v, full.length === bare.length ? full[k] : v]);
+}
 const near = (set: Set<number>, v: number) => { if (set.has(v)) return true; for (const s of set) if (Math.abs(s - v) <= Math.max(1e-9, Math.abs(v) * 1e-6)) return true; return false; };
 function textsOf(type: string, p: Props, prev?: Props): unknown[] {
   const keys = ["str", "sub", "cap", "badge", "xl", "yl", "left", "right"], out: unknown[] = [];
   for (const k of keys) if (p[k] != null && (!prev || prev[k] !== p[k])) out.push(p[k]);
-  if (p.value != null && (!prev || prev.value !== p.value) && type !== "dot") out.push(Number(p.value));
+  // a value whose unit changes its size keeps it ("5만원" is 50,000, "10%" is also 0.1): the origin check reads both
+  if (p.value != null && (!prev || prev.value !== p.value) && type !== "dot") out.push(typeof p.suf === "string" && SIZED.test(p.suf) && isFinite(Number(p.value)) ? `${Math.abs(Number(p.value))}${p.suf}` : Number(p.value));
   if (type === "table") { const a = JSON.stringify([p.cols, p.rows]); if (!prev || JSON.stringify([prev.cols, prev.rows]) !== a) { (p.cols || []).forEach((c: unknown) => out.push(c)); (p.rows || []).forEach((r: unknown[]) => (r || []).forEach((c) => out.push(c))); } }
   if (type === "plot") { (p.marks || []).forEach((k: Props) => { if (k && k.str != null) out.push(k.str); }); (p.lines || []).forEach((l: Props) => { if (l && l.str != null) out.push(l.str); }); }
   return out;
@@ -930,7 +957,14 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
   const hundredths = (s: unknown) => (typeof s === "string" ? Array.from(s.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*%/g), (q) => parseFloat(q[1].replace(/,/g, "")) / 100) : []);
   // and a rate r brings its growth factors 1 + r and 1 − r ("연 10%" gives "× 1.1"), which a viewer of money over time reads at sight
   const rate = (to: Set<number>, r: number) => { to.add(r); to.add(1 + r); if (r < 1) to.add(1 - r); };
-  (plan.given || []).forEach((g) => { numsIn(g && g.v).forEach((v) => given.add(v)); hundredths(String(g && g.v)).forEach((v) => rate(given, v)); if (typeof g?.v === "number" && /%/.test(String(g.is || ""))) rate(given, g.v / 100); });
+  // GIVEN 10%=이자율, GIVEN 1000000=원금(연 5%) and GIVEN 10=이자율(%): the percent that is written is the rate. A "%" that belongs to
+  // another number of the description says nothing about the value itself (1,000,000 is not a rate of 10,000)
+  (plan.given || []).forEach((g) => {
+    const is = String((g && g.is) || "");
+    numsIn(g && g.v).forEach((v) => given.add(v));
+    hundredths(String(g && g.v)).concat(hundredths(is)).forEach((v) => rate(given, v));
+    if (typeof g?.v === "number" && /%/.test(is) && !/\d\s*%/.test(is)) rate(given, g.v / 100);
+  });
   m.list.forEach((o) => { if (o.type === "axis") [o.keys[0].p.vname].concat(o.keys[0].p.labels || []).forEach((s) => numsIn(s).forEach((v) => given.add(v))); }); // the stage labels are on screen from the start ("3년 뒤")
   const ok = (v: number) => TRIVIAL.has(v) || near(given, v) || near(seen, v);
   const seenIds = new Set<string>(), computed = new Set<number>();
@@ -982,7 +1016,8 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
         if (x.from && !seenIds.has(x.from)) err(n, "ref", `calc "${a.id}": term ${x.text} flies from "${x.from}" which does not exist yet.`);
         if (x.kind === "num" && (eq < 0 || k < eq)) {
           const av = Math.abs(x.v as number); // where a number comes from is asked of its size: "−1,000" comes from the 1,000 on screen
-          if (!ok(av)) err(n, "orphan", `calc "${a.id}" uses ${x.text}, but that number has not been shown before and is not in GIVEN. Show where it comes from first.`);
+          const am = amountsIn(x.text), fullV = am.length === 1 ? am[0][1] : av; // "5만원" in a calc is the 50,000 of GIVEN
+          if (!ok(av) && !ok(fullV)) err(n, "orphan", `calc "${a.id}" uses ${x.text}, but that number has not been shown before and is not in GIVEN. Show where it comes from first.`);
           else if (!x.from && !TRIVIAL.has(av) && near(seen, av)) warn(n, "from", `calc "${a.id}": give term ${x.text} a "from" so the viewer sees which object it comes from.`);
         }
       });
@@ -1007,11 +1042,11 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
     const here = new Set<number>();
     texts.forEach((s) => quantitiesIn(s).forEach((v) => here.add(v)));
     const counted = (v: number) => Number.isInteger(v) && v >= 3 && v <= 30 && here.has(v - 1) && here.has(v - 2);
-    // "5만원" is the 50,000 of GIVEN written the Korean way: a number before 만, 억 or 천 also counts as its full amount
-    const big = (s: unknown) => { const o = new Map<number, number>(); if (typeof s === "string") for (const q of s.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(만|억|천)/g)) { const v = parseFloat(q[1].replace(/,/g, "")); o.set(v, v * (q[2] === "만" ? 1e4 : q[2] === "억" ? 1e8 : 1e3)); } return o; };
-    texts.forEach((s) => { const B = big(s); quantitiesIn(s).forEach((v) => { if (!ok(v) && !(B.has(v) && ok(B.get(v)!)) && !counted(v) && !bad.has(v)) bad.set(v, String(s).replace(/\*/g, "").slice(0, 24)); }); });
+    // "5만원" is the 50,000 of GIVEN written the Korean way: each number is asked as written and as its full amount (see amountsIn)
+    texts.forEach((s) => amountsIn(s).forEach(([v, full]) => { if (!ok(v) && !ok(full) && !counted(v) && !bad.has(v)) bad.set(v, String(s).replace(/\*/g, "").slice(0, 24)); }));
     if (bad.size) err(n, "orphan", `Number${bad.size > 1 ? "s" : ""} ${[...bad.keys()].map((v) => `${fmtV(v)} (in "${bad.get(v)}")`).join(", ")} appear${bad.size > 1 ? "" : "s"} in this scene with no visible origin. A number must be given at the start (list it in GIVEN) or be the result of a calc the viewer has watched.`);
     texts.forEach((s) => numsIn(s).forEach((v) => { if (near(given, v)) seen.add(v); }));
+    texts.forEach((s) => amountsIn(s).forEach(([v, full]) => { if (full !== v && ok(full)) seen.add(v); })); // the 5 of "5만원" is on screen now: a calc may take it
     texts.forEach((s) => hundredths(s).forEach((v) => { if (ok(v * 100)) rate(seen, v); }));
     // layout at the end of the scene
     const t1 = t0 + dur - 0.02, boxes: { o: MObj; b: Box; core?: Box }[] = [];
@@ -1037,7 +1072,9 @@ export function lint(script: Script, opt: { speed?: number } = {}): Issue[] {
     else if (cb && !b.ask && !roomy(cb, false, ZLOW)) err(n, "crowd", "What this scene adds is spread too far apart to show in one frame at a readable size. Put the things one scene adds in the same row or in neighbouring rows, and keep the picture within four rows.");
     else if (full && !b.ask && !roomy(full, false, ZMIN)) warn(n, "tall", "This scene works with things that are far apart in a tall picture, so part of what it points at is off screen. Keep the things one scene works with in neighbouring rows.");
     for (let a = 0; a < boxes.length; a++) for (let c = a + 1; c < boxes.length; c++) {
-      const A0 = boxes[a], B0 = boxes[c], A = { o: A0.o, b: B0.o.type === "sign" && A0.core ? A0.core : A0.b }, B = { o: B0.o, b: A0.o.type === "sign" && B0.core ? B0.core : B0.b };
+      // (a sign between two things one above the other hangs lower, where the caption is: there the whole thing counts)
+      const level = (sg: Box, c: Box) => { const y = (sg.y0 + sg.y1) / 2; return y >= c.y0 && y <= c.y1; };
+      const A0 = boxes[a], B0 = boxes[c], A = { o: A0.o, b: B0.o.type === "sign" && A0.core && level(B0.b, A0.core) ? A0.core : A0.b }, B = { o: B0.o, b: A0.o.type === "sign" && B0.core && level(A0.b, B0.core) ? B0.core : B0.b };
       if (A.o.beat !== i && B.o.beat !== i && !A.o.keys.some((k) => k.t >= t0 && k.t < t0 + dur) && !B.o.keys.some((k) => k.t >= t0 && k.t < t0 + dur)) continue; // already reported in an earlier scene
       const ix = Math.min(A.b.x1, B.b.x1) - Math.max(A.b.x0, B.b.x0), iy = Math.min(A.b.y1, B.b.y1) - Math.max(A.b.y0, B.b.y0);
       if (ix <= -16 || iy <= -8) continue; // text that almost touches reads as one lump

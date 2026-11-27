@@ -239,8 +239,16 @@ export const isLocal = (errs: Issue[]): boolean => errs.length > 0 && errs.every
 export const errList = (errs: Issue[]): string => errs.map((i) => `- ${i.beat ? "장면 " + i.beat + ": " : ""}${i.msg}`).join("\n") || "- 없음";
 
 /** 걸린 장면만 다시 쓰게 하는 요청 */
-export const patchUser = (user: string, script: Script, errs: Issue[]): string =>
-  `${user}\n아래는 이 브리프로 쓴 대본입니다 (장면 번호는 1부터 순서대로).\n<대본>\n${toText(script)}\n</대본>\n\n자동 점검 오류 (모두 고쳐야 함):\n${errList(errs)}\n\n오류가 난 장면만 같은 표기로 다시 쓰세요. 전체를 다시 쓰지 않고, 설명이나 머리말 없이 표기 줄만 씁니다.\n- "#5 ..." 처럼 같은 번호로 쓰면 그 장면 전체가 새 내용으로 바뀝니다. 그 장면의 줄을 빠짐없이 다시 쓰고, 오류와 상관없는 줄은 그대로 둡니다.\n- 다른 장면이 쓰는 id는 그대로 남겨 두세요. 꼬리표나 화살표 이름을 없앴다면, 뒤 장면에서 그 id를 쓰는지 확인하고 쓰는 장면도 함께 다시 쓰세요.\n- 머리말 줄(TITLE, HOOK, CARD, GOAL, PICTURE, GRID, TIME, VALUE, GIVEN, TERM, PART)과 END, QUIZ는 다시 쓰지 않습니다.\n- 화면 맨 위 문장과 가르치는 내용은 바꾸지 않습니다. 자리가 없거나 글이 길어서 생긴 오류이니, 같은 말을 자리가 있는 방법으로 옮기기만 하세요.`;
+/** 고칠 때 보여 주는 대본. 모델이 쓴 글의 장면 번호가 1부터 차례대로면 그 글 그대로 보여 준다: 자기가 쓴 표기로 고치게 되고,
+ *  엔진이 정한 자리(숫자,숫자)나 계획의 STEP 줄이 대본에 섞여 들어가지 않는다. 번호가 어긋나면 엔진이 다시 적은 글을 쓴다. */
+const ownText = (script: Script, raw: string): string => {
+  const own = String(raw || "").trim();
+  if (!own) return toText(script);
+  const labels = parseScript(own).labels, n = (script.beats || []).length;
+  return labels.length === n && labels.every((l, i) => l === String(i + 1)) ? own : toText(script);
+};
+export const patchUser = (user: string, script: Script, errs: Issue[], raw = ""): string =>
+  `${user}\n아래는 이 브리프로 쓴 대본입니다 (장면 번호는 1부터 순서대로).\n<대본>\n${ownText(script, raw)}\n</대본>\n\n자동 점검 오류 (모두 고쳐야 함):\n${errList(errs)}\n\n오류가 난 장면만 같은 표기로 다시 쓰세요. 전체를 다시 쓰지 않고, 설명이나 머리말 없이 표기 줄만 씁니다.\n- "#5 ..." 처럼 같은 번호로 쓰면 그 장면 전체가 새 내용으로 바뀝니다. 그 장면의 줄을 빠짐없이 다시 쓰고, 오류와 상관없는 줄은 그대로 둡니다.\n- 다른 장면이 쓰는 id는 그대로 남겨 두세요. 꼬리표나 화살표 이름을 없앴다면, 뒤 장면에서 그 id를 쓰는지 확인하고 쓰는 장면도 함께 다시 쓰세요.\n- 머리말 줄(TITLE, HOOK, CARD, GOAL, PICTURE, CAST, GRID, TIME, GIVEN, TERM, PART)과 END, QUIZ는 다시 쓰지 않습니다. 장면 줄에 자리(숫자,숫자)를 적지 않습니다.\n- 화면 맨 위 문장과 가르치는 내용은 바꾸지 않습니다. 자리가 없거나 글이 길어서 생긴 오류이니, 같은 말을 자리가 있는 방법으로 옮기기만 하세요.`;
 
 /** 대본 전체를 다시 쓰게 하는 요청. lost는 처음 보는 학생이 막힌 곳(검수 단계를 켰을 때만 채워진다). */
 export const rewriteUser = (user: string, raw1: string, errs: Issue[], lost = "- 없음"): string =>

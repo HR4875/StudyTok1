@@ -336,13 +336,15 @@ export function createDirector(svg, opts = {}) {
           if (mk2.x != null) { const x = map.sx(mk2.x); el("line", { x1: x, y1: map.y1, x2: x, y2: map.y1 - map.h, stroke: mc, "stroke-width": 4, "stroke-dasharray": "6 14", "stroke-linecap": "round", opacity: dp }, q); if (mk2.str) chip(q, mk2.str, clamp(x, map.x0 + 60, map.x0 + map.w - 60), map.y1 - map.h - 6, 36, mc); }
           else if (mk2.y != null) { const y = map.sy(mk2.y); el("line", { x1: map.x0, y1: y, x2: map.x0 + map.w, y2: y, stroke: mc, "stroke-width": 4, "stroke-dasharray": "6 14", "stroke-linecap": "round", opacity: dp }, q); if (mk2.str) chip(q, mk2.str, map.x0 + map.w - 70, y - 40, 36, mc); } });
         const born = (id) => { for (const k of o.keys) if ((Array.isArray(k.p.lines) ? k.p.lines : []).some((l) => String(l.id) === String(id))) return k.t; return o.tAdd; };
+        // a dot that rides a line carries its value in a pill right over it; the name of that line then stands above the pill, not in it
+        const riders = M.list.filter((d2) => d2.type === "dot" && alive(d2, t)).map((d2) => stateOf(d2, t)).filter((d2) => String(d2.plot) === String(o.id) && (d2.label || (d2.str != null && d2.str !== "")));
         (Array.isArray(p.lines) ? p.lines : []).forEach((ln, li) => { if (!ln || !Array.isArray(ln.pts) || ln.pts.length < 2) return;
           let pts = ln.pts; const prev = p._prev && Array.isArray(p._prev.lines) ? p._prev.lines.find((l) => String(l.id) === String(ln.id)) : null;
           if (prev && Array.isArray(prev.pts) && prev.pts.length === pts.length) pts = pts.map((pt, k) => [lerp(prev.pts[k][0], pt[0], p._u), lerp(prev.pts[k][1], pt[1], p._u)]);
           const scr = pts.map((pt) => [map.sx(pt[0]), map.sy(pt[1])]), d = scr.map((s, k) => `${k ? "L" : "M"} ${n1(s[0])} ${n1(s[1])}`).join(" "); let len = 0; for (let k = 1; k < scr.length; k++) len += Math.hypot(scr[k][0] - scr[k - 1][0], scr[k][1] - scr[k - 1][1]);
           const tb = born(ln.id), lp = seg(t, tb + (tb === o.tAdd ? 0.45 + 0.3 * li : 0), 0.8, E.inOut), lc = ln.color ? col(ln.color) : SK.primary;
           const e = el("path", { d, stroke: lc, "stroke-width": ln.width || 9, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, q); if (ln.dash) { e.setAttribute("stroke-dasharray", "4 18"); e.setAttribute("opacity", lp.toFixed(3)); } else drawOn(e, len, lp);
-          if (ln.str && lp > 0.85) { const last = scr[scr.length - 1]; const gq = G(q, { opacity: clamp((lp - 0.85) * 7).toFixed(3) }); label(ln.str, Math.min(last[0], map.x0 + map.w) - 8, last[1] - 34, 38, 800, lc, gq, "end", 420); } });
+          if (ln.str && lp > 0.85) { const last = scr[scr.length - 1]; const gq = G(q, { opacity: clamp((lp - 0.85) * 7).toFixed(3) }); const lift = riders.some((d2) => String(d2.line) === String(ln.id)) ? 92 : 0; label(ln.str, Math.min(last[0], map.x0 + map.w) - 8, Math.max(map.y1 - map.h + 24, last[1] - 34 - lift), 38, 800, lc, gq, "end", 420); } });
         break;
       }
       case "dot": {

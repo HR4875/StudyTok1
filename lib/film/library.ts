@@ -871,7 +871,7 @@ GIVEN 50=사 두는 우산(개); 10=우산 50개 값(만원); 25=비 오면 판 
 TERM 기댓값=갈래마다 남는 돈을 확률만큼 섞은 평균
 PART 1/3 next=비 올 확률이 70%라면?
 #1 s1 | 오늘 우산 50개를 *10만원*에 사요
-node buy 10만원 r=96 cap="오늘 산 값"
+node buy 10만원 r=96 cap="우산 50개 값"
 #2 s2 | 내일 비가 오면 *25만원*어치 팔려요
 node rain 25만원 r=96 c=blue cap="판 돈"
 arrow a1 buy>rain "비"
@@ -892,7 +892,7 @@ arrow a4 sun>gs at=3
 node ev "?" c=yellow cap="평균 남는 돈"
 focus gr gs ev
 #8 s5 hard | 반반이면 평균 *5만원* 남아요
-calc c3 (15@gr + 5@gs) ÷ 2 = 5만원
+calc c3 (15@gr − 5@gs) ÷ 2 = 5만원
 set ev 5만원 c=blue at=3
 #9 s6 | 이 평균을 *기댓값*이라 불러요
 set ev cap="기댓값"

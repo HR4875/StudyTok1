@@ -99,7 +99,7 @@ export async function runShort(plan: SeriesPlan, k: number, send: Send, signal: 
   try {
     if (best.scenes >= MIN && isLocal(best.errs)) {
       send({ type: "status", message: "자동 점검에서 걸린 장면만 고치는 중" });
-      const r2 = await write(patchUser(brief.user, best.script, best.errs), 4000);
+      const r2 = await write(patchUser(brief.user, best.script, best.errs, raw1), 4000);
       usage = sumUsage(usage, r2.usage);
       calls = 2;
       const merged = applyPatch(best.script, cleanPatch(r2.text));

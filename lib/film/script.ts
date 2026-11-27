@@ -19,7 +19,7 @@ const barUnit = (values: number[]) => { const top = Math.max(0, ...values.map((v
 /** A place written as "x,y" before the value (the parser reads a bare "880,1430" as a position; toText writes one for a thing it has seated) is not the value. */
 /** "1,000" is a thousand written with its comma, not the place x 1, y 0: a place that would sit off the left edge or up in the sentence is read as a number */
 const groupedNum = (s: string): boolean => { const m = /^(\d{1,3}),(\d{3})$/.exec(s.trim()); return !!m && (+m[1] < 36 || +m[2] < 300); };
-const noPos = (rest: string) => rest.replace(/^\s*(-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?)(?=\s|$)/, (all, xy) => (groupedNum(xy) ? all : ""));
+const noPos = (rest: string) => rest.replace(/^\s*(-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?)(?=\s|$)/, (all, xy, at: number, whole: string) => (groupedNum(xy) || (/^\d{1,3},\d{3}$/.test(xy) && !/\d/.test(whole.slice(at + all.length).replace(/"[^"]*"|[A-Za-z_]\w*=\S*/g, ""))) ? all : ""));
 /** The largest value each bar ever takes (the line that adds it and every "set" after). */
 export function barValues(text: string): Record<string, number> {
   const out: Record<string, number> = dict();
@@ -171,15 +171,33 @@ export function linksOf(text: string): [string, string][] {
   }
   return out;
 }
+/** The stage a thing names in its own words: a caption or a pillar's name that holds exactly one stage label ("1일에 산 노트" over TIME 1일 | 10일 | 월말).
+ *  Read from the line that adds the thing; a caption that names two stages says nothing. */
+export function stageHints(text: string, stages: string[]): Record<string, number> {
+  const out: Record<string, number> = dict(), done = new Set<string>(), flat = (s: string) => s.replace(/\s/g, "");
+  const labels = stages.map(flat), order = labels.map((_, k) => k).sort((a, b) => labels[b].length - labels[a].length); // the longest first: "11년 뒤" is not "1년 뒤"
+  for (const raw of String(text || "").split("\n")) {
+    const m = /^\s*(node|box|icon|num|text|bar)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
+    if (!m || done.has(m[2])) continue;
+    done.add(m[2]);
+    let words = flat((m[3].match(/"[^"]*"|“[^”]*”/g) || []).join(" "));
+    const found: number[] = [];
+    for (const k of order) if (labels[k] && words.includes(labels[k])) { found.push(k); words = words.split(labels[k]).join(" "); }
+    if (found.length === 1) out[m[2]] = found[0];
+  }
+  return out;
+}
 /**
  * How a GRID line is meant over a time axis. The notation writes rows, each with one seat per stage from left to right; films written before
  * that (bino-1) give one group per stage, stacked from the top; and a tree is often written path by path ("s / u gu / d gd"). The script's
  * own arrows tell: they run from one stage to the next. Of the readings that seat every id, the one with the most arrows going exactly one
  * stage to the right wins, then the one that leaves fewer stages empty; on a tie the rows of the notation win, then the groups.
- * "depth" (a tree read along its arrows) is a candidate only when every id of GRID is joined by an arrow and the depths fill the stages exactly.
+ * "depth" (a tree read along its arrows) is a candidate only when every id of GRID is joined by an arrow, the depths fill the stages exactly,
+ * and no reading of the line as written already sends every arrow forward in time. Before the arrows are asked, the things' own words are:
+ * see stageHints.
  * Returns the reading and the GRID line to seat it with (column form for timeSeats; rows keep their own line for timeRowSeats).
  */
-export function timeReading(line: string, stages: number, links: [string, string][], bars: Set<string> = new Set()): { kind: "stage" | "rows" | "depth"; line: string } | null {
+export function timeReading(line: string, stages: number, links: [string, string][], bars: Set<string> = new Set(), hints: Record<string, number> = dict()): { kind: "stage" | "rows" | "depth"; line: string } | null {
   const parts = String(line || "").split("/").map((g) => g.trim().split(/[\s,]+/).filter(Boolean)).filter((g) => g.length);
   const ids = parts.flat().filter((id) => /^[A-Za-z_]\w*$/.test(id)), inGrid = new Set(ids);
   const cand: { kind: "stage" | "rows" | "depth"; col: Record<string, number>; line: string }[] = [];
@@ -193,7 +211,9 @@ export function timeReading(line: string, stages: number, links: [string, string
   if (parts.length === stages) cand.push({ kind: "stage", col: colOf(parts), line });
   const tree = links.filter(([a, b]) => inGrid.has(a) && inGrid.has(b) && a !== b);
   const joined = new Set(tree.flat());
-  if (tree.length && ids.every((id) => joined.has(id))) {
+  // a reading that seats every id and sends every arrow on in time is what was written ("one thing pays out at two times" skips a stage): the depths are not asked then
+  const forward = cand.some((c) => ids.every((id) => c.col[id] != null) && tree.every(([a, b]) => c.col[b] > c.col[a]));
+  if (!forward && tree.length && ids.every((id) => joined.has(id))) {
     // depth along the arrows: a root has no arrow coming in; a thing is one deeper than the deepest thing pointing at it
     const depth: Record<string, number> = dict();
     let ok = true;
@@ -214,6 +234,10 @@ export function timeReading(line: string, stages: number, links: [string, string
     }
   }
   if (!cand.length) return null;
+  // the things' own words come before the arrows: when one reading contradicts no caption that names a stage and every other reading contradicts two or more, that reading is meant
+  const told = Object.keys(hints).filter((id) => inGrid.has(id)), against = (c: { col: Record<string, number> }) => told.filter((id) => c.col[id] != null && c.col[id] !== hints[id]).length;
+  const clean = cand.filter((c) => against(c) === 0);
+  if (told.length && clean.length === 1 && cand.every((c) => c === clean[0] || against(c) >= 2)) return { kind: clean[0].kind, line: clean[0].line };
   const score = (c: { col: Record<string, number> }) => [tree.filter(([a, b]) => c.col[b] - c.col[a] === 1).length, new Set(Object.keys(c.col).map((k) => c.col[k])).size];
   let best = cand[0], bs = score(best);
   for (const c of cand.slice(1)) { const s = score(c); if (s[0] > bs[0] || (s[0] === bs[0] && s[1] > bs[1])) { best = c; bs = s; } }
@@ -286,10 +310,9 @@ function setValue(p: Props, s: string): boolean {
   const m = VAL.exec(s);
   if (!m) return false;
   p.value = num(m[2]);
-  // a value that brings its own minus drops the plus it replaces ("set g -10,000원" on "+10,000원" is not "+-10,000원")
-  // and a value with no sign drops an old minus ("set g 0원" on "−1,000원" is not "−0원"); a money sign stays
+  // a value that brings its own minus drops the plus it replaces ("set g -10,000원" on "+10,000원" is not "+-10,000원"); what the value
+  // it replaces showed before its number is settled where that value is known (see "the sign of the value a set replaces")
   if (m[1] || (p.value as number) < 0) p.pre = m[1];
-  else if (/^[−-]$/.test(String(p.pre || ""))) p.pre = "";
   if (m[3]) p.suf = m[3];
   const d = (m[2].split(".")[1] || "").length;
   if (d > 4) p.dec = d;
@@ -453,7 +476,7 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       if (W === "GRID") {
         plan.grid = rest; has.grid = true;
         // with TIME the rows of GRID hold one seat per stage; older films give one group per stage. timeReading says which reading the arrows agree with.
-        const how = stages ? timeReading(rest, stages.length, linksOf(String(text || "")), new Set(Object.keys(axisBar))) : null;
+        const how = stages ? timeReading(rest, stages.length, linksOf(String(text || "")), new Set(Object.keys(axisBar)), stageHints(String(text || ""), stages)) : null;
         if (stages && !how) errT(`TIME names ${stages.length} stages but a row of GRID with pillars (or with more than three seats) has more seats than that. With TIME every row of GRID (the part between "/") holds one seat per stage from left to right, "-" for an empty one: at most ${stages.length} seats in a row of pillars.`);
         if (how && how.kind === "depth") warnH(`GRID was read along its arrows as a tree growing to the right: ${how.line}.`, "time");
         timeOn = !!how;
@@ -539,7 +562,9 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     const type = isSet ? "" : op, strs: string[] = [], loose: string[] = [];
     if (type === "calc") {
       const k = toks.findIndex((t, i) => i > 0 && !!t.k), body = k < 0 ? toks : toks.slice(0, k), tail = k < 0 ? [] : toks.slice(k);
-      const p0 = body.length && !body[0].q && !groupedNum(body[0].s) ? POS.exec(body[0].s) : null;
+      // a place is followed by the first term, a number by an operator: "45,500 − 5,500 = 40,000원" starts with forty-five thousand five hundred
+      const opNext = body.length > 1 && !body[1].q && /^[+\-−–×*÷/=≈]$/.test(body[1].s);
+      const p0 = body.length && !body[0].q && !groupedNum(body[0].s) && !opNext ? POS.exec(body[0].s) : null;
       if (p0) { a.x = +p0[1]; a.y = +p0[2]; body.shift(); }
       else if (body.length && !body[0].q && slotXY(body[0].s)) body.shift(); // a calculation finds its own place
       a.terms = calcTerms(body);
@@ -551,11 +576,14 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       ts.forEach((x, k) => {
         if (!x || typeof x !== "object") return;
         const tm = x as Props;
-        if (typeof tm.v !== "number" || tm.pre != null || tm.suf != null) return;
+        // the unit travels with the number, the sign does not: a number is drawn and counted as it is written, so "15@gr − 5@gs" out of a circle
+        // that shows −5만원 reads 15만원 − 5만원, and a term written with its own minus ("−5@gs") keeps that minus and still takes the unit
+        const signed = typeof tm.pre === "string" && /^[−–+-]$/.test(tm.pre.trim()) && tm.suf == null;
+        if (typeof tm.v !== "number" || ((tm.pre != null || tm.suf != null) && !signed)) return;
         const u = tm.from != null ? units[String(tm.from)] : undefined;
         const own = !u ? undefined : (u.pre || u.suf) && (u.v == null || sameNum(u.v, tm.v)) ? u : unitIn(u.texts, tm.v);
-        if (own && (own.pre || own.suf)) { if (own.pre) tm.pre = own.pre; if (own.suf) tm.suf = own.suf; }
-        else if (!u && ((eq >= 0 && k > eq) || tm.from == null)) { if (a.pre != null) tm.pre = a.pre; if (a.suf != null) tm.suf = a.suf; }
+        if (own && (own.pre || own.suf)) { const pre = String(own.pre || "").replace(/^\s*[−–+-]\s*/, ""); if (pre) tm.pre = (signed ? tm.pre : "") + pre; if (own.suf) tm.suf = own.suf; }
+        else if (!signed && !u && ((eq >= 0 && k > eq) || tm.from == null)) { if (a.pre != null) tm.pre = a.pre; if (a.suf != null) tm.suf = a.suf; }
       });
       delete a.pre; delete a.suf;
       // a sum or a difference is of like things: when the units that are written all agree, the bare numbers carry the same unit
@@ -571,10 +599,13 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       continue;
     }
     let gotPos = false;
+    // a pillar always has an amount: when its line holds one number only, that number is the amount, even if it could be a place ("bar b 45,500")
+    const digits = type === "bar" || (isSet && barV[id] != null) ? toks.filter((t) => !t.k && !t.q && /\d/.test(t.s) && !slotXY(t.s)) : [];
+    const amount = digits.length === 1 && /^\d{1,3},\d{3}$/.test(digits[0].s) ? digits[0] : null;
     for (const t of toks) {
       if (t.k) { const k = ALIAS[t.k] || t.k; a[k] = kvValue(k, t); continue; }
       if (t.q) { strs.push(t.s); continue; }
-      const s = t.s, m = groupedNum(s) ? null : POS.exec(s);
+      const s = t.s, m = groupedNum(s) || t === amount ? null : POS.exec(s);
       if (m && !gotPos) { a.x = +m[1]; a.y = +m[2]; gotPos = true; continue; }
       const sl = gotPos ? null : slotXY(s);
       if (sl) { a.x = sl[0]; a.y = sl[1]; gotPos = true; continue; }
@@ -605,6 +636,13 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     if (type === "bar") a.scale = barPx; else if (isSet && barV[id] != null) delete a.scale; // the engine sets the measure of the bars
     {
       const words = [a.str, a.cap, a.sub, a.badge, a.left, a.right].filter((x): x is string => typeof x === "string" && x !== ""), was = units[id];
+      // the sign of the value a set replaces: a new value with no sign drops an old minus ("set g 0원" on "−1,000원" is "0원", not "−0원"),
+      // and a negative one keeps the money sign that stood there ("set b -50" on "$100")
+      if (isSet && a.value != null && was) {
+        const old = String(was.pre || "");
+        if (a.pre == null && /^[−–-]$/.test(old.trim())) a.pre = "";
+        else if (a.pre === "" && (a.value as number) < 0 && /[^\s−–+-]/.test(old)) a.pre = old.replace(/[−–+-]/g, "").trim();
+      }
       if (a.value != null) units[id] = { pre: a.pre, suf: a.suf, v: typeof a.value === "number" ? a.value : undefined, texts: words.concat((was && was.texts) || []) };
       else if (words.length) units[id] = Object.assign({}, was, { texts: words.concat((was && was.texts) || []) });
     }
@@ -625,7 +663,8 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
         const inCol = Object.keys(grid).filter((k) => grid[k][0] === x && life[k] && life[k].a <= me.b && me.a <= life[k].b);
         const free = (y: number) => inCol.every((k) => y + downOf(id) <= grid[k][1] - upOf(k) || y - upOf(id) >= grid[k][1] + downOf(k));
         const cand = Array.from(new Set(ys0.concat(inCol.map((k) => grid[k][1] + downOf(k) + upOf(id))))).filter((y) => y >= TOP + upOf(id) && y < floor && free(y));
-        const under = cand.filter((y) => y > yNear).sort((p, q) => p - q), over = cand.filter((y) => y < yNear).sort((p, q) => q - p);
+        // a free height level with the thing worked with (its own row, in another column) is a place under it too
+        const under = cand.filter((y) => y >= yNear).sort((p, q) => p - q), over = cand.filter((y) => y < yNear).sort((p, q) => q - p);
         return under.length ? under[0] : over.length ? over[0] : floor < Infinity ? null : Math.max(TOP, ...inCol.map((k) => grid[k][1] + downOf(k))) + upOf(id);
       };
       let seat: [number, number] | null = null;
