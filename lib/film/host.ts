@@ -25,6 +25,11 @@ export interface HostCopy {
    * 오래 걸리는 곳은 일찍 시작한다. steps의 셋째 문장이 이 값을 말로 옮긴 것이다.
    */
   prefetchAt: number;
+  /**
+   * 만들기가 처음에 보는 사람의 허락을 묻는 곳인지. 그런 곳에서는 이 화면을 연 뒤에 사람이 누른 만들기가 한 번 된 다음부터만
+   * 다음 편을 미리 만든다: 보는 도중에 허락 창이 뜨지 않게.
+   */
+  asks: boolean;
 }
 
 export const HOST: HostCopy = {
@@ -38,4 +43,5 @@ export const HOST: HostCopy = {
   privacy: (shorts) => `자료는 글자만 뽑아 서버로 보내고, 서버에 저장하지 않아요. 한 번에 앞부분 ${shorts}편까지 계획해요.`,
   howMade: "Sonnet 5.5가 계획을 한 번 세우고(1분쯤), 한 편마다 대본을 써요(15초 안팎). 쓴 대본은 자동 점검을 거치고, 걸린 곳이 있으면 한 번만 고칩니다.",
   prefetchAt: 0.5,
+  asks: false,
 };

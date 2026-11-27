@@ -8,6 +8,7 @@ import { burstFrom } from "./fx";
 import Still from "./Still";
 import { usd } from "./format";
 import { blip } from "./PlayerAudio";
+import { useNow } from "./parts";
 
 const reduced = () => {
   try {
@@ -156,6 +157,18 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
 
   const s = getSeries(sid);
   const n = s ? totalOf(s) : 0;
+  const more = !!s && s.kind !== "ex" && k < n;
+  const ready = more && !!entryOf(sid, k + 1);
+  // 보는 동안 미리 만들기 시작한 다음 편이 아직 끝나지 않았는지
+  const making = more && !ready && gen.busy && gen.busy.kind === "short" && gen.busy.sid === sid && gen.busy.k === k + 1 ? gen.busy : null;
+  const isMaking = !!making;
+  const now = useNow(isMaking);
+  // 이 화면이 떠 있는 동안 다음 편을 만들고 있었는지: 다 됐거나 만들지 못한 것을 화면 낭독기에 알리고, 만들지 못했으면 단추가 "다시 만들기"가 된다
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    if (isMaking) setWaited(true);
+  }, [isMaking]);
+  const nextSay = !more || !waited ? "" : ready ? `다음 ${k + 1}편이 준비됐어요.` : making ? `다음 ${k + 1}편을 만드는 중이에요.` : `다음 ${k + 1}편을 미리 만들지 못했어요. 단추를 누르면 다시 만들어요.`;
   let next: ReactNode;
   if (!s || s.kind === "ex")
     next = (
@@ -163,20 +176,20 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
         홈으로
       </a>
     );
-  else if (k < n && entryOf(sid, k + 1))
+  else if (ready)
     next = (
       <a className="btn primary" href={`#w-${sid}-${k + 1}`}>
         {`다음 편 보기 →`}
       </a>
     );
-  else if (k < n && gen.busy && gen.busy.kind === "short" && gen.busy.sid === sid && gen.busy.k === k + 1)
-    // 보는 동안 미리 만들기 시작한 다음 편이 아직 끝나지 않았다: 다 되면 이 자리가 "다음 편 보기"로 바뀐다
+  else if (making)
+    // 다 되면 이 자리가 "다음 편 보기"로 바뀐다. 멈춘 것처럼 보이지 않게 지난 시간을 같이 적는다
     next = (
       <button type="button" className="btn primary" disabled>
-        {`다음 ${k + 1}편 만드는 중…`}
+        {`다음 ${k + 1}편 만드는 중… ${Math.max(0, Math.round((now - making.t0) / 1000))}초`}
       </button>
     );
-  else if (k < n && gen.avail === "ok" && !blocking(gen))
+  else if (more && gen.avail === "ok" && !blocking(gen))
     next = (
       <button
         type="button"
@@ -186,7 +199,7 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
           void makeShort(sid, k + 1);
         }}
       >
-        {`다음 ${k + 1}편 만들기 →`}
+        {waited ? `다음 ${k + 1}편 다시 만들기 →` : `다음 ${k + 1}편 만들기 →`}
       </button>
     );
   else
@@ -369,6 +382,10 @@ export default function EndSheet({ sid, k, script, entry, onReplay }: EndSheetPr
             처음부터 다시 보기
           </button>
         </div>
+        {/* 다음 편 단추가 바뀌는 것을 화면 낭독기에 알린다 (눈에는 단추의 글이 바뀌는 것으로 보인다) */}
+        <p className="sr" role="status">
+          {nextSay}
+        </p>
         {cost && <p className="cost">{cost}</p>}
       </div>
     </div>

@@ -24,12 +24,13 @@ export function parsePlanRequest(body: unknown): FilmPlanRequest {
   return { topic, source: letters >= 40 ? source : "", max };
 }
 
-export function parseShortRequest(body: unknown): { plan: SeriesPlan; k: number } {
+/** ahead: 사람이 누른 것이 아니라 앞 편을 보는 동안 미리 만드는 요청 */
+export function parseShortRequest(body: unknown): { plan: SeriesPlan; k: number; ahead: boolean } {
   const b = obj(body);
   const planText = plain(b.planText, FILM_LIMITS.planChars);
   const plan = usablePlan(parsePlan(planText));
   if (!plan.series || !plan.shorts.length) throw new AiError("시리즈 계획을 읽지 못했어요", "BAD_REQUEST", 400);
   const k = Math.round(Number(b.k));
   if (!Number.isFinite(k) || k < 1 || k > plan.shorts.length) throw new AiError("없는 편이에요", "BAD_REQUEST", 400);
-  return { plan, k };
+  return { plan, k, ahead: b.ahead === true };
 }

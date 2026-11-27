@@ -39,7 +39,7 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
     m = (
       <span className="busy">
         <span className="spin" />
-        <span>{busyLine(busy.message, busy.t0, now)}</span>
+        <span>{(busy.ahead ? "미리 만드는 중 · " : "") + busyLine(busy.message, busy.t0, now)}</span>
       </span>
     );
   else m = err ? err.message : sh ? "이 기기에 남은 대본을 읽지 못했어요. 다시 만들 수 있어요." : "아직 만들지 않은 편";
@@ -101,6 +101,8 @@ function DeleteSeries({ id }: { id: string }) {
 function noteOf(gen: GenState, id: string): string {
   // 한 번에 하나만 만든다: 다른 곳에서 만드는 중이면 단추가 꺼져 있는 까닭을 알린다
   if (gen.busy && blocking(gen) && (gen.busy.kind === "plan" || gen.busy.sid !== id)) return "지금 다른 것을 만드는 중이에요. 한 번에 하나씩 만들어서, 끝나면 여기서도 만들 수 있어요.";
+  // 미리 만들던 편은 사람이 누른 만들기에 자리를 내준다: 누르기 전에 그렇게 된다는 것을 알린다
+  if (gen.busy && gen.busy.ahead) return "보시는 동안 다음 편을 미리 만드는 중이에요. 다른 편의 만들기를 누르면 미리 만들던 편은 멈추고, 그 편은 나중에 다시 만들 수 있어요.";
   if (gen.avail === "ok")
     return HOST.seriesReady + (gen.mock ? " 지금은 예시 모드라 AI를 부르지 않고 준비된 대본으로 답해요." : "");
   if (gen.avail === "wait") return "새 편을 만들 수 있는지 확인하는 중이에요.";
@@ -188,7 +190,8 @@ export default function SeriesView({ id }: { id: string }) {
         </div>
       ) : null}
       {s.plan.example ? <p className="fine ex">{"시리즈 내내 쓰는 예시: " + s.plan.example}</p> : null}
-      {mine ? <Making s={s} k={mine.k} message={mine.message} t0={mine.t0} have={have} /> : null}
+      {/* 미리 만드는 편은 목록의 그 줄에서만 알린다: 누르지 않은 것 때문에 화면이 밀려 내려가지 않게 */}
+      {mine && !mine.ahead ? <Making s={s} k={mine.k} message={mine.message} t0={mine.t0} have={have} /> : null}
       <div className="list">
         {ks.map((k) => (
           <ShortRow key={k} s={s} k={k} first={k === next} gen={gen} now={now} />

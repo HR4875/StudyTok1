@@ -181,7 +181,9 @@ export default function MakeView() {
           ? HOST.makeDown
           : making
             ? "지금 다른 편을 만드는 중이에요. 한 번에 하나씩 만들어서, 끝나면 새 계획을 세울 수 있어요."
-            : "");
+            : gen.busy?.ahead
+              ? "지금 다음 편을 미리 만드는 중이에요. 새 계획을 세우면 미리 만들던 편은 멈추고, 그 편은 나중에 다시 만들 수 있어요."
+              : "");
 
   if (busy) return <Planning message={busy.message} titles={busy.titles} t0={busy.t0} file={d.file || d.topic.trim()} />;
 
