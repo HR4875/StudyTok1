@@ -16,7 +16,7 @@ export async function mockPlan(req: FilmPlanRequest, send: Send): Promise<FilmPl
   const t0 = Date.now();
   const plan = builtPlan(pickSeries(req.topic + " " + req.source.slice(0, 2000)));
   plan.shorts = plan.shorts.slice(0, req.max);
-  send({ type: "status", message: "자료를 읽고 가장 쉬운 설명 순서를 고르는 중" });
+  send({ type: "status", message: "자료를 읽고 교재 순서대로 개념을 나누는 중" });
   await wait(900);
   for (let i = 1; i <= plan.shorts.length; i++) {
     await wait(160);

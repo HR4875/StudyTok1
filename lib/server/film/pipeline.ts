@@ -39,7 +39,7 @@ export async function runPlan(req: FilmPlanRequest, send: Send, signal: AbortSig
   user += req.source ? `\n학생이 올린 자료입니다.\n<자료>\n${req.source}\n</자료>\n` : "\n자료는 없습니다. 이 주제를 처음 배우는 대학생을 위해 계획하세요.\n";
   user += `\n이번에는 자료의 앞부분부터 차례로 최대 ${req.max}편까지만 계획하세요. 한 편의 밀도는 그대로 한 편에 한 가지 생각이고, ${req.max}편에 다 담지 못한 뒤쪽 내용은 계획하지 않습니다.\n`;
 
-  send({ type: "status", message: "자료를 읽고 가장 쉬운 설명 순서를 고르는 중" });
+  send({ type: "status", message: "자료를 읽고 교재 순서대로 개념을 나누는 중" });
   let shown = 0;
   const r = await callText({
     model: FILM_MODEL,

@@ -268,7 +268,7 @@ export async function makePlan(topic: string, source: string, label: string, ski
   if (gen.avail !== "ok" || !makeRoom()) return null;
   const my = new AbortController();
   ctl = my;
-  set({ busy: { kind: "plan", sid: "", k: 0, message: "자료를 읽고 가장 쉬운 설명 순서를 고르는 중", titles: [], t0: Date.now() }, error: null });
+  set({ busy: { kind: "plan", sid: "", k: 0, message: "자료를 읽고 교재 순서대로 개념을 나누는 중", titles: [], t0: Date.now() }, error: null });
   let id: string | null = null;
   try {
     const { data, usage } = await postStream<FilmPlanResult>(
