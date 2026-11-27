@@ -43,6 +43,10 @@ export interface MadeSeries {
   at: number;
   /** 만들 때 고른 디자인과 그 까닭 */
   design?: DesignPick;
+  /** PDF에서 만들었으면: 파일 이름, 이번에 쓴 마지막 쪽, 파일의 마지막 쪽 (다음 범위 이어서 만들기) */
+  file?: string;
+  to?: number;
+  last?: number;
 }
 
 /** 내가 만든 한 편 */
@@ -170,7 +174,7 @@ function cleanMade(v: unknown): Made {
   for (const d of Array.isArray(v.series) ? (v.series as unknown[]) : []) {
     if (!isObj(d) || typeof d.id !== "string" || !SERIES_ID.test(d.id) || ids.has(d.id) || typeof d.planText !== "string") continue;
     ids.add(d.id);
-    out.series.push({ id: d.id, kicker: typeof d.kicker === "string" ? d.kicker.slice(0, 80) : "내 자료", planText: d.planText, secs: num(d.secs), cut: d.cut === true, usd: num(d.usd), at: num(d.at), design: cleanDesign(d.design) });
+    out.series.push({ id: d.id, kicker: typeof d.kicker === "string" ? d.kicker.slice(0, 80) : "내 자료", planText: d.planText, secs: num(d.secs), cut: d.cut === true, usd: num(d.usd), at: num(d.at), design: cleanDesign(d.design), ...(typeof d.file === "string" && num(d.to) > 0 && num(d.last) > 0 ? { file: d.file.slice(0, 200), to: num(d.to), last: num(d.last) } : {}) });
   }
   if (isObj(v.shorts))
     for (const [key, m] of Object.entries(v.shorts)) {
@@ -328,6 +332,12 @@ export function setShortSkin(sid: string, k: number, skin: string): void {
   const key = keyOf(sid, k);
   if (!SKINS[skin] || !SHORT_KEY.test(key)) return;
   setPrefs({ skins: { ...init().prefs.skins, [key]: skin } });
+}
+/** 같은 PDF의 다음 쪽부터 이어서 만들 수 있으면 그 범위 */
+export function nextRangeOf(sid: string): { file: string; from: number; last: number } | null {
+  const d = init().made.series.find((x) => x.id === sid);
+  if (!d || !d.file || !d.to || !d.last || d.to >= d.last) return null;
+  return { file: d.file, from: d.to + 1, last: d.last };
 }
 export const seenOf = (sid: string, k: number): Seen | undefined => init().seen[keyOf(sid, k)];
 export function markSeen(sid: string, k: number, patch: Seen): void {

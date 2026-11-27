@@ -21,6 +21,8 @@ export interface MakeDraft {
   err: string;
   /** 고른 디자인 id ("": 자동 추천) */
   skin: string;
+  /** 완주 화면의 "다음 범위 이어서 만들기": 이 파일을 다시 고르면 from쪽부터 읽는다 */
+  resume?: { file: string; from: number } | null;
 }
 
 let draft: MakeDraft = { topic: "", paste: "", range: "", file: "", pages: null, note: "", reading: false, err: "", skin: "" };
@@ -86,7 +88,19 @@ export async function takeFile(f: File): Promise<void> {
     pages = null;
     note = "이 파일은 열지 못했어요. 다른 파일로 해 보세요.";
   }
-  if (seq === readSeq) setDraft({ pages, note, reading: false });
+  if (seq !== readSeq) return;
+  const r = draft.resume;
+  if (pages && pages.length && r && r.file === f.name && r.from <= pages[pages.length - 1].n) {
+    setDraft({ pages, reading: false, resume: null, range: `${r.from}-${pages[pages.length - 1].n}`, note: `${note} 지난번에 이어서 ${r.from}쪽부터 만들어요.` });
+  } else setDraft({ pages, note, reading: false });
+}
+
+/** 완주 화면에서 같은 PDF의 다음 쪽부터 이어서 만든다: 파일이 아직 열려 있으면 범위만 바꾸고, 아니면 다시 고르게 한다 */
+export function continueRange(next: { file: string; from: number; last: number }): void {
+  const d = draft;
+  if (d.pages && d.file === next.file) setDraft({ range: `${next.from}-${next.last}`, topic: "", paste: "", err: "", resume: null, note: `지난번에 이어서 ${next.from}쪽부터 만들어요.` });
+  else setDraft({ file: "", pages: null, range: "", topic: "", paste: "", err: "", resume: { file: next.file, from: next.from }, note: `‘${next.file}’을 다시 골라 주세요. ${next.from}쪽부터 이어서 만들어요.` });
+  window.location.hash = "#make";
 }
 
 /** 계획 모델에 보낼 자료: 파일의 고른 쪽과 붙여 넣은 글 */

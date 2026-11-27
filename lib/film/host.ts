@@ -32,6 +32,8 @@ export interface HostCopy {
   asks: boolean;
   /** 처음 화면 "이렇게 보여요"에 도는 9:16 예시 영상의 주소 */
   heroVideo: string;
+  /** 디자인 A–F 예시 영상이 있는 곳 (a.mp4 … f.mp4) */
+  designVideos: string;
 }
 
 export const HOST: HostCopy = {
@@ -47,4 +49,5 @@ export const HOST: HostCopy = {
   prefetchAt: 0.5,
   asks: false,
   heroVideo: "/film/positioning-map.mp4",
+  designVideos: "/film/designs/",
 };

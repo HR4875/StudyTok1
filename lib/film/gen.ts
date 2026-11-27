@@ -264,7 +264,8 @@ export async function makeShort(sid: string, k: number, opts: { ahead?: boolean 
  * 주제나 자료로 시리즈를 계획한다. 성공하면 새 시리즈의 id를 돌려주고, 이어서 1편을 만들기 시작한다 (기다리지 않는다).
  * source는 쪽마다 [p.N] 표시를 붙인 글, label은 자료 이름(없으면 주제를 쓴다).
  */
-export async function makePlan(topic: string, source: string, label: string, skin = ""): Promise<string | null> {
+/** from: PDF에서 만들 때 파일 이름과 쓴 마지막 쪽, 파일의 마지막 쪽 (다음 범위 이어서 만들기에 쓴다) */
+export async function makePlan(topic: string, source: string, label: string, skin = "", from?: { file: string; to: number; last: number }): Promise<string | null> {
   if (gen.avail !== "ok" || !makeRoom()) return null;
   const my = new AbortController();
   ctl = my;
@@ -284,7 +285,7 @@ export async function makePlan(topic: string, source: string, label: string, ski
     // 디자인: 주제, 자료 이름, 계획, 자료 앞부분의 낱말로 고르고, 사람이 직접 골랐으면 그것을 쓴다
     const auto = recommendDesign([topic, label, data.planText, source.slice(0, 8000)].join("\n"));
     const design = skin ? pickedDesign(skin, auto) : auto;
-    id = addSeries({ kicker: "내 자료 · " + (label || topic || "주제").slice(0, 40), planText: data.planText, secs: Math.round(data.secs), cut: data.cut, usd: usage?.usd ?? 0, design });
+    id = addSeries({ kicker: "내 자료 · " + (label || topic || "주제").slice(0, 40), planText: data.planText, secs: Math.round(data.secs), cut: data.cut, usd: usage?.usd ?? 0, design, ...(from ?? {}) });
     used = true;
     aheadOff = false;
     if (ctl === my) set({ busy: null });

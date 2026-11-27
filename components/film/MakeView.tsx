@@ -38,7 +38,9 @@ async function submit() {
     return;
   }
   setDraft({ err: "" });
-  const id = await makePlan(topic, source, d.pages ? d.file : "", d.skin);
+  const used = d.pages ? pickPages(d.pages, d.range, FILM_LIMITS.sourceChars).used : [];
+  const from = d.pages && used.length && d.pages.length ? { file: d.file, to: used[used.length - 1].n, last: d.pages[d.pages.length - 1].n } : undefined;
+  const id = await makePlan(topic, source, d.pages ? d.file : "", d.skin, from);
   // 기다리는 동안 다른 화면으로 갔으면 그 화면을 그대로 둔다
   if (id && window.location.hash === "#make") window.location.hash = "#s-" + id;
 }

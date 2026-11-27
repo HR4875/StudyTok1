@@ -7,6 +7,7 @@ import { H, SKINS, SKIN_LIST, W } from "@/lib/film";
 import { makeShort, useGen } from "@/lib/film/gen";
 import { HOST } from "@/lib/film/host";
 import { SPEEDS, getPrefs, getSeries, loadShort, titleOf, totalOf, skinFor, useFilmStore, type LoadedShort } from "@/lib/film/store";
+import { clockDays, setClockDays, setSpaced, spacedOn, useStudy } from "@/lib/film/study";
 import EndSheet from "./EndSheet";
 import { secs } from "./format";
 import { Icon } from "./icons";
@@ -358,6 +359,7 @@ export function Ahead({ sid, k, due }: PlayerProps & { due: boolean }) {
 /** 보기 설정 바텀 시트: 속도, 영상 디자인, 소리를 칩으로 고른다 (확정안의 설정 시트) */
 export function Settings({ api, onClose, sid, k }: { api: RefObject<PlayerApi | null>; onClose: () => void; sid?: string; k?: number }) {
   useFilmStore();
+  useStudy();
   const prefs = getPrefs();
   const sheetRef = useRef<HTMLDivElement>(null);
   // 열리면 지금 고른 속도로 초점을 옮긴다
@@ -427,6 +429,31 @@ export function Settings({ api, onClose, sid, k }: { api: RefObject<PlayerApi | 
                 {on ? "소리 켬" : "소리 끔"}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="sgroup">
+          <p className="glabel" id="set-review">
+            간격 복습 (1·3·7일)
+          </p>
+          <div className="chips" role="group" aria-labelledby="set-review">
+            {[true, false].map((on) => (
+              <button key={String(on)} type="button" className="chipbtn" aria-pressed={spacedOn() === on} onClick={() => setSpaced(on)}>
+                {on ? "켬" : "끔"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sgroup">
+          <p className="glabel" id="set-clock">
+            {"시연용 가상 날짜" + (clockDays() ? ` · +${clockDays()}일` : " · 오늘")}
+          </p>
+          <div className="chips" role="group" aria-labelledby="set-clock">
+            <button type="button" className="chipbtn" aria-pressed={false} onClick={() => setClockDays(clockDays() + 1)}>
+              하루 뒤로 ›
+            </button>
+            <button type="button" className="chipbtn" aria-pressed={false} disabled={!clockDays()} onClick={() => setClockDays(0)}>
+              되돌리기
+            </button>
           </div>
         </div>
         <button type="button" className="btn ghost" onClick={onClose}>

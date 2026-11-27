@@ -1,45 +1,63 @@
 "use client";
-// 홈 (기존 시작 화면처럼 한 화면): 제목 띠, 업로드 트랙, 디자인 F 예시 영상, 주 버튼 둘. 내가 만든 시리즈가 있으면 그 사이에
-import { useEffect, useRef } from "react";
-import { HOST } from "@/lib/film/host";
-import { listSeries, madeKs, seenOf, totalOf, useFilmStore, type Series } from "@/lib/film/store";
-import { Section, trackLabel } from "./parts";
+// 홈 (디자인팀장 확정안처럼 한 화면, 미니멀): 제목 띠, 업로드 트랙, 이어보기·오늘 복습 카드(있을 때만), 주 버튼 둘, 아래 탭.
+// 예시 영상은 둘러보기(#ex), 내가 만든 시리즈는 내 시리즈 탭(#mine)으로 옮겼다 (11/27).
+import { getSeries, entryOf, titleOf, totalOf, useFilmStore } from "@/lib/film/store";
+import { clockDays, dueReviews, lastProgress, setClockDays, spacedOn, useStudy, waitingReviews } from "@/lib/film/study";
+import { Tabs } from "./parts";
 import Still from "./Still";
 
-/** 처음 화면의 예시 영상: 디자인 F 포지셔닝 맵 (9:16, 중간에 입체로 바뀐다). 소리 없이 계속 돌고, 재생기가 열려 있으면 멈춘다 */
-function HeroVideo({ paused }: { paused: boolean }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const v = ref.current;
-    if (!v) return;
-    if (paused) v.pause();
-    else void v.play().catch(() => {});
-  }, [paused]);
-  return <video ref={ref} className="st" src={HOST.heroVideo} muted loop playsInline autoPlay preload="auto" aria-hidden="true" />;
-}
-
-function SeriesCard({ s }: { s: Series }) {
-  const n = totalOf(s);
-  const have = madeKs(s);
-  const done = have.filter((k) => seenOf(s.id, k)?.done).length;
+/** 이어보기: 가장 최근에 보다 만 시리즈의 그 편부터 */
+function Resume() {
+  const p = lastProgress((sid, k) => !!entryOf(sid, k));
+  if (!p) return null;
+  const s = getSeries(p.sid);
+  if (!s) return null;
+  const total = totalOf(s);
   return (
-    <a className="scard" href={"#s-" + s.id}>
-      <span className="tab">{trackLabel(s)}</span>
+    <a className="scard resume" href={`#w-${p.sid}-${p.k}`}>
+      <span className="tab">보던 곳부터</span>
       <div>
-        <h3>{s.title || "이름 없는 시리즈"}</h3>
-        <div className="meta">{`쇼츠 ${n}편 · 볼 수 있음 ${have.length}편` + (done ? ` · ${done}편 봄` : "")}</div>
-        <div className="bar" role="img" aria-label={`${n}편 중 ${done}편 봄`}>
-          <i style={{ width: (n ? Math.round((done / n) * 100) : 0) + "%" }} />
+        <h3>{titleOf(p.sid, p.k)}</h3>
+        <div className="meta">
+          {`${p.k}/${total}편 · `}
+          <b className="goin">이어보기 →</b>
         </div>
       </div>
-      <div className="poster">{have.length ? <Still sid={s.id} k={have[0]} /> : null}</div>
+      <div className="poster">
+        <Still sid={p.sid} k={p.k} />
+      </div>
     </a>
   );
 }
 
-export default function HomeView({ paused }: { paused: boolean }) {
+/** 오늘 복습: 1·3·7일 간격으로 돌아온 퀴즈. 기다리는 것만 있으면 시연용으로 하루 뒤로 보낼 수 있다 */
+function Review() {
+  if (!spacedOn()) return null;
+  const due = dueReviews().length;
+  const wait = waitingReviews();
+  if (!due && !wait) return null;
+  return (
+    <div className="rcard">
+      <div>
+        <b>{due ? `오늘 복습 ${due}개` : `복습 대기 ${wait}개`}</b>
+        <span>{(due ? "간격 복습 1·3·7일" : "오늘은 없어요") + (clockDays() ? ` · 가상 날짜 +${clockDays()}일` : "")}</span>
+      </div>
+      {due ? (
+        <a className="btn small primary" href="#r-today">
+          풀기 →
+        </a>
+      ) : (
+        <button type="button" className="btn small" onClick={() => setClockDays(clockDays() + 1)}>
+          하루 뒤로 (시연)
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function HomeView(_: { paused: boolean }) {
   useFilmStore();
-  const mine = listSeries("mine");
+  useStudy();
   return (
     <div className="home">
       {/* 제목 띠: 오션 블루 + 흰 글씨 STUDY T@K (확정안 시작 화면) */}
@@ -57,40 +75,22 @@ export default function HomeView({ paused }: { paused: boolean }) {
           <span>요금제</span>
         </a>
       </header>
+      <Resume />
+      <Review />
       <a className="upcard" href="#make">
         <span className="tab">Track #1 : 업로드</span>
         <b>PDF 올리기</b>
         <span>전공책 PDF · 강의자료 · 주제 한 줄도 돼요</span>
       </a>
-      <section className="sec hero">
-        <h2>이렇게 보여요</h2>
-        <a className="phone big" href="#w-bino-1" aria-label="예시 쇼츠 둘러보기">
-          <span className="in">
-            <HeroVideo paused={paused} />
-          </span>
-          <span className="tag">
-            <b />
-            <span>디자인 F 예시</span>
-          </span>
-        </a>
-      </section>
-      {mine.length ? (
-        <Section title="내가 만든 시리즈">
-          <div className="cards">
-            {mine.map((s) => (
-              <SeriesCard key={s.id} s={s} />
-            ))}
-          </div>
-        </Section>
-      ) : null}
       <div className="home-cta">
         <a className="btn primary" href="#make">
           자료 올리기 →
         </a>
-        <a className="btn ghost" href="#w-bino-1">
+        <a className="btn ghost" href="#ex">
           예시로 둘러보기
         </a>
       </div>
+      <Tabs on="home" />
     </div>
   );
 }

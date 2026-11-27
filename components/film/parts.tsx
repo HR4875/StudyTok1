@@ -100,3 +100,22 @@ export function Check({ state, label, detail }: { state: "done" | "doing" | "tod
     </div>
   );
 }
+
+/** 홈 화면 아래 탭: 홈 · 예시 둘러보기 · 내 시리즈 (기존 앱의 아래 탭처럼 세 칸) */
+export function Tabs({ on }: { on: "home" | "ex" | "mine" }) {
+  const n = listSeries("mine").length;
+  const tabs: [typeof on, string, string][] = [
+    ["home", "#home", "홈"],
+    ["ex", "#ex", "둘러보기"],
+    ["mine", "#mine", "내 시리즈" + (n ? ` ${n}` : "")],
+  ];
+  return (
+    <nav className="tabs" aria-label="화면">
+      {tabs.map(([id, href, label]) => (
+        <a key={id} href={href} aria-current={on === id ? "page" : undefined}>
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}

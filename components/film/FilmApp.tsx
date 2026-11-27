@@ -1,20 +1,24 @@
 "use client";
 // 모션 쇼츠 화면의 뼈대: 주소의 # 뒤를 읽어 화면을 고르고, 재생기는 그 화면 위에 덮어 띄운다.
-//   #home(또는 없음) 홈 · #s-<id> 시리즈 · #make 만들기 · #price 요금제 · #w-<id>-<k> 재생기
+//   #home(또는 없음) 홈 · #ex 예시 둘러보기 · #mine 내 시리즈 · #s-<id> 시리즈 · #make 만들기 · #price 요금제
+//   재생기: #w-<id>-<k> 피드 · #x-<id> 틀린 문제 다시 풀기 · #r-today 오늘 복습
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { initGen } from "@/lib/film/gen";
 import { entryOf, getSeries, unsavedMade, useFilmStore } from "@/lib/film/store";
 import { installPressFx } from "./fx";
 import HomeView from "./HomeView";
 import MakeView from "./MakeView";
-import FeedView from "./FeedView";
+import FeedView, { type Drill } from "./FeedView";
+import BrowseView from "./BrowseView";
+import MineView from "./MineView";
 import PriceView from "./PriceView";
 import SeriesView from "./SeriesView";
 
-type Screen = { name: "home" } | { name: "series"; id: string } | { name: "make" } | { name: "price" };
+type Screen = { name: "home" } | { name: "ex" } | { name: "mine" } | { name: "series"; id: string } | { name: "make" } | { name: "price" };
 interface Watch {
   sid: string;
   k: number;
+  drill: Drill;
 }
 interface Route {
   hash: string;
@@ -31,12 +35,17 @@ const isSeriesPage = (id: string) => {
 
 function watchOf(hash: string): Watch | null {
   const m = /^#w-([a-z0-9]+)-(\d+)$/.exec(hash);
-  return m ? { sid: m[1], k: Number(m[2]) } : null;
+  if (m) return { sid: m[1], k: Number(m[2]), drill: "" };
+  const x = /^#x-([a-z0-9]+)$/.exec(hash);
+  if (x) return { sid: x[1], k: 0, drill: "wrong" };
+  return hash === "#r-today" ? { sid: "", k: 0, drill: "review" } : null;
 }
 function screenOf(hash: string): Screen {
   const m = /^#s-([a-z0-9]+)$/.exec(hash);
   if (m) return { name: "series", id: m[1] };
   if (hash === "#make") return { name: "make" };
+  if (hash === "#ex") return { name: "ex" };
+  if (hash === "#mine") return { name: "mine" };
   if (hash === "#price") return { name: "price" };
   return HOME;
 }
@@ -45,13 +54,15 @@ const underOf = (sid: string): Screen => (isSeriesPage(sid) ? { name: "series", 
 
 function routeOf(hash: string, prev: Route | null): Route {
   const watch = watchOf(hash);
-  if (watch) return { hash, watch, under: prev ? prev.under : underOf(watch.sid) };
+  if (watch) return { hash, watch, under: prev ? prev.under : watch.sid ? underOf(watch.sid) : HOME };
   return { hash, watch: null, under: screenOf(hash) };
 }
 
 /** 주소가 가리키는 것이 없을 때 대신 갈 주소 (없으면 null) */
 function fixOf(r: Route): string | null {
   if (r.watch) {
+    if (r.watch.drill === "review") return null;
+    if (r.watch.drill === "wrong") return getSeries(r.watch.sid) ? null : "#home";
     if (entryOf(r.watch.sid, r.watch.k)) return null;
     return isSeriesPage(r.watch.sid) ? "#s-" + r.watch.sid : "#home";
   }
@@ -64,6 +75,13 @@ const keyOf = (s: Screen) => (s.name === "series" ? "s-" + s.id : s.name);
 export default function FilmApp() {
   const version = useFilmStore();
   const [route, setRoute] = useState<Route>(() => routeOf(window.location.hash, null));
+  // 퀴즈만 모은 피드를 같은 주소로 한 번 더 열 때 (완주 화면의 "남은 N개 다시 풀기")
+  const [again, setAgain] = useState(0);
+  useEffect(() => {
+    const on = () => setAgain((n) => n + 1);
+    window.addEventListener("film:again", on);
+    return () => window.removeEventListener("film:again", on);
+  }, []);
 
   useEffect(() => {
     initGen();
@@ -122,11 +140,15 @@ export default function FilmApp() {
           <MakeView />
         ) : under.name === "price" ? (
           <PriceView />
+        ) : under.name === "ex" ? (
+          <BrowseView paused={!!watch} />
+        ) : under.name === "mine" ? (
+          <MineView />
         ) : (
           <HomeView paused={!!watch} />
         )}
       </div>
-      {watch ? <FeedView key={watch.sid} sid={watch.sid} k={watch.k} /> : null}
+      {watch ? <FeedView key={watch.drill ? route.hash + ":" + again : watch.sid} sid={watch.sid} k={watch.k} drill={watch.drill} /> : null}
     </div>
   );
 }

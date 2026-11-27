@@ -5,7 +5,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { H, W, type Script } from "@/lib/film";
 import { HOST } from "@/lib/film/host";
-import { getPrefs, getSeries, loadShort, madeKs, markSeen, seenOf, titleOf, totalOf, useFilmStore } from "@/lib/film/store";
+import { getPrefs, getSeries, loadShort, madeKs, markSeen, nextRangeOf, seenOf, titleOf, totalOf, useFilmStore } from "@/lib/film/store";
+import { dueReviews, finishProgress, introSeen, recordReview, saveProgress, seeIntro, spacedOn, useStudy } from "@/lib/film/study";
+import { continueRange } from "./makeDraft";
 import { burstFrom } from "./fx";
 import { Icon } from "./icons";
 import { blip } from "./PlayerAudio";
@@ -13,7 +15,16 @@ import { Ahead, Settings } from "./Player";
 import { EMPTY_VIEW, createPlayer, spanOf, type PlayerApi, type PlayerView } from "./PlayerEngine";
 import Still from "./Still";
 
-type Item = { kind: "short"; k: number; key: string } | { kind: "quiz"; k: number; key: string } | { kind: "end"; key: string };
+/** 퀴즈 장의 꼬리표: review는 간격 복습으로 다시 나온 것, wrong은 틀린 문제 다시 풀기 */
+type Tag = "" | "review" | "wrong";
+type Item = { kind: "short"; k: number; key: string } | { kind: "quiz"; sid: string; k: number; key: string; tag: Tag } | { kind: "end"; key: string };
+/** drill: 퀴즈만 모은 짧은 피드. wrong은 이 시리즈에서 틀린 문제, review는 오늘 복습할 문제(모든 시리즈) */
+export type Drill = "" | "wrong" | "review";
+/** 이 시리즈에서 확인 문제를 틀린 채로 남은 편 */
+export const wrongKs = (sid: string): number[] => {
+  const s = getSeries(sid);
+  return s ? madeKs(s).filter((n) => seenOf(sid, n)?.quiz?.[0] === false && !!loadShort(sid, n)?.script.quiz?.length) : [];
+};
 
 const pct = (v: number) => (v * 100).toFixed(3) + "%";
 const reduced = () => {
@@ -127,7 +138,13 @@ function LiveShort({ sid, k, script, apiRef, onView, onEnded }: { sid: string; k
 }
 
 /** 넘기다 만나는 퀴즈 한 장 (기존 앱의 퀴즈 카드): 고르면 해설 시트가 올라오고, 시트의 단추로 다음 편 */
-function QuizItem({ sid, k, streak, onAnswer, onNext }: { sid: string; k: number; streak: number; onAnswer: (ok: boolean) => void; onNext: () => void }) {
+function QuizItem({ sid, k, tag, streak, onAnswer, onNext }: { sid: string; k: number; tag: Tag; streak: number; onAnswer: (ok: boolean) => void; onNext: () => void }) {
+  useStudy();
+  // 복습 첫 안내는 처음 본 그 장에만 계속 보인다
+  const [intro] = useState(() => tag === "review" && !introSeen());
+  useEffect(() => {
+    if (intro) seeIntro();
+  }, [intro]);
   const sh = loadShort(sid, k);
   const q = sh?.script.quiz?.[0];
   const [pick, setPick] = useState<number | null>(null);
@@ -138,9 +155,11 @@ function QuizItem({ sid, k, streak, onAnswer, onNext }: { sid: string; k: number
     <div className="fquiz">
       <div className="qhead">
         <span className="label ink">QUIZ</span>
+        {tag === "review" ? <span className="label sun">복습</span> : tag === "wrong" ? <span className="label red">다시 풀기</span> : null}
         <span className="fterm">{titleOf(sid, k)}</span>
         {streak >= 2 ? <span className="combo">{`COMBO ×${streak}`}</span> : null}
       </div>
+      {intro ? <p className="rintro">1·3·7일 간격 복습이에요 · 설정에서 끌 수 있어요</p> : null}
       <div className={"q" + (q.q.length > 34 ? " long" : "")}>{q.q}</div>
       <div className="opts">
         {q.choices.map((c, m) => {
@@ -159,6 +178,7 @@ function QuizItem({ sid, k, streak, onAnswer, onNext }: { sid: string; k: number
                 if (right) burstFrom(e.currentTarget, { x: e.clientX, y: e.clientY });
                 const prev = seenOf(sid, k)?.quiz || [];
                 markSeen(sid, k, { quiz: [right, ...prev.slice(1)] });
+                recordReview(sid, k, right, tag === "review");
                 onAnswer(right);
               }}
             >
@@ -182,7 +202,7 @@ function QuizItem({ sid, k, streak, onAnswer, onNext }: { sid: string; k: number
           <div className="xt">{ok ? "정답이에요!" : "아깝다!"}</div>
           {!ok ? <p className="xa">{`정답: ${q.choices[q.answer]}`}</p> : null}
           {q.why ? <p className="xw">{q.why}</p> : null}
-          {!ok ? <p className="xs">오답노트에 담았어요</p> : null}
+          {!ok ? <p className="xs">{"오답노트에 담았어요" + (spacedOn() ? " · 내일 다시 나와요" : "")}</p> : tag === "wrong" ? <p className="xs">오답노트에서 뺐어요</p> : null}
           <button type="button" className={"btn " + (ok ? "primary" : "red")} onClick={onNext}>
             {ok ? "다음 →" : "알겠어요, 다음 →"}
           </button>
@@ -194,22 +214,95 @@ function QuizItem({ sid, k, streak, onAnswer, onNext }: { sid: string; k: number
   );
 }
 
-export default function FeedView({ sid, k }: { sid: string; k: number }) {
+/** 끝 화면 (완주 화면): 틀린 문제 다시 풀기, 다음 편이나 다음 범위 이어서 만들기, 처음부터 다시 보기 */
+function EndCard({ sid, drill, label, more, total, have, quizN, onTop }: { sid: string; drill: Drill; label: string; more: boolean; total: number; have: number; quizN: number; onTop: () => void }) {
   useFilmStore();
+  useStudy();
+  const wrong = drill === "review" ? 0 : wrongKs(sid).length;
+  const next = drill || more ? null : nextRangeOf(sid);
+  if (drill) {
+    const left = drill === "wrong" ? wrong : dueReviews().length;
+    return (
+      <div className="fend">
+        <span className="label">{drill === "review" ? "REVIEW" : "RETRY"}</span>
+        <h2>{quizN ? "다 풀었어요!" : drill === "review" ? "오늘 복습할 문제가 없어요" : "틀린 문제가 없어요"}</h2>
+        <p className="sub">{label + (quizN ? ` · ${quizN}문제` : "")}</p>
+        {spacedOn() ? <p className="rnote">맞힌 문제는 3일·7일 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.</p> : null}
+        <div className="cta">
+          {left && quizN ? (
+            <button type="button" className="btn red" onClick={() => window.dispatchEvent(new Event("film:again"))}>
+              {`남은 ${left}개 다시 풀기 →`}
+            </button>
+          ) : null}
+          <a className="btn primary" href={drill === "review" ? "#home" : closeHref(sid)}>
+            {drill === "review" ? "홈으로" : "시리즈로"}
+          </a>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="fend">
+      <span className="label">FINISH</span>
+      <h2>{more ? "여기까지 만든 편을 다 봤어요" : "완주했어요!"}</h2>
+      <p className="sub">{label + (sid !== "ex" && total ? ` · ${have}/${total}편` : "")}</p>
+      {spacedOn() && quizN ? <p className="rnote">맞힌 문제는 3일·7일 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.</p> : null}
+      <div className="cta">
+        {wrong ? (
+          <a className="btn red" href={"#x-" + sid}>
+            {`틀린 문제만 다시 풀기 (${wrong}) →`}
+          </a>
+        ) : null}
+        {more ? (
+          <a className="btn primary" href={"#s-" + sid}>
+            다음 편 만들러 가기 →
+          </a>
+        ) : next ? (
+          <button type="button" className="btn primary" onClick={() => continueRange(next)}>
+            {`다음 범위 이어서 만들기 · ${next.from}쪽~`}
+          </button>
+        ) : (
+          <a className="btn primary" href="#home">
+            홈으로
+          </a>
+        )}
+        <button type="button" className="btn ghost" onClick={onTop}>
+          처음부터 다시 보기
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function FeedView({ sid, k, drill = "" }: { sid: string; k: number; drill?: Drill }) {
+  useFilmStore();
+  useStudy();
   const s = getSeries(sid);
   const ks = useMemo(() => (s ? madeKs(s) : []), [s]);
+  // 다시 풀 문제와 복습할 문제는 연 순간의 것으로 고정한다 (풀면서 목록이 줄어도 장이 사라지지 않게)
+  const [drillList] = useState<{ sid: string; k: number }[]>(() =>
+    drill === "wrong" ? wrongKs(sid).map((n) => ({ sid, k: n })) : drill === "review" ? dueReviews().filter((r) => !!loadShort(r.sid, r.k)?.script.quiz?.length) : [],
+  );
+  const [reviews] = useState(() => (drill ? [] : dueReviews(sid).filter((r) => !!loadShort(sid, r.k)?.script.quiz?.length)));
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
+    if (drill) {
+      drillList.forEach((x) => out.push({ kind: "quiz", sid: x.sid, k: x.k, key: `d${x.sid}-${x.k}`, tag: drill }));
+      out.push({ kind: "end", key: "end" });
+      return out;
+    }
     for (const n of ks) {
       const sh = loadShort(sid, n);
       if (!sh || !sh.scenes) continue;
       out.push({ kind: "short", k: n, key: "s" + n });
-      if (sh.script.quiz && sh.script.quiz.length) out.push({ kind: "quiz", k: n, key: "q" + n });
+      if (sh.script.quiz && sh.script.quiz.length) out.push({ kind: "quiz", sid, k: n, key: "q" + n, tag: "" });
+      // 오늘 복습할 문제는 처음 연 편 바로 뒤에 '복습' 꼬리표를 달고 나온다
+      if (n === k) reviews.forEach((r) => out.push({ kind: "quiz", sid, k: r.k, key: "r" + r.k, tag: "review" }));
     }
     out.push({ kind: "end", key: "end" });
     return out;
-  }, [sid, ks]);
-  const startAt = Math.max(0, items.findIndex((it) => it.kind === "short" && it.k === k));
+  }, [sid, ks, k, drill, drillList, reviews]);
+  const startAt = drill ? 0 : Math.max(0, items.findIndex((it) => it.kind === "short" && it.k === k));
   const [index, setIndex] = useState(startAt);
   const scroller = useRef<HTMLDivElement>(null);
   const api = useRef<PlayerApi | null>(null);
@@ -307,13 +400,19 @@ export default function FeedView({ sid, k }: { sid: string; k: number }) {
     if (cur && cur.kind === "short") {
       const h = `#w-${sid}-${cur.k}`;
       if (location.hash !== h) history.replaceState(null, "", h);
+      // 이어보기: 보던 편을 남긴다. 다시 열면 홈 맨 위 카드에서 이 편부터 시작한다
+      if (sid !== "ex") saveProgress(sid, cur.k);
     }
-  }, [cur, sid]);
+    if (cur && cur.kind === "end" && !drill && sid !== "ex" && !(s && ks.length < totalOf(s))) finishProgress(sid);
+  }, [cur, sid, drill, s, ks]);
 
   const scenes = view.info ? view.info.beats.length : 0;
   const due = cur?.kind === "short" && view.started && !view.ended && scenes > 0 && view.beat + 1 >= Math.ceil(scenes * HOST.prefetchAt);
   const more = !!s && s.kind !== "ex" && ks.length < total;
-  const label = s ? (s.kind === "ex" ? "맛보기" : s.title || "") : "";
+  const label = drill === "review" ? "오늘 복습" : drill === "wrong" ? "틀린 문제 다시 풀기" : s ? (s.kind === "ex" ? "맛보기" : s.title || "") : "";
+  const close = drill === "review" ? "#home" : closeHref(sid);
+  const quizN = items.filter((it) => it.kind === "quiz").length;
+  const quizAt = items.slice(0, index + 1).filter((it) => it.kind === "quiz").length;
 
   return (
     <div className="watch feed" role="dialog" aria-modal="true" aria-label={label}>
@@ -340,32 +439,15 @@ export default function FeedView({ sid, k }: { sid: string; k: number }) {
                   )
                 ) : it.kind === "quiz" ? (
                   <QuizItem
-                    sid={sid}
+                    sid={it.sid}
                     k={it.k}
+                    tag={it.tag}
                     streak={streak}
                     onAnswer={(ok) => setStreak((n) => (ok ? n + 1 : 0))}
                     onNext={() => scrollTo(i + 1)}
                   />
                 ) : (
-                  <div className="fend">
-                    <span className="label">FINISH</span>
-                    <h2>{more ? "여기까지 만든 편을 다 봤어요" : "완주했어요!"}</h2>
-                    <p className="sub">{label + (s && s.kind !== "ex" && total ? ` · ${ks.length}/${total}편` : "")}</p>
-                    <div className="cta">
-                      {more ? (
-                        <a className="btn primary" href={"#s-" + sid}>
-                          다음 편 만들러 가기 →
-                        </a>
-                      ) : (
-                        <a className="btn primary" href="#home">
-                          홈으로
-                        </a>
-                      )}
-                      <button type="button" className="btn ghost" onClick={() => scrollTo(0)}>
-                        처음부터 다시 보기
-                      </button>
-                    </div>
-                  </div>
+                  <EndCard sid={sid} drill={drill} label={label} more={more} total={total} have={ks.length} quizN={quizN} onTop={() => scrollTo(0)} />
                 )}
               </div>
             </section>
@@ -373,11 +455,11 @@ export default function FeedView({ sid, k }: { sid: string; k: number }) {
         </div>
         {/* 위쪽 줄: 뒤로 · 제목 · 몇 편째 · 소리 · 설정 */}
         <div className="fbar" inert={sets}>
-          <a className="ib" href={closeHref(sid)} aria-label="닫기">
+          <a className="ib" href={close} aria-label="닫기">
             <Icon name="back" />
           </a>
           <span className="fttl">{cur?.kind === "short" ? titleOf(sid, cur.k) : label}</span>
-          {total && s?.kind !== "ex" ? <span className="count">{`${curK} / ${total}`}</span> : null}
+          {drill ? <span className="count">{`${Math.min(quizAt, quizN)} / ${quizN}`}</span> : total && s?.kind !== "ex" ? <span className="count">{`${curK} / ${total}`}</span> : null}
           <button type="button" className="ib" aria-label={prefs.sound ? "소리 끄기" : "소리 켜기"} onClick={() => api.current?.toggleSound()}>
             <Icon name={prefs.sound ? "sound" : "mute"} />
           </button>

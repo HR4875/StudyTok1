@@ -286,3 +286,48 @@ html:has(.film), body:has(.film) { background: #F4F3EF; color-scheme: light; }
 .film .dchip .dsw { display: flex !important; flex-direction: row; justify-content: center; align-items: flex-end; gap: 4px; width: 100%; height: 40px; padding: 6px; border: 1.5px solid; border-radius: 8px; box-sizing: border-box; }
 .film .dchip .dsw i { display: block; flex: 0 0 14px; border-radius: 3px; }
 .film .dchip .dsw i:nth-child(1) { height: 60%; } .film .dchip .dsw i:nth-child(2) { height: 100%; } .film .dchip .dsw i:nth-child(3) { height: 40%; }
+
+/* ---------- 11/27 홈 정리: 아래 탭 · 이어보기 · 오늘 복습 · 둘러보기 · 내 시리즈 ---------- */
+.film .wrap:has(.tabs) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.film .tabs { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); width: min(480px, 100%); display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px max(var(--gut), env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(var(--gut), env(safe-area-inset-left, 0px)); box-sizing: border-box; background: var(--paper); border-top: 2.5px solid var(--ink); }
+.film .tabs a { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 14px; font: 800 15px/1 var(--f-title); letter-spacing: -0.02em; color: var(--muted); }
+.film .tabs a[aria-current="page"] { background: var(--ink); color: var(--white); }
+.film .home { min-height: calc(100dvh - 152px); }
+.film .scard.resume { margin-top: 24px; grid-template-columns: minmax(0, 1fr) 64px; align-items: center; }
+.film .scard.resume .tab { background: var(--red); }
+.film .scard.resume .go { margin-top: 10px; font: 800 16px/1 var(--f-title); color: var(--ocean); }
+.film .rcard { margin-top: 16px; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: var(--sun); border: 2.5px solid var(--ink); }
+.film .rcard > div { min-width: 0; flex: 1; }
+.film .rcard b { display: block; font: 800 18px/1.25 var(--f-title); letter-spacing: -0.02em; }
+.film .rcard span { display: block; margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--ink); opacity: .75; }
+.film .rcard .btn.small { flex: none; font-size: 13px; padding: 0 12px; white-space: nowrap; }
+.film .label.sun { background: var(--sun); color: var(--ink); }
+.film .rintro { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--sun); font: 700 13px/1.4 var(--f-body); color: var(--ink); align-self: flex-start; }
+.film .rnote { margin-top: 14px; font-size: 14px; line-height: 1.5; font-weight: 600; color: var(--muted); }
+.film .fend .cta .btn + .btn { margin-top: 10px; }
+.film .dgrid { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px; }
+.film .dcard { display: block; padding: 0; border: 0; background: none; text-align: left; color: var(--ink); min-width: 0; }
+.film .dcard .phone { width: 100%; margin: 0; }
+.film .dcard b { display: block; margin-top: 10px; font: 800 16px/1.2 var(--f-title); letter-spacing: -0.02em; }
+.film .dcard > span:last-child { display: block; margin-top: 3px; font-size: 12px; line-height: 1.4; font-weight: 600; color: var(--muted); }
+.film .dview { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; }
+.film .dview .scrim { position: absolute; inset: 0; background: rgba(20, 20, 22, .72); }
+.film .dview .dbox { position: relative; width: min(340px, 78vw); }
+.film .dview .phone { width: 100%; margin: 0; }
+.film .dview p { margin-top: 12px; text-align: center; color: var(--white); font-size: 14px; font-weight: 600; }
+.film .dview p b { font-family: var(--f-title); }
+.film .dview .dclose { position: absolute; top: -52px; right: 0; color: var(--white); }
+/* 홈이 한 화면에 들어오게: 이어보기·복습 카드는 한두 줄로 */
+.film .scard.resume { padding: 36px 14px 12px; gap: 12px; grid-template-columns: minmax(0, 1fr) 44px; }
+.film .scard.resume h3 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.film .scard.resume .meta { margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.film .scard.resume .go { display: none; }
+.film .scard.resume .poster { border-radius: 8px; }
+.film .rcard { margin-top: 12px; padding: 8px 8px 8px 16px; border-radius: 16px; }
+.film .rcard b { font-size: 16px; }
+.film .rcard span { margin-top: 2px; font-size: 12px; }
+.film .scard.resume + .rcard + .upcard, .film .scard.resume + .upcard, .film .rcard + .upcard { padding: 36px 20px 16px; }
+.film .scard.resume + .rcard + .upcard b, .film .scard.resume + .upcard b, .film .rcard + .upcard b { font-size: 22px; }
+.film .qhead .label { flex: none; }
+.film .fend > .label { align-self: flex-start; }
+.film .scard.resume .goin { color: var(--ocean); font-weight: 800; }
