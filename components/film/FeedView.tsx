@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { H, W, type Script } from "@/lib/film";
 import { HOST } from "@/lib/film/host";
-import { getPrefs, getSeries, loadShort, madeKs, markSeen, nextRangeOf, seenOf, titleOf, totalOf, useFilmStore } from "@/lib/film/store";
+import { getPrefs, getSeries, loadShort, madeKs, markSeen, nextRangeOf, pagesOf, seenOf, titleOf, totalOf, useFilmStore } from "@/lib/film/store";
 import { dueReviews, finishProgress, introSeen, recordReview, saveProgress, seeIntro, spacedOn, useStudy } from "@/lib/film/study";
 import { continueRange } from "./makeDraft";
 import { burstFrom } from "./fx";
@@ -537,7 +537,10 @@ export default function FeedView({ sid, k, drill = "" }: { sid: string; k: numbe
           <a className="ib" href={close} aria-label="닫기">
             <Icon name="back" />
           </a>
-          <span className="fttl">{cur?.kind === "short" ? titleOf(sid, cur.k) : label}</span>
+          <span className="fttl">
+            {cur?.kind === "short" ? titleOf(sid, cur.k) : label}
+            {cur?.kind === "short" && pagesOf(sid, cur.k) ? <small className="fpg">{pagesOf(sid, cur.k)}</small> : null}
+          </span>
           {drill ? <span className="count">{`${Math.min(quizAt, quizN)} / ${quizN}`}</span> : total && s?.kind !== "ex" ? <span className="count">{`${curK} / ${total}`}</span> : null}
           <button type="button" className="ib" aria-label={prefs.sound ? "소리 끄기" : "소리 켜기"} onClick={() => api.current?.toggleSound()}>
             <Icon name={prefs.sound ? "sound" : "mute"} />

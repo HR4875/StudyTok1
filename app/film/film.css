@@ -159,6 +159,8 @@ html:has(.film), body:has(.film) { background: #F4F3EF; color-scheme: light; }
 .film .row .num svg { width: 18px; height: 18px; }
 .film .row.done .num { background: var(--ocean); color: var(--white); }
 .film .row .t { display: block; font: 800 16px/1.35 var(--f-title); letter-spacing: -0.02em; }
+.film .row .t .pg { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: var(--line, rgba(0,0,0,.06)); font: 700 11px/1.5 var(--f-body, inherit); letter-spacing: 0; color: var(--muted); vertical-align: 2px; }
+.film .row .ask { display: block; margin-top: 1px; font-size: 13px; font-weight: 600; color: var(--ink, inherit); opacity: .72; }
 .film .row .m { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .film .row .go { width: 44px; height: 44px; border-radius: 999px; background: var(--ocean); color: var(--white); display: grid; place-items: center; }
 .film .row .go svg { width: 16px; height: 16px; margin-left: 2px; }

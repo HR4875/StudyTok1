@@ -10,6 +10,8 @@ export interface PlanShort {
   n: number;
   /** 편 제목 (시청자가 품을 질문) */
   title: string;
+  /** 교재 용어 그대로의 개념 이름 (목록과 재생 화면에 제목 대신 보인다). 예: "원가계층" */
+  concept: string;
   /** 이 편이 가르칠 생각 하나 */
   idea: string;
   /** 그림과 길: 어떤 그림 하나를 키워 가며 설명할지 */
@@ -35,7 +37,7 @@ export interface SeriesPlan {
   shorts: PlanShort[];
 }
 
-const PLAN_KEYS = new Set(["idea", "route", "needs", "gives", "src"]);
+const PLAN_KEYS = new Set(["concept", "idea", "route", "needs", "gives", "src"]);
 
 /** 기획 모델의 답(줄 표기)을 읽는다. 모르는 줄은 건너뛴다. */
 export function parsePlan(text: string): SeriesPlan {
@@ -52,11 +54,11 @@ export function parsePlan(text: string): SeriesPlan {
     else if (word === "GIVEN") plan.given = rest;
     else if (word === "SHORT") {
       const parts = rest.split("|").map((x) => x.trim());
-      const s: PlanShort = { n: parseInt(parts[0], 10) || plan.shorts.length + 1, title: parts[1] || "", idea: "", route: "", needs: "", gives: "", src: "", steps: [], ask: "" };
+      const s: PlanShort = { n: parseInt(parts[0], 10) || plan.shorts.length + 1, title: parts[1] || "", concept: "", idea: "", route: "", needs: "", gives: "", src: "", steps: [], ask: "" };
       for (const p of parts.slice(2)) {
-        const m = /^(idea|route|needs|gives|src)\s*=\s*(.*)$/i.exec(p);
+        const m = /^(concept|idea|route|needs|gives|src)\s*=\s*(.*)$/i.exec(p);
         const key = m ? m[1].toLowerCase() : "";
-        if (m && PLAN_KEYS.has(key)) s[key as "idea" | "route" | "needs" | "gives" | "src"] = m[2];
+        if (m && PLAN_KEYS.has(key)) s[key as "concept" | "idea" | "route" | "needs" | "gives" | "src"] = m[2].trim();
       }
       plan.shorts.push(s);
     } else if (word === "STEP" && last) {
@@ -81,7 +83,9 @@ export function planToText(plan: SeriesPlan): string {
   const out = [`SERIES ${plan.series}`, `AFTER ${plan.after}`, `EXAMPLE ${plan.example}`];
   if (plan.given) out.push(`GIVEN ${plan.given}`);
   for (const s of plan.shorts) {
-    const head = [`SHORT ${s.n}`, s.title, `idea=${s.idea}`, `route=${s.route}`];
+    const head = [`SHORT ${s.n}`, s.title];
+    if (s.concept) head.push(`concept=${s.concept}`);
+    head.push(`idea=${s.idea}`, `route=${s.route}`);
     if (s.needs) head.push(`needs=${s.needs}`);
     head.push(`gives=${s.gives}`);
     if (s.src) head.push(`src=${s.src}`);

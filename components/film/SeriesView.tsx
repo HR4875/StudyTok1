@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { blocking, initGen, makeShort, stopGen, useGen, type GenState } from "@/lib/film/gen";
 import { HOST } from "@/lib/film/host";
-import { loadShort, madeKs, removeSeries, seenOf, titleOf, totalOf, useFilmStore, getSeries, type Series } from "@/lib/film/store";
+import { askOf, loadShort, madeKs, pagesOf, removeSeries, seenOf, titleOf, totalOf, useFilmStore, getSeries, type Series } from "@/lib/film/store";
 import { secs } from "./format";
 import { Icon } from "./icons";
 import { Check, SubTop, busyLine, trackLabel, useNow } from "./parts";
@@ -13,6 +13,17 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
   const sh = loadShort(sid, k);
   const sn = seenOf(sid, k);
   const title = titleOf(sid, k);
+  const pg = pagesOf(sid, k);
+  const ask = askOf(sid, k);
+  const head = (
+    <>
+      <span className="t">
+        {title}
+        {pg ? <span className="pg">{pg}</span> : null}
+      </span>
+      {ask ? <span className="ask">{ask}</span> : null}
+    </>
+  );
   if (sh && sh.scenes) {
     const quiz = (sh.script.quiz || []).length;
     const got = sn?.quiz ? sn.quiz.filter(Boolean).length : 0;
@@ -23,7 +34,7 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
       <a className={"row" + (sn?.done ? " done" : "")} href={`#w-${sid}-${k}`}>
         <span className="num">{sn?.done ? <Icon name="check" /> : String(k)}</span>
         <span>
-          <span className="t">{title}</span>
+          {head}
           <span className="m">{meta}</span>
         </span>
         <span className="go">
@@ -61,7 +72,7 @@ function ShortRow({ s, k, first, gen, now }: { s: Series; k: number; first: bool
     <div className={"row locked" + (busy ? " making" : "")}>
       <span className="num">{String(k)}</span>
       <span>
-        <span className="t">{title}</span>
+        {head}
         <span className="m">{m}</span>
       </span>
       {action}

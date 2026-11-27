@@ -382,13 +382,27 @@ export function loadShort(sid: string, k: number): LoadedShort | null {
   return sh;
 }
 
+/** 편 이름: 개념 이름이 있으면 그것, 없으면 계획의 질문형 제목 */
 export function titleOf(sid: string, k: number): string {
   const s = getSeries(sid);
-  const planned = s?.plan?.shorts[k - 1]?.title;
+  const ps = s?.plan?.shorts[k - 1];
+  const planned = ps?.concept || ps?.title;
   if (planned) return planned;
   const e = s?.shorts[k];
   if (e && e.from === "ex") return e.label;
   return loadShort(sid, k)?.script.title || `${k}편`;
+}
+
+/** 개념 이름 아래에 붙는 질문형 제목 (개념 이름이 없으면 빈 값) */
+export function askOf(sid: string, k: number): string {
+  const ps = getSeries(sid)?.plan?.shorts[k - 1];
+  return ps?.concept ? ps.title : "";
+}
+/** 자료의 쪽 표시. 예: "p.8–9" (쪽 정보가 없으면 빈 값) */
+export function pagesOf(sid: string, k: number): string {
+  const src = (getSeries(sid)?.plan?.shorts[k - 1]?.src || "").trim();
+  if (!src || src === "-" || !/\d/.test(src)) return "";
+  return "p." + src.replace(/\s+/g, "").replace(/-/g, "–").replace(/,/g, ", ");
 }
 
 /** 다른 탭과도 겹치지 않는 새 시리즈 id (주소에 쓰이므로 소문자와 숫자만) */

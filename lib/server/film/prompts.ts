@@ -34,7 +34,7 @@ SERIES 시리즈 제목
 AFTER 다 보고 나면 할 수 있게 되는 것 한 문장
 EXAMPLE 시리즈 내내 쓰는 예시: 상황과 등장하는 것 한 줄
 GIVEN 20=지금 주가; 22=오르면 주가; 18=내리면 주가
-SHORT 1 | 제목 | idea=이 편이 가르치는 생각 한 문장 | route=어떤 그림 하나로 보여 주는지, 무엇을 단순하게 했는지 | needs=없음 | gives=이 편이 끝나면 확정되는 사실과 숫자 | src=3-4
+SHORT 1 | 제목 | concept=교재 용어 그대로의 개념 이름 | idea=이 편이 가르치는 생각 한 문장 | route=어떤 그림 하나로 보여 주는지, 무엇을 단순하게 했는지 | needs=없음 | gives=이 편이 끝나면 확정되는 사실과 숫자 | src=3-4
 STEP 시청자의 질문 => 화면이 보여 주는 것 하나
 STEP ...
 ASK 예측 질문 | 정답 | 흔한 오답 | 흔한 오답 | before=5
@@ -42,6 +42,7 @@ SHORT 2 | ...
 
 - GIVEN lists the numbers of the running example with their meaning. Omit GIVEN when the material has no numbers.
 - needs names earlier shorts by number ("1, 2") or "없음". gives lists what later shorts may rely on, with the numbers.
+- concept is the textbook term this short teaches, exactly as the material names it, at most 16 characters ("원가계층", "위험중립확률", "독립성 원칙"). The app lists shorts by it, so a learner can find the short for a page of the material.
 - src is the page numbers of the material this short draws on (the material is given with page marks like [p.3]); "-" when you were given only a topic name.
 - The player can draw only these pictures, so name one of them in route, chosen by the shape of the idea: a tree of circles joined by arrows (cases branching from one start, or steps in a row); a balance with two pans (two bundles that are worth the same, or one outweighing the other); bars standing side by side (comparing sizes); a grid of dots (so many out of so many); icons with tokens travelling between them (who gives what to whom: people, banks, ships, documents, money); a table revealed row by row (cases against properties); a line graph with a point that slides (a value that depends on another). One short uses one of them, with a calculation line under it when numbers are computed. The scriptwriter draws exactly the cast you name, so route names every thing by its kind, about six at most: icons for places, people, institutions and objects (공장, 배, 은행, 수입자); circles for numbers and prices; pillars for amounts compared or standing on a time axis; and the time stages ("시간축(오늘, 3개월 뒤) 위 나무: 오늘 주가 동그라미에서 오르면·내리면 동그라미 두 갈래, 끝마다 받는 돈 기둥").
 - What unfolds in time is drawn from left to right over a time axis, one stage per column with its name under the axis: prices branching over periods (the tree grows to the right), cash flows and book values year by year (bars standing on the axis), the steps of a procedure in order. Say in route which 2 to 4 stages the axis has ("오늘, 3개월 뒤"); they are moments, never cases, each named in at most 8 characters ("싣기 전, 바다 위, 도착"). The axis carries a tree, bars, or the icons of the places a procedure passes (공장, 항구, 배: the places are icons above the stages, and the stages stay moments), never a balance, table, plot or dots grid: a price that branches over time is a tree over time. Whenever the idea sets today against a later day (an option, a bond, interest, a forecast, depreciation), it goes over the time axis even when people trade in it; icons-and-tokens without an axis is only for an exchange that happens in one moment (who hands what to whom). For finance and accounting material prefer these graph-like pictures: time on the horizontal axis, amounts as bars standing on it, cases branching to the right.

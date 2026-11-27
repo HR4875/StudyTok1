@@ -170,6 +170,7 @@
 .film .fstage .stagebox.still { height: 100%; max-width: calc(100% - 16px); aspect-ratio: 9 / 16; }
 .film .fsegs { display: flex; gap: 3px; height: 24px; align-items: center; width: calc(100% - 32px); margin-top: 6px; cursor: pointer; touch-action: none; flex: none; }
 .film .fbar { position: absolute; left: 0; right: 0; top: 0; z-index: 10; display: flex; align-items: center; gap: 2px; height: 56px; padding: 0 4px 0 6px; background: var(--paper); }
+.film .fttl .fpg { margin-left: 6px; font: 700 12px/1 var(--f-body, inherit); letter-spacing: 0; opacity: .7; }
 .film .fttl { flex: 1; min-width: 0; padding: 0 4px; font: 800 16px/1.2 var(--f-title); letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .film .fbar .count { flex: none; padding: 0 4px; font: 700 14px/1 var(--f-body); font-variant-numeric: tabular-nums; }
 .film .fswipe { position: absolute; left: 0; right: 0; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); z-index: 9; text-align: center; font: 700 13px/1 var(--f-body); color: var(--muted); pointer-events: none; }
