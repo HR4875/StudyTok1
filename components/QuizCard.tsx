@@ -31,10 +31,10 @@ export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer
         <span className="rounded-[8px] bg-[var(--ink)] px-2.5 py-1 text-[13px] font-bold text-white">{retry ? "다시 도전" : "QUIZ"}</span>
         <span className="min-w-0 truncate text-[13px] font-bold text-[var(--muted)]">{term}</span>
         {streak >= 2 ? (
-          <span className="font-display ml-auto shrink-0 -rotate-3 rounded-[10px] bg-[var(--red)] px-3 py-1 text-[18px] text-white">COMBO ×{streak}</span>
+          <span className="font-display ml-auto shrink-0 -rotate-3 rounded-[8px] bg-[var(--red)] px-3 py-1 text-[18px] text-white">COMBO ×{streak}</span>
         ) : null}
       </div>
-      <h2 className="font-display mt-5 text-[27px] leading-[1.25] text-[var(--ink)]" style={{ wordBreak: "keep-all" }}>
+      <h2 className="font-display mt-5 text-[28px] leading-[1.25] text-[var(--ink)]" style={{ wordBreak: "keep-all" }}>
         {quiz.question}
       </h2>
       <div className="mt-6 flex flex-col gap-3">
@@ -69,7 +69,7 @@ export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer
               }}
               className={`opt-press flex min-h-14 items-center gap-3 rounded-[16px] border-[2.5px] px-3.5 py-3 text-left text-[17px] font-bold ${box} ${state}`}
             >
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-[15px] font-extrabold ${key}`}>{i + 1}</span>
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-[15px] font-extrabold ${key}`}>{i + 1}</span>
               <span className={text} style={{ wordBreak: "keep-all" }}>
                 {o}
                 {answered && isAns ? <span className="tick-pop ml-1 inline-block">✓</span> : null}
@@ -136,7 +136,7 @@ export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer
           )}
         </div>
       ) : (
-        <p className="mt-auto pb-[max(28px,env(safe-area-inset-bottom))] pt-4 text-center text-[12.5px] font-semibold text-[var(--muted)]">정답을 골라 보세요 · 넘기면 건너뛰기</p>
+        <p className="mt-auto pb-[max(28px,env(safe-area-inset-bottom))] pt-4 text-center text-[13px] font-semibold text-[var(--muted)]">정답을 골라 보세요 · 넘기면 건너뛰기</p>
       )}
           </div>
   );

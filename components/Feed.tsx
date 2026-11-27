@@ -387,8 +387,9 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
   // 모션 영상은 아주 연한 하늘 바탕(2026-11-23)이라 잉크 글씨 상단 바를 쓴다. 짙은 바탕은 예전 장면(short 없음)만
   const dark = current?.kind === "card" && !current.card.short && (!current.card.spec || !!broken[current.card.id]);
   const skyVideo = current?.kind === "card" && view === "motion" && !!current.card.short && MOTION_TEMPLATES.has(current.card.short.visual.type);
-  // 각진 작은 조작 버튼 (11/24): 높이 30px, 모서리 8px, 아래 단색 판 2px
-  const ctl = `flex h-[30px] shrink-0 items-center gap-1 rounded-[8px] border-2 px-2.5 text-[12.5px] font-bold transition-transform active:translate-y-[2px] active:shadow-none ${
+  // 각진 작은 조작 버튼 (11/24 C안, 11/27 수치표 반영): 보이는 높이 30px, 모서리 8px, 아래 단색 판 2px.
+  // 눌리는 영역은 바깥으로 7px씩 넓혀 44px
+  const ctl = `relative flex h-[30px] shrink-0 items-center before:absolute before:inset-[-7px] before:content-[''] gap-1 rounded-[8px] border-2 px-2.5 text-[13px] font-bold transition-transform active:translate-y-[2px] active:shadow-none ${
     dark ? "border-white bg-white/15 text-white shadow-[0_2px_0_#fff]" : "border-[var(--ink)] bg-white text-[var(--ink)] shadow-[0_2px_0_var(--ink)]"
   }`;
   const fg = dark ? "#fff" : "var(--ink)";
@@ -420,7 +421,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   {it.card.status === "error" || !generating ? (
                     <>
                       <p className="font-display text-[28px]">{it.card.concept.term}</p>
-                      <p className="mt-2 text-[13.5px] font-semibold text-[var(--muted)]">
+                      <p className="mt-2 text-[14px] font-semibold text-[var(--muted)]">
                         {it.card.status === "error" ? (it.card.error ?? "이 카드는 만들지 못했어요") : "만들다 멈춘 카드예요"}
                       </p>
                       <button
@@ -540,7 +541,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             {deck.title}
           </span>
           {deck.sample ? (
-            <span className="shrink-0 text-[11px] font-semibold" style={{ color: dark ? "rgba(255,255,255,.8)" : "var(--muted)" }} title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">
+            <span className="shrink-0 text-[12px] font-semibold" style={{ color: dark ? "rgba(255,255,255,.8)" : "var(--muted)" }} title="설명을 위한 예시 자료예요. 화면 속 숫자는 가상이에요.">
               예시 자료 · 숫자는 가상
             </span>
           ) : null}
@@ -553,14 +554,14 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             교재 문제가 있는 덱에서만 시험문제 탭으로 가는 버튼이 하나 더 붙는다 (11/25) */}
         <div className="pointer-events-auto mt-1 flex items-center gap-1.5 px-3">
           {hasShorts ? (
-            <div className={`flex shrink-0 rounded-[9px] p-[3px] ${dark ? "bg-white/20" : "bg-[var(--chip)]"}`} role="group" aria-label="보기 방식">
+            <div className={`flex shrink-0 rounded-[8px] p-[3px] ${dark ? "bg-white/20" : "bg-[var(--chip)]"}`} role="group" aria-label="보기 방식">
               {(["motion", "text"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
                   aria-pressed={view === m}
                   onClick={() => view !== m && set({ mode: m }, m === "text" ? "텍스트 숏츠로 보기" : "같은 카드를 모션으로 보기 · 추가 비용 없음")}
-                  className={`h-[26px] whitespace-nowrap rounded-[7px] px-2.5 text-[12.5px] font-bold transition-colors ${
+                  className={`relative h-[26px] whitespace-nowrap rounded-[6px] before:absolute before:inset-x-0 before:inset-y-[-9px] before:content-[''] px-2.5 text-[13px] font-bold transition-colors ${
                     view === m ? (dark ? "bg-white text-[var(--ink)]" : "bg-[var(--ink)] text-white") : dark ? "text-white/80" : "text-[var(--muted)]"
                   }`}
                 >
@@ -618,8 +619,8 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
           </button>
         </div>
         {quizMenu ? (
-          <div className="pointer-events-auto absolute left-3 top-[calc(100%-4px)] z-30 w-[220px] rounded-[12px] border-[2.5px] border-[var(--ink)] bg-white p-1.5">
-            <p className="px-2 pb-1 pt-1 text-[12px] font-extrabold text-[var(--muted)]">퀴즈를 몇 장마다 낼까요?</p>
+          <div className="pointer-events-auto absolute left-3 top-[calc(100%-4px)] z-30 w-[220px] rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white p-1.5">
+            <p className="px-2 pb-1 pt-1 text-[13px] font-extrabold text-[var(--muted)]">퀴즈를 몇 장마다 낼까요?</p>
             {QUIZ_OPTIONS.map((n) => (
               <button
                 key={n}
@@ -649,12 +650,12 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             <button
               type="button"
               onClick={() => setDetail(current.card)}
-              className="flex h-[30px] items-center gap-1 rounded-[8px] border-2 border-[var(--ink)] bg-white px-2.5 text-[12.5px] font-bold text-[var(--ink)] shadow-[0_2px_0_var(--ink)] transition-transform active:translate-y-[2px] active:shadow-none"
+              className="relative flex h-[30px] items-center gap-1 rounded-[8px] border-2 border-[var(--ink)] bg-white px-2.5 before:absolute before:inset-[-7px] before:content-[''] text-[13px] font-bold text-[var(--ink)] shadow-[0_2px_0_var(--ink)] transition-transform active:translate-y-[2px] active:shadow-none"
             >
               해설 보기 <span className="font-extrabold">›</span>
             </button>
             {current.card.concept.pages ? (
-              <span className="text-[12.5px] font-semibold" style={{ color: fg }}>{current.card.concept.pages}</span>
+              <span className="text-[13px] font-semibold" style={{ color: fg }}>{current.card.concept.pages}</span>
             ) : null}
             <span className="ml-auto text-[13px] font-medium" style={{ color: dark ? "#fff" : "var(--muted)" }}>
               {index === 0 ? <span className="animate-bob inline-block">↑ 넘기기</span> : "↑ 넘기기"}
@@ -695,15 +696,15 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       <Sheet open={!!detail} onClose={() => setDetail(null)} title={detail?.concept.term}>
         {detail ? (
           <div className="space-y-4 pb-2">
-            <p className="rounded-[14px] border-[2.5px] border-[var(--ink)] bg-white px-4 py-3 text-[15px] font-bold leading-relaxed text-[var(--ink)]">{detail.concept.definition}</p>
-            <p className="text-[14.5px] font-medium leading-[1.7] text-[var(--ink)]">{detail.concept.explanation}</p>
+            <p className="rounded-[16px] border-[2.5px] border-[var(--ink)] bg-white px-4 py-3 text-[15px] font-bold leading-relaxed text-[var(--ink)]">{detail.concept.definition}</p>
+            <p className="text-[15px] font-medium leading-[1.7] text-[var(--ink)]">{detail.concept.explanation}</p>
             {detail.concept.keyPoints.length ? (
               <div>
-                <p className="mb-1.5 text-[12.5px] font-extrabold text-[var(--muted)]">시험 포인트</p>
+                <p className="mb-1.5 text-[13px] font-extrabold text-[var(--muted)]">시험 포인트</p>
                 <ul className="space-y-1.5">
                   {detail.concept.keyPoints.map((k, i) => (
                     <li key={i} className="flex gap-2 text-[14px] font-semibold leading-relaxed text-[var(--ink)]">
-                      <span className="mt-[3px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[11px] font-extrabold text-white">{i + 1}</span>
+                      <span className="mt-[3px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[12px] font-extrabold text-white">{i + 1}</span>
                       {k}
                     </li>
                   ))}
@@ -711,17 +712,17 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               </div>
             ) : null}
             {detail.concept.example ? (
-              <div className="rounded-[14px] bg-[var(--paper)] px-4 py-3">
-                <p className="text-[12.5px] font-extrabold text-[var(--muted)]">예시</p>
+              <div className="rounded-[16px] bg-[var(--paper)] px-4 py-3">
+                <p className="text-[13px] font-extrabold text-[var(--muted)]">예시</p>
                 <p className="mt-1 text-[14px] font-semibold leading-relaxed text-[var(--ink)]">{detail.concept.example}</p>
               </div>
             ) : null}
             {detail.fallback ? (
-              <p className="rounded-[14px] bg-[var(--paper)] px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-[var(--ink)]">
+              <p className="rounded-[16px] bg-[var(--paper)] px-3.5 py-2.5 text-[13px] font-bold leading-relaxed text-[var(--ink)]">
                 AI 카드가 검사를 통과하지 못해 기본 카드로 보여 주고 있어요. 아래 버튼으로 다시 만들 수 있어요.
               </p>
             ) : null}
-            <p className="text-[12px] font-semibold text-[var(--muted)]">
+            <p className="text-[13px] font-semibold text-[var(--muted)]">
               출처: {deck.source}
               {deck.sample
                 ? " · 설명을 위해 만든 예시라 화면 속 숫자는 가상이에요."
@@ -766,7 +767,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               {key === null ? (
                 <button
                   type="button"
-                  className="text-[14.5px] font-extrabold text-[var(--ocean)]"
+                  className="text-[15px] font-extrabold text-[var(--ocean)]"
                   onClick={() => {
                     const next = SPEEDS[(SPEEDS.indexOf(settings.speed) + 1) % SPEEDS.length] ?? 1;
                     set({ speed: next });
@@ -801,7 +802,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
             className="flex w-full items-center justify-between border-t-[1.5px] border-[var(--ink)]/10 py-3"
           >
             <span className="text-[15px] font-bold text-[var(--ink)]">오답노트</span>
-            <span className="text-[14.5px] font-extrabold text-[var(--ocean)]">{wrongCards.length}개 ›</span>
+            <span className="text-[15px] font-extrabold text-[var(--ocean)]">{wrongCards.length}개 ›</span>
           </button>
         </div>
       </Sheet>
@@ -816,8 +817,8 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               const q = quizOf(c)!;
               return (
               <div key={c.id} className="rounded-[16px] border-[2.5px] border-[var(--ink)] p-4">
-                <p className="text-[12.5px] font-extrabold text-[var(--ocean)]">{c.concept.term}</p>
-                <p className="mt-1 text-[14.5px] font-bold leading-snug text-[var(--ink)]">{q.question}</p>
+                <p className="text-[13px] font-extrabold text-[var(--ocean)]">{c.concept.term}</p>
+                <p className="mt-1 text-[15px] font-bold leading-snug text-[var(--ink)]">{q.question}</p>
                 <p className="mt-2 text-[14px] font-extrabold text-[var(--ans-line)]">✓ {q.options[q.answer]}</p>
                 {q.explanation ? <p className="mt-1 text-[13px] font-medium leading-relaxed text-[var(--muted)]">{q.explanation}</p> : null}
                 <button
