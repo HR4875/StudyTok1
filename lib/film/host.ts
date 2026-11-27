@@ -1,0 +1,54 @@
+// 이 화면을 띄운 곳에 따라 달라지는 안내 문장.
+// 웹앱에서는 서버의 API(/api/film/*)가 모델을 부른다. 같은 화면 코드를 다른 곳(예: 한 장짜리 체험 페이지)에 실을 때는
+// 이 파일과 lib/api.ts만 그곳에 맞는 것으로 바꿔 끼운다. 그래서 화면 코드에는 "서버"나 걸리는 시간을 직접 적지 않는다.
+
+export interface HostCopy {
+  /** 만들 수 있을 때 시리즈 화면의 안내 */
+  seriesReady: string;
+  /** 만들 수 없는 곳일 때 */
+  seriesNone: string;
+  makeNone: string;
+  /** 닿지 못했을 때 (다시 확인한다) */
+  seriesDown: string;
+  makeDown: string;
+  /** 계획하는 동안 */
+  planQuiet: string;
+  /** 만들기 화면의 순서 설명 */
+  steps: string[];
+  /** 올린 자료가 어디로 가는지 */
+  privacy: (shorts: number) => string;
+  /** 처음 화면의 "만들 때 쓰는 것" */
+  howMade: string;
+  /**
+   * 내 시리즈의 한 편을 보는 동안 다음 편을 미리 만들기 시작하는 때: 지금 보는 편의 장면 가운데 이만큼(0~1)을 봤을 때.
+   * 그래야 끝 화면에서 다음 편을 기다리지 않는다. 한 편이 금방 만들어지는 곳은 늦게(끝까지 볼 것 같은 사람에게만),
+   * 오래 걸리는 곳은 일찍 시작한다. steps의 셋째 문장이 이 값을 말로 옮긴 것이다.
+   */
+  prefetchAt: number;
+  /**
+   * 만들기가 처음에 보는 사람의 허락을 묻는 곳인지. 그런 곳에서는 이 화면을 연 뒤에 사람이 누른 만들기가 한 번 된 다음부터만
+   * 다음 편을 미리 만든다: 보는 도중에 허락 창이 뜨지 않게.
+   */
+  asks: boolean;
+  /** 처음 화면 "이렇게 보여요"에 도는 9:16 예시 영상의 주소 */
+  heroVideo: string;
+  /** 디자인 A–F 예시 영상이 있는 곳 (a.mp4 … f.mp4) */
+  designVideos: string;
+}
+
+export const HOST: HostCopy = {
+  // 작동 설명(모델, 걸리는 시간, 사용량)은 앱 화면에 두지 않는다 (11/27). 데모에서는 왼쪽 How it works 창에 있다
+  seriesReady: "",
+  seriesNone: "지금은 새 편을 만들 수 없어요. 이미 있는 편은 그대로 볼 수 있어요.",
+  makeNone: "지금은 새로 만들 수 없어요. 이미 있는 시리즈는 그대로 볼 수 있어요.",
+  seriesDown: "서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요. 연결되면 다시 확인합니다. 이미 있는 편은 그대로 볼 수 있어요.",
+  makeDown: "서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요. 연결되면 다시 확인합니다.",
+  planQuiet: "",
+  steps: [],
+  privacy: () => "",
+  howMade: "Sonnet 5.5가 계획을 한 번 세우고(1분쯤), 한 편마다 대본을 써요(15초 안팎). 쓴 대본은 자동 점검을 거치고, 걸린 곳이 있으면 한 번만 고칩니다.",
+  prefetchAt: 0.5,
+  asks: false,
+  heroVideo: "/film/positioning-map.mp4",
+  designVideos: "/film/designs/",
+};

@@ -3,7 +3,8 @@
 // 학교 와이파이처럼 여러 명이 IP 하나를 같이 쓰는 경우가 많아 넉넉하게 잡는다. (카드 1장 = 1회)
 const buckets = new Map<string, { day: string; count: number }>();
 
-export function checkRateLimit(ip: string, weight = 1): { ok: boolean; remaining: number; limit: number } {
+/** spare(0~1): 하루 한도의 마지막 이만큼은 쓰지 않고 남긴다 (사람이 누르지 않은 요청이 직접 누른 요청의 몫을 쓰지 않게) */
+export function checkRateLimit(ip: string, weight = 1, spare = 0): { ok: boolean; remaining: number; limit: number } {
   const limit = Number(process.env.DAILY_LIMIT ?? 150);
   const day = new Date().toISOString().slice(0, 10);
   let b = buckets.get(ip);
@@ -12,7 +13,7 @@ export function checkRateLimit(ip: string, weight = 1): { ok: boolean; remaining
     buckets.set(ip, b);
     if (buckets.size > 5000) buckets.clear();
   }
-  if (b.count + weight > limit) return { ok: false, remaining: Math.max(0, limit - b.count), limit };
+  if (b.count + weight > limit - Math.ceil(limit * spare)) return { ok: false, remaining: Math.max(0, limit - b.count), limit };
   b.count += weight;
   return { ok: true, remaining: limit - b.count, limit };
 }

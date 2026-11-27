@@ -27,7 +27,7 @@ export const MODELS: ModelOption[] = [
     note: "중간 비용",
     inputPerM: 2,
     outputPerM: 10,
-    cacheReadPerM: 0.2,
+    cacheReadPerM: 0.1, // Sonnet 5.5는 캐시 읽기가 입력가의 0.05배
     cacheWritePerM: 2.5,
     serverFallback: true,
   },

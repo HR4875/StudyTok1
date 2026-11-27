@@ -6,7 +6,7 @@ import { playSfx } from "@/lib/sfx";
 import type { TextShort } from "@/lib/visual";
 import { NAVY, YELLOW } from "@/motion/palettes";
 import { textWidth } from "@/motion/timeline";
-import { DW, drawVisual, textTiming } from "@/motion/VisualDraw";
+import { DW, TEXT_STEP_GAP, drawVisual, textTiming } from "@/motion/VisualDraw";
 
 const DISPLAY = "'Wanted Sans Variable','Wanted Sans','Pretendard Variable',Pretendard,sans-serif";
 
@@ -62,13 +62,18 @@ export function dwellFor(s: TextShort): number {
   return Math.max(6, Math.min(11, 3.6 + chars * 0.045));
 }
 
-/** 텍스트 숏츠 한 장의 시간표: 그림 → 개념 이름 → 정의 → 형광펜 → 핵심 한 번 톡 */
+/** 텍스트 숏츠 한 장의 시간표 (11/23 확정): 그림 요소 → 개념 이름 → 정의 → 형광펜, 모두 0.6초 간격.
+ *  형광펜은 정의가 나온 뒤 0.6초에 0.35초 동안 왼쪽부터 그어진다. */
 function cardTiming(s: TextShort) {
   const n = visualSteps(s.visual).length;
   const tm = textTiming(n);
-  const term = Math.max(1.25, tm.at(n - 1) + 0.4);
-  return { tm: { ...tm, em: term + 1.0 }, term, def: term + 0.25, hl: term + 0.55 };
+  const term = tm.at(Math.max(0, n - 1)) + TEXT_STEP_GAP;
+  const def = term + TEXT_STEP_GAP;
+  return { tm, term, def, hl: def + TEXT_STEP_GAP };
 }
+
+/** 이미 끝까지 본 카드: 다시 돌아오면 쌓는 연출 없이 완성된 모습으로 보여 준다 */
+const seenShorts = new WeakSet<TextShort>();
 
 export interface TextShortCardProps {
   short: TextShort;
@@ -90,18 +95,25 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
   const endedRef = useRef(onEnded);
   endedRef.current = onEnded;
   const timing = cardTiming(short);
-  const dwell = dwellFor(short) / Math.max(0.5, speed);
+  // 다 쌓인 뒤에도 읽을 시간이 남도록, 형광펜 + 2.5초보다 짧게 넘기지 않는다
+  const dwell = Math.max(dwellFor(short), timing.hl + 2.5) / Math.max(0.5, speed);
+  const [replay, setReplay] = useState(false);
 
   // 활성화될 때마다 등장 효과를 다시 재생하고, 효과음과 읽기 진행을 맞춘다
   useEffect(() => {
     if (!active) return;
+    const again = seenShorts.has(short);
+    seenShorts.add(short);
+    setReplay(again);
     setRun((r) => r + 1);
     const timers: number[] = [];
     const cue = (t: number, k: Parameters<typeof playSfx>[0]) => timers.push(window.setTimeout(() => soundRef.current && playSfx(k), t * 1000));
-    const n = visualSteps(short.visual).length;
-    [0, Math.floor(n / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i).forEach((i) => cue(timing.tm.at(i), "pop"));
-    cue(timing.term, "impact");
-    cue(timing.hl, "swish");
+    if (!again) {
+      const n = visualSteps(short.visual).length;
+      [0, Math.floor(n / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i).forEach((i) => cue(timing.tm.at(i), "pop"));
+      cue(timing.term, "impact");
+      cue(timing.hl, "swish");
+    }
     let raf = 0;
     const t0 = performance.now();
     let done = false;
@@ -143,7 +155,7 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
      → 큰 개념 이름(잉크) → 정의 한 줄 + 형광 노랑 핵심어. 글자 그림자 없음. */
   return (
     <div className="relative h-full w-full overflow-hidden bg-[var(--paper)]">
-      <div key={run} className={`relative flex h-full flex-col ${active ? "ts-anim" : ""}`}>
+      <div key={run} className={`relative flex h-full flex-col ${active && !replay ? "ts-anim" : ""}`}>
         <div className="shrink-0" style={{ height: "max(100px, calc(env(safe-area-inset-top) + 90px))" }} />
         {short.hook ? (
           <p
@@ -197,6 +209,7 @@ export default function TextShortCard({ short, mode, sound = true, speed = 1, on
                     boxDecorationBreak: "clone",
                     WebkitBoxDecorationBreak: "clone",
                     ...dv(timing.hl),
+                    ["--dur" as string]: "0.35s",
                   }}
                 >
                   {hl}

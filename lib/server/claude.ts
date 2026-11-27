@@ -149,6 +149,84 @@ export async function callJson(c: JsonCall): Promise<JsonResult> {
   }
 }
 
+/** 생각을 끄는 설정. 모델마다 다르고, 끌 수 없는 모델(Opus 5.5 등)은 설정을 보내지 않고 effort로만 조절한다. */
+const THINK_OFF: Record<string, Anthropic.Beta.BetaThinkingConfigParam> = {
+  "claude-sonnet-5-5": { type: "between_tools" },
+};
+
+export interface TextCall {
+  model: string;
+  effort?: Effort;
+  /** 길고 바뀌지 않는 지시문 (캐시됨) */
+  system: string;
+  user: string;
+  /** true: 답하기 전에 생각한다 (길을 정하는 기획). false: 생각 없이 바로 쓴다 (정해진 길을 옮기는 대본) */
+  think: boolean;
+  /** 생각에 쓴 토큰도 여기에 들어간다 */
+  maxTokens: number;
+  deadlineMs: number;
+  signal?: AbortSignal;
+  /** 답 글자가 나오는 동안: 지금까지 받은 답 전체 (진행 표시용) */
+  onText?: (text: string) => void;
+}
+
+export interface TextResult {
+  text: string;
+  usage: Usage;
+  model: string;
+  /** 답이 max_tokens에 걸려 중간에 끊겼다 */
+  truncated: boolean;
+}
+
+/** 글 표기로 답을 받는 호출 (모션 쇼츠의 계획과 대본). JSON 틀을 강제하지 않아 같은 내용을 절반쯤의 출력 토큰으로 받는다. */
+export async function callText(c: TextCall): Promise<TextResult> {
+  const m = findModel(c.model) ?? MODELS[0];
+  const ctrl = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, c.deadlineMs);
+  const onAbort = () => ctrl.abort();
+  c.signal?.addEventListener("abort", onAbort);
+  const thinking: Anthropic.Beta.BetaThinkingConfigParam | undefined = c.think ? { type: "adaptive" } : THINK_OFF[m.id];
+
+  try {
+    const stream = getClient().beta.messages.stream(
+      {
+        model: m.id,
+        max_tokens: c.maxTokens,
+        system: [{ type: "text", text: c.system, cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content: c.user }],
+        output_config: { effort: c.effort ?? DEFAULT_EFFORT },
+        ...(thinking ? { thinking } : {}),
+      },
+      { signal: ctrl.signal },
+    );
+    let seen = "";
+    stream.on("text", (d) => {
+      seen += d;
+      c.onText?.(seen);
+    });
+    const msg = await stream.finalMessage();
+    const usage = toUsage(m.id, msg.usage);
+    if (msg.stop_reason === "refusal") throw new AiError("이 내용으로는 만들 수 없다는 응답을 받았어요. 다른 자료나 주제로 해 보세요", "REFUSED", 422, usage);
+    const text = msg.content
+      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    return { text, usage, model: msg.model, truncated: msg.stop_reason === "max_tokens" };
+  } catch (e) {
+    if (e instanceof AiError) throw e;
+    if (timedOut) throw new AiError("AI가 너무 오래 걸렸어요", "TIMEOUT", 504);
+    if (c.signal?.aborted || e instanceof Anthropic.APIUserAbortError) throw new AiError("취소했어요", "CANCELLED", 499);
+    throw mapSdkError(e);
+  } finally {
+    clearTimeout(timer);
+    c.signal?.removeEventListener("abort", onAbort);
+  }
+}
+
 function mapSdkError(e: unknown): AiError {
   if (e instanceof Anthropic.AuthenticationError) return new AiError("AI 키가 올바르지 않아요. 관리자에게 알려 주세요", "BAD_KEY", 503);
   if (e instanceof Anthropic.PermissionDeniedError) return new AiError("이 AI 키로는 이 모델을 쓸 수 없어요", "BAD_KEY", 503);

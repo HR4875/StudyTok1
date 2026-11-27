@@ -180,6 +180,42 @@ export interface Card {
   error?: string;
   /** AI 카드가 검사를 통과하지 못해 기본 카드로 대신했을 때 */
   fallback?: boolean;
+  /** 스타일A 모션그래픽 설계도. 있으면 이 카드로 재생한다 (public/stylea 엔진) */
+  spec?: StyleASpec | null;
+  /** 스타일A 카드의 암기용 퀴즈 (short·scene이 없을 때) */
+  quiz?: Quiz | null;
+  /** 어려운 개념을 여러 편으로 나눈 경우 전체 편(2~3개). 피드가 편마다 한 장으로 펼친다. spec은 첫 편 */
+  parts?: StyleASpec[];
+  /** 이 개념에 딸린 교재 문제 (시험문제 탭에 모인다) */
+  problems?: ExamProblem[];
+}
+
+/** 스타일A 설계도: 장면 목록 + 선택 값(series 등). 엔진이 해석하므로 여기서는 모양만 느슨하게 잡는다 */
+export interface StyleASpec {
+  title?: string;
+  scenes: Record<string, unknown>[];
+  series?: { name: string; index: number; total: number; next?: string };
+  [k: string]: unknown;
+}
+
+/** 시험문제 탭의 문제 한 개. 교재에 실린 문제를 개념별로 모은 것 */
+export interface ExamProblem {
+  id: string;
+  /** 어느 개념의 문제인지 (카드의 개념 이름 또는 시리즈 이름) */
+  concept: string;
+  text: string;
+  given?: string[];
+  ask?: string;
+  /** 객관식이면 보기와 정답 번호 */
+  options?: string[];
+  answerIndex?: number;
+  /** 주관식 정답 (객관식이면 정답 보기 글) */
+  answer: string;
+  source?: string;
+  /** 글 해설 (영상 해설이 없을 때도 보여 준다) */
+  explanation?: string;
+  /** 해설 모션그래픽 */
+  solution?: StyleASpec | null;
 }
 
 export interface Deck {
@@ -197,6 +233,10 @@ export interface Deck {
   /** 같은 파일·범위·개수·방식이면 다시 만들지 않고 이 덱을 연다 */
   key?: string;
   range?: { from: number; to: number };
+  /** 시험문제 탭: 교재 문제 모음 */
+  problems?: ExamProblem[];
+  /** 시험문제 풀이 기록 (문제 id → 맞음/틀림) */
+  exam?: Record<string, "ok" | "no">;
 }
 
 /** Request bodies */
@@ -231,6 +271,16 @@ export interface CardResult {
   /** 마지막으로 쓴 그림 틀 (재시도 중 바뀔 수 있다) */
   template: VisualTemplate;
   short: TextShort | null;
+  fallback: boolean;
+  issues: string[];
+  scene?: Scene;
+}
+
+/** /api/stylea 결과: 개념 영상 설계도(1~3편), 암기 퀴즈, 자료에 실린 문제. 실패하면 parts가 비고 scene(기본 카드)이 온다 */
+export interface StyleAResult {
+  parts: StyleASpec[];
+  quiz: Quiz;
+  problems: Omit<ExamProblem, "id">[];
   fallback: boolean;
   issues: string[];
   scene?: Scene;

@@ -17,6 +17,7 @@ export interface Settings {
   retryWrong: boolean;
   cardCount: number; // concepts per upload
   mode: RenderMode; // text = 기본(싼 버전), motion = 모션그래픽
+  voice: boolean; // 무료 기기 음성으로 읽어 주기 (스타일A 카드)
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   retryWrong: true,
   cardCount: 8,
   mode: "text",
+  voice: false,
 };
 
 function read<T>(key: string, fallback: T): T {

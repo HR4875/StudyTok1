@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useRef, useState } from "react";
 import { isImage, isPdf } from "@/lib/extract";
 import type { RenderMode } from "@/lib/schema";
@@ -123,7 +124,7 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
           <span className="rounded-[8px] bg-[var(--red)] px-2 py-1 text-[13px] font-extrabold leading-none text-white">NEW</span>
         </div>
         <p className="mt-2 text-[13px] font-medium text-[var(--muted)]">
-          {mode === "motion" ? "같은 카드로 영상을 만들어서 생성 비용은 그대로예요." : "보는 중에도 언제든 모션으로 바꿀 수 있어요."}
+          {mode === "motion" ? "개념마다 모션그래픽과 퀴즈를 만들고, 교재 문제는 시험문제 탭에 모아요." : "보는 중에도 언제든 모션으로 바꿀 수 있어요."}
         </p>
 
         <div className="mt-4 flex items-center gap-2">
@@ -140,6 +141,20 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
             {apiReady ? "AI 연결됨 · 올리면 Claude가 바로 만들어요" : "아직 AI 키가 없어요 · PDF 읽기와 쪽 고르기까지 해 볼 수 있어요"}
           </p>
         ) : null}
+
+        {/* 새로 만든 모션 쇼츠 화면(/film)으로 가는 길. 이 화면의 기존 흐름은 그대로 둔다. */}
+        <Link
+          href="/film"
+          className="mt-5 flex shrink-0 items-center gap-3 rounded-[18px] border-2 border-[var(--line)] bg-white px-4 py-3 text-[var(--ink)] active:bg-[var(--chip)]"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-bold">모션 쇼츠 새 화면 미리 보기</span>
+            <span className="mt-0.5 block text-[13px] font-medium text-[var(--muted)]">어려운 단원을 60초 그림 여러 편으로 나눠 설명해요</span>
+          </span>
+          <span aria-hidden="true" className="text-[18px] font-bold">
+            →
+          </span>
+        </Link>
         <div className="min-h-4 flex-1" />
       </div>
 

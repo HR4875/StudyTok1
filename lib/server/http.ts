@@ -14,12 +14,12 @@ export function clientIp(req: Request): string {
   return (fwd ? fwd.split(",")[0] : req.headers.get("x-real-ip"))?.trim() || "local";
 }
 
-/** 키·한도 검사. 통과하면 null */
-export function preflight(req: Request, weight = 1): Response | null {
+/** 키·한도 검사. 통과하면 null. spare(0~1)를 주면 하루 한도의 마지막 그만큼은 남기고 막는다 (checkRateLimit) */
+export function preflight(req: Request, weight = 1, spare = 0): Response | null {
   if (!process.env.ANTHROPIC_API_KEY && !isMock()) {
     return jsonError(503, "AI 키가 아직 설정되지 않아 지금은 예시 덱만 볼 수 있어요", "NO_KEY");
   }
-  const rl = checkRateLimit(clientIp(req), weight);
+  const rl = checkRateLimit(clientIp(req), weight, spare);
   if (!rl.ok) return jsonError(429, `오늘 쓸 수 있는 생성 횟수(${rl.limit}회)를 다 썼어요. 내일 다시 해 주세요`, "LIMIT");
   return null;
 }

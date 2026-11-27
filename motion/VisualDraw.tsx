@@ -10,7 +10,7 @@ import { textWidth } from "./timeline";
 /*                                                                    */
 /*  AI는 칸만 채우고, 배치·크기·등장 순서는 전부 여기서 정한다.            */
 /*  등장 순서는 "단계(step)" 번호로 정하고, 시각은 DrawTiming이 준다.     */
-/*    - 텍스트 숏츠: textTiming() → 1초 안에 전부 등장, 정지 화면으로 읽기 */
+/*    - 텍스트 숏츠: textTiming() → 0.6초 간격으로 하나씩 톡톡 (11/23 확정) */
 /*    - 템플릿 모션: compileVisual()의 시간표 → 자막과 맞춰 하나씩 등장    */
 /*  단계 번호는 lib/compileVisual.ts의 visualSteps()와 1:1로 맞춘다.     */
 /* ------------------------------------------------------------------ */
@@ -47,10 +47,16 @@ export interface DrawTiming {
 }
 export type Drawn = { h: number; node: React.ReactNode };
 
-/** 텍스트 숏츠용 시간표: 1초 안팎에 전부 나오고, 2.35초에 핵심을 한 번 톡 친다 */
+/** 텍스트 숏츠 등장 간격(초): 그림 요소가 하나씩 톡톡 (2026-11-23 확정 ①) */
+export const TEXT_STEP_GAP = 0.6;
+/** 같은 단계 안에서 상자 다음 이름표가 나오는 간격(초) */
+const TEXT_PART_GAP = 0.2;
+
+/** 텍스트 숏츠용 시간표: 단계마다 0.6초 간격, 이름표는 상자보다 0.2초 뒤.
+ *  핵심 강조(em)는 마지막 요소 + 0.6초. 요소 4개 카드면 약 4초 안에 다 나온다. */
 export function textTiming(stepCount: number): DrawTiming {
-  const gap = Math.min(0.16, 0.95 / Math.max(1, stepCount - 1));
-  return { at: (s, k = 0) => 0.12 + s * gap + k * 0.05, em: 2.35, motion: false, slow: 1 };
+  const at = (s: number, k = 0) => 0.12 + s * TEXT_STEP_GAP + Math.min(k, 2) * TEXT_PART_GAP;
+  return { at, em: at(Math.max(0, stepCount - 1)) + TEXT_STEP_GAP, motion: false, slow: 1 };
 }
 
 const dv = (t: number, dur?: number): CSS =>

@@ -1,9 +1,10 @@
-"use client";
-import dynamic from "next/dynamic";
+// 첫 주소(/)는 소비자가 보는 모션 쇼츠 앱이다 (/film과 같은 화면). 앞서 쓰던 카드 피드 앱은 /classic 으로 옮겼다.
+import "./film/film.css";
+import "./film/player.css";
+import FilmPage from "./film/page";
+import { filmMetadata, filmViewport } from "./film/meta";
 
-// 브라우저 저장소·오디오·PDF 읽기를 쓰는 앱이라 서버 렌더링 없이 띄운다.
-const App = dynamic(() => import("@/components/App"), { ssr: false });
+export const metadata = filmMetadata;
+export const viewport = filmViewport;
 
-export default function Page() {
-  return <App />;
-}
+export default FilmPage;
