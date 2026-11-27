@@ -289,7 +289,7 @@ html:has(.film), body:has(.film) { background: #F4F3EF; color-scheme: light; }
 
 /* ---------- 11/27 홈 정리: 아래 탭 · 이어보기 · 오늘 복습 · 둘러보기 · 내 시리즈 ---------- */
 .film .wrap:has(.tabs) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
-.film .tabs { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); width: min(480px, 100%); display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px max(var(--gut), env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(var(--gut), env(safe-area-inset-left, 0px)); box-sizing: border-box; background: var(--paper); border-top: 2.5px solid var(--ink); }
+.film .tabs { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); width: min(480px, 100%); display: grid; grid-template-columns: repeat(2, 1fr); padding: 8px max(var(--gut), env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(var(--gut), env(safe-area-inset-left, 0px)); box-sizing: border-box; background: var(--paper); border-top: 2.5px solid var(--ink); }
 .film .tabs a { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 14px; font: 800 15px/1 var(--f-title); letter-spacing: -0.02em; color: var(--muted); }
 .film .tabs a[aria-current="page"] { background: var(--ink); color: var(--white); }
 .film .home { min-height: calc(100dvh - 152px); }

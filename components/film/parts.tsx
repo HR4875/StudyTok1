@@ -101,12 +101,11 @@ export function Check({ state, label, detail }: { state: "done" | "doing" | "tod
   );
 }
 
-/** 홈 화면 아래 탭: 홈 · 예시 둘러보기 · 내 시리즈 (기존 앱의 아래 탭처럼 세 칸) */
-export function Tabs({ on }: { on: "home" | "ex" | "mine" }) {
+/** 홈 화면 아래 탭: 홈 · 내 시리즈 (예시 둘러보기는 홈의 버튼으로 간다) */
+export function Tabs({ on }: { on: "home" | "mine" }) {
   const n = listSeries("mine").length;
   const tabs: [typeof on, string, string][] = [
     ["home", "#home", "홈"],
-    ["ex", "#ex", "둘러보기"],
     ["mine", "#mine", "내 시리즈" + (n ? ` ${n}` : "")],
   ];
   return (

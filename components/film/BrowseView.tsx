@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { HOST } from "@/lib/film/host";
 import { listSeries, madeKs, totalOf, useFilmStore } from "@/lib/film/store";
 import { Icon } from "./icons";
-import { Section, SubTop, Tabs, trackLabel } from "./parts";
+import { Section, SubTop, trackLabel } from "./parts";
 import Still from "./Still";
 
 const DESIGNS: { id: string; name: string; what: string }[] = [
@@ -80,7 +80,6 @@ export default function BrowseView({ paused }: { paused: boolean }) {
           })}
         </div>
       </Section>
-      <Tabs on="ex" />
       {d ? (
         <div className="dview" role="dialog" aria-modal="true" aria-label={d.name}>
           <div className="scrim" onClick={() => setBig(null)} />
