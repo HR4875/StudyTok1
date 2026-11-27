@@ -55,7 +55,7 @@ export interface PlayerApi {
   /** 화면을 길게 누르는 동안 멈추고, 떼면 이어서 튼다 */
   pressHold(on: boolean): void;
   /** 몇 초 앞(-)이나 뒤(+)로 옮긴다 (왼쪽 두 번 탭: 5초 전) */
-  skip(sec: number): void;
+  skip(sec: number, quiet?: boolean): void;
   /** 기다리는 질문 n에 choice(0부터)로 답한다 */
   answer(n: number, choice: number): void;
   scrubStart(e: PointerEvent): void;
@@ -306,9 +306,9 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
       if (!userPaused && !(hold && waiting())) play();
     }
   }
-  function skip(sec: number) {
+  function skip(sec: number, quiet = false) {
     if (!info || loading) return;
-    showFlash(sec < 0 ? "prev" : "next");
+    if (!quiet) showFlash(sec < 0 ? "prev" : "next");
     seekTo(t + sec);
   }
   function answerAsk(hit: { n: number; choice: number }) {

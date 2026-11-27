@@ -197,3 +197,10 @@
 .film .fprog .seg { height: 5px; transition: height .15s; }
 .film .fprog .fsegs:hover .seg, .film .fprog .fsegs:active .seg { height: 9px; }
 .film .ftime { flex: none; font: 700 12px/1 var(--f-body); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
+/* 왼쪽 두 번 탭 되감기 (유튜브처럼): 왼쪽 가장자리에서 퍼지는 반원과 "N초" */
+.film .stagebox { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.film .rewind { position: absolute; left: 0; top: 0; bottom: 0; width: 42%; z-index: 3; pointer-events: none; display: grid; place-items: center; border-radius: 0 50% 50% 0 / 0 50% 50% 0; background: rgba(35, 35, 37, .16); animation: film-rew .65s ease-out forwards; }
+.film .rewind span { display: grid; justify-items: center; gap: 4px; color: var(--white); font: 800 15px/1 var(--f-title); text-shadow: 0 1px 6px rgba(0, 0, 0, .45); }
+.film .rewind i { font-style: normal; font-size: 18px; letter-spacing: -4px; }
+@keyframes film-rew { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .film .rewind { animation-duration: .01s; animation-delay: .6s; } }

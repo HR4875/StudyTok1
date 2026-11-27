@@ -37,35 +37,63 @@ const reduced = () => {
 const closeHref = (sid: string) => (sid !== "ex" ? "#s-" + sid : "#home");
 
 /**
- * 영상 위의 손짓: 길게 누르면 누르는 동안 멈추고 떼면 이어서 튼다. 왼쪽을 두 번 탭하면 5초 전으로.
- * 왼쪽 한 번 탭(앞 장면)은 두 번 탭인지 알 수 있게 잠깐 기다렸다가 한다. 나머지 탭은 엔진이 그대로 받는다.
+ * 영상 위의 손짓 (유튜브처럼): 길게 누르면 누르는 동안 멈추고 떼면 이어서 튼다.
+ * 왼쪽을 두 번 탭하면 바로 5초 전으로, 이어서 더 탭하면 탭마다 5초씩 더 돌아간다 (왼쪽에 "5초" 물결이 뜬다).
+ * 탭은 손을 떼는 순간 받는다 (click을 기다리지 않는다). 왼쪽 한 번 탭(앞 장면)만 두 번 탭인지 보려고 잠깐 기다린다.
  */
-function useStageGestures(apiRef: { current: PlayerApi | null }, boxRef: { current: HTMLDivElement | null }) {
-  const st = useRef({ timer: 0, held: false, down: 0, lastLeft: 0, single: 0 });
-  useEffect(() => () => {
-    clearTimeout(st.current.timer);
-    clearTimeout(st.current.single);
-  }, []);
+function useStageGestures(apiRef: { current: PlayerApi | null }, boxRef: { current: HTMLDivElement | null }, onSkip: (secs: number) => void) {
+  const st = useRef({ timer: 0, held: false, lastLeft: 0, streakUntil: 0, streak: 0, single: 0 });
+  useEffect(
+    () => () => {
+      clearTimeout(st.current.timer);
+      clearTimeout(st.current.single);
+    },
+    [],
+  );
   const isLeft = (x: number) => {
     const r = boxRef.current?.getBoundingClientRect();
-    return !!r && (x - r.left) / r.width < 0.26;
+    return !!r && (x - r.left) / r.width < 0.36;
   };
+  const onAsk = (e: { target: EventTarget }) => !!(e.target as HTMLElement).closest(".askbtn");
   return {
     onPointerDown: (e: React.PointerEvent) => {
-      if ((e.target as HTMLElement).closest(".askbtn")) return;
+      if (onAsk(e) || e.button > 0) return;
       const s = st.current;
       s.held = false;
-      s.down = Date.now();
       clearTimeout(s.timer);
       s.timer = window.setTimeout(() => {
         s.held = true;
+        clearTimeout(s.single);
         apiRef.current?.pressHold(true);
-      }, 350);
+      }, 380);
     },
-    onPointerUp: () => {
+    onPointerUp: (e: React.PointerEvent) => {
+      if (onAsk(e) || e.button > 0) return;
       const s = st.current;
       clearTimeout(s.timer);
-      if (s.held) apiRef.current?.pressHold(false);
+      if (s.held) {
+        s.held = false;
+        apiRef.current?.pressHold(false);
+        return;
+      }
+      const { clientX: x, clientY: y } = e;
+      const now = Date.now();
+      if (isLeft(x)) {
+        // 두 번째 탭이거나 되감기를 이어 가는 중이면 바로 5초 전으로
+        if (now < s.streakUntil || now - s.lastLeft < 320) {
+          clearTimeout(s.single);
+          s.streak = now < s.streakUntil ? s.streak + 5 : 5;
+          s.streakUntil = now + 650;
+          s.lastLeft = 0;
+          apiRef.current?.skip(-5, true);
+          onSkip(s.streak);
+          return;
+        }
+        s.lastLeft = now;
+        s.single = window.setTimeout(() => apiRef.current?.onStage(x, y), 260);
+        return;
+      }
+      apiRef.current?.onStage(x, y);
     },
     onPointerCancel: () => {
       const s = st.current;
@@ -74,27 +102,6 @@ function useStageGestures(apiRef: { current: PlayerApi | null }, boxRef: { curre
       s.held = false;
     },
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
-    onClick: (e: React.MouseEvent) => {
-      const s = st.current;
-      if (s.held) {
-        s.held = false;
-        return;
-      }
-      const { clientX: x, clientY: y } = e;
-      if (isLeft(x)) {
-        const nowT = Date.now();
-        if (nowT - s.lastLeft < 300) {
-          clearTimeout(s.single);
-          s.lastLeft = 0;
-          apiRef.current?.skip(-5);
-          return;
-        }
-        s.lastLeft = nowT;
-        s.single = window.setTimeout(() => apiRef.current?.onStage(x, y), 300);
-        return;
-      }
-      apiRef.current?.onStage(x, y);
-    },
   };
 }
 
@@ -146,12 +153,21 @@ function LiveShort({ sid, k, script, apiRef, onView, onEnded }: { sid: string; k
     apiRef.current?.refreshFills();
   }, [view.info, apiRef]);
   const ask = view.ask;
-  const gestures = useStageGestures(apiRef, boxRef);
+  const [rew, setRew] = useState({ n: 0, secs: 0 });
+  const gestures = useStageGestures(apiRef, boxRef, (secs) => setRew((r) => ({ n: r.n + 1, secs })));
   return (
     <div className="fstage">
       <div className="fbox" ref={wrapRef}>
       <div className="stagebox" ref={boxRef} {...gestures}>
         <svg className="st" aria-hidden="true" ref={svgRef} />
+        {rew.n ? (
+          <div key={rew.n} className="rewind" aria-hidden="true">
+            <span>
+              <i>◀◀</i>
+              {`${rew.secs}초`}
+            </span>
+          </div>
+        ) : null}
         <div key={view.flash ? view.flash.n : 0} className={view.flash ? "flash on" : "flash"}>
           {view.flash && <Icon name={view.flash.name} />}
         </div>
