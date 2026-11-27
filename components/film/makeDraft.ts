@@ -19,9 +19,11 @@ export interface MakeDraft {
   reading: boolean;
   /** 이 화면에서 바로 알려 주는 말 (서버 오류가 아닌 것) */
   err: string;
+  /** 고른 디자인 id ("": 자동 추천) */
+  skin: string;
 }
 
-let draft: MakeDraft = { topic: "", paste: "", range: "", file: "", pages: null, note: "", reading: false, err: "" };
+let draft: MakeDraft = { topic: "", paste: "", range: "", file: "", pages: null, note: "", reading: false, err: "", skin: "" };
 const listeners = new Set<() => void>();
 // 앞 파일을 읽는 동안 다른 파일을 고르면 앞 파일의 결과는 버린다
 let readSeq = 0;

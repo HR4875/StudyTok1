@@ -30,6 +30,8 @@ export interface HostCopy {
    * 다음 편을 미리 만든다: 보는 도중에 허락 창이 뜨지 않게.
    */
   asks: boolean;
+  /** 처음 화면 "이렇게 보여요"에 도는 9:16 예시 영상의 주소 */
+  heroVideo: string;
 }
 
 export const HOST: HostCopy = {
@@ -44,4 +46,5 @@ export const HOST: HostCopy = {
   howMade: "Sonnet 5.5가 계획을 한 번 세우고(1분쯤), 한 편마다 대본을 써요(15초 안팎). 쓴 대본은 자동 점검을 거치고, 걸린 곳이 있으면 한 번만 고칩니다.",
   prefetchAt: 0.5,
   asks: false,
+  heroVideo: "/film/positioning-map.mp4",
 };

@@ -36,8 +36,10 @@ export function burstFrom(el: Element | null, point?: { x: number; y: number }, 
   const root = el.closest(".film");
   if (!root) return;
   const r = el.getBoundingClientRect();
-  const x = point && point.x ? point.x : r.left + r.width / 2;
-  const y = point && point.y ? point.y : r.top + r.height / 2;
+  // 화면이 변형된 틀(예: 체험 페이지의 폰 틀) 안에 있으면 고정 위치는 그 틀 기준이다
+  const frame = root.closest("[data-fixed-frame]")?.getBoundingClientRect();
+  const x = (point && point.x ? point.x : r.left + r.width / 2) - (frame ? frame.left : 0);
+  const y = (point && point.y ? point.y : r.top + r.height / 2) - (frame ? frame.top : 0);
   for (let i = 0; i < count; i++) {
     const p = document.createElement("span");
     const a = Math.random() * Math.PI * 2;

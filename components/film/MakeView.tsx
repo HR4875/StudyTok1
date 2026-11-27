@@ -1,6 +1,8 @@
 "use client";
 // 내 자료로 만들기: 주제, 파일, 붙여 넣은 글로 시리즈를 계획하고 1편까지 만든다. 모양은 확정안의 쪽 고르기 화면.
-import { useEffect, type DragEvent, type FormEvent } from "react";
+import { useEffect, useMemo, type DragEvent, type FormEvent } from "react";
+import { recommendDesign } from "@/lib/film/design";
+import { SKINS, SKIN_LIST } from "@/lib/film/skins";
 import { blocking, initGen, makePlan, stopGen, useGen } from "@/lib/film/gen";
 import { HOST } from "@/lib/film/host";
 import { pagesIn, pickPages } from "@/lib/film/plan";
@@ -36,7 +38,7 @@ async function submit() {
     return;
   }
   setDraft({ err: "" });
-  const id = await makePlan(topic, source, d.pages ? d.file : "");
+  const id = await makePlan(topic, source, d.pages ? d.file : "", d.skin);
   // 기다리는 동안 다른 화면으로 갔으면 그 화면을 그대로 둔다
   if (id && window.location.hash === "#make") window.location.hash = "#s-" + id;
 }
@@ -146,6 +148,41 @@ function submitLabel(d: MakeDraft): string {
   return "계획 세우고 1편 만들기 →";
 }
 
+/** 디자인 템플릿 고르기: 자동 추천(자료의 낱말로)과 여섯 가지. 고른 디자인은 시리즈 전체가 입고, 보면서 설정에서 바꿀 수 있다 */
+function DesignPicker({ d }: { d: MakeDraft }) {
+  const text = [d.topic, d.paste, d.file, d.pages ? d.pages.slice(0, 40).map((p) => p.text).join(" ") : ""].join(" ");
+  const auto = useMemo(() => recommendDesign(text), [text]);
+  const sel = d.skin || auto.skin;
+  const swatch = (id: string) => {
+    const k = SKINS[id];
+    return (
+      <span className="dsw" aria-hidden="true" style={{ background: k.bg, borderColor: k.line }}>
+        <i style={{ background: k.ink }} />
+        <i style={{ background: k.primary }} />
+        <i style={{ background: k.accent }} />
+      </span>
+    );
+  };
+  return (
+    <div className="pick design">
+      <h2>디자인 템플릿</h2>
+      <p className="sub">{d.skin ? "직접 고른 디자인으로 만들어요." : `자동 추천: ${SKINS[auto.skin].name}. ${auto.why}`}</p>
+      <div className="dchips" role="group" aria-label="디자인 템플릿 고르기">
+        <button type="button" className="chipbtn dchip" aria-pressed={!d.skin} onClick={() => setDraft({ skin: "" })}>
+          {swatch(auto.skin)}
+          <span>자동 추천</span>
+        </button>
+        {SKIN_LIST.map((s) => (
+          <button key={s.id} type="button" className="chipbtn dchip" aria-pressed={!!d.skin && sel === s.id} onClick={() => setDraft({ skin: s.id })}>
+            {swatch(s.id)}
+            <span>{s.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MakeView() {
   const gen = useGen();
   const d = useDraft();
@@ -252,6 +289,7 @@ export default function MakeView() {
           <label htmlFor="paste">또는 내용 붙여 넣기</label>
           <textarea id="paste" placeholder="교재나 필기 내용을 그대로 붙여 넣어도 돼요" value={d.paste} onChange={(e) => setDraft({ paste: e.target.value, err: "" })} />
         </div>
+        <DesignPicker d={d} />
         {amount ? (
           <div className={"gauge" + (amount.pct > 100 ? " over" : "")}>
             <div className="gh">

@@ -277,3 +277,12 @@ html:has(.film), body:has(.film) { background: #F4F3EF; color-scheme: light; }
 .film .sec.hero > h2 { font-size: 22px; }
 .film .phone.big { width: 62%; max-width: 260px; margin: 14px auto 0; }
 .film .home .home-cta { margin-top: auto; padding-top: 28px; }
+.film .phone video.st { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 만들기 화면: 디자인 템플릿 고르기 */
+.film .pick.design { margin-top: 20px; }
+.film .pick.design .sub { line-height: 1.5; }
+.film .dchips { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 12px; }
+.film .dchip { display: flex; flex-direction: column; align-items: stretch; gap: 6px; height: auto; min-height: 0; padding: 8px 8px 10px; border-radius: 14px; text-align: center; }
+.film .dchip .dsw { display: flex !important; flex-direction: row; justify-content: center; align-items: flex-end; gap: 4px; width: 100%; height: 40px; padding: 6px; border: 1.5px solid; border-radius: 8px; box-sizing: border-box; }
+.film .dchip .dsw i { display: block; flex: 0 0 14px; border-radius: 3px; }
+.film .dchip .dsw i:nth-child(1) { height: 60%; } .film .dchip .dsw i:nth-child(2) { height: 100%; } .film .dchip .dsw i:nth-child(3) { height: 40%; }

@@ -382,7 +382,7 @@ export default function FeedView({ sid, k }: { sid: string; k: number }) {
           </p>
         ) : null}
         {cur?.kind === "short" ? <Ahead sid={sid} k={cur.k} due={due} /> : null}
-        {sets && <Settings api={api} onClose={() => setSets(false)} />}
+        {sets && <Settings api={api} sid={sid} onClose={() => setSets(false)} />}
       </div>
     </div>
   );

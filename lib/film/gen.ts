@@ -1,6 +1,7 @@
 "use client";
 // 모션 쇼츠 만들기: 서버의 두 API(/api/film/plan, /api/film/short)를 부르고 진행 상황을 화면에 알린다.
 // 한 번에 하나만 만든다. 화면을 옮겨 다녀도 만들기는 이어지도록 상태를 화면 밖(이 파일)에 둔다.
+import { pickedDesign, recommendDesign } from "./design";
 import { useSyncExternalStore } from "react";
 import { ApiError, getHealth, postStream } from "../api";
 import { FILM_LIMITS, type FilmPlanResult, type FilmShortResult } from "./types";
@@ -263,7 +264,7 @@ export async function makeShort(sid: string, k: number, opts: { ahead?: boolean 
  * 주제나 자료로 시리즈를 계획한다. 성공하면 새 시리즈의 id를 돌려주고, 이어서 1편을 만들기 시작한다 (기다리지 않는다).
  * source는 쪽마다 [p.N] 표시를 붙인 글, label은 자료 이름(없으면 주제를 쓴다).
  */
-export async function makePlan(topic: string, source: string, label: string): Promise<string | null> {
+export async function makePlan(topic: string, source: string, label: string, skin = ""): Promise<string | null> {
   if (gen.avail !== "ok" || !makeRoom()) return null;
   const my = new AbortController();
   ctl = my;
@@ -280,7 +281,10 @@ export async function makePlan(topic: string, source: string, label: string): Pr
       },
     );
     if (!data || typeof data.planText !== "string" || !data.shorts) throw new ApiError("계획을 끝까지 받지 못했어요. 자료를 조금 줄이거나 다시 눌러 주세요", "BAD_OUTPUT");
-    id = addSeries({ kicker: "내 자료 · " + (label || topic || "주제").slice(0, 40), planText: data.planText, secs: Math.round(data.secs), cut: data.cut, usd: usage?.usd ?? 0 });
+    // 디자인: 주제, 자료 이름, 계획, 자료 앞부분의 낱말로 고르고, 사람이 직접 골랐으면 그것을 쓴다
+    const auto = recommendDesign([topic, label, data.planText, source.slice(0, 8000)].join("\n"));
+    const design = skin ? pickedDesign(skin, auto) : auto;
+    id = addSeries({ kicker: "내 자료 · " + (label || topic || "주제").slice(0, 40), planText: data.planText, secs: Math.round(data.secs), cut: data.cut, usd: usage?.usd ?? 0, design });
     used = true;
     aheadOff = false;
     if (ctl === my) set({ busy: null });

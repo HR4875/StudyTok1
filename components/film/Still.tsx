@@ -2,7 +2,7 @@
 // 한 편의 포스터: 영상 속 질문 바로 앞(질문이 없으면 60% 지점)의 한 장면을 멈춘 그림으로 그린다.
 import { useEffect, useRef } from "react";
 import { createDirector, type FilmInfo } from "@/lib/film";
-import { loadShort } from "@/lib/film/store";
+import { loadShort, skinFor } from "@/lib/film/store";
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -19,6 +19,7 @@ export default function Still({ sid, k }: { sid: string; k: number }) {
   const ref = useRef<SVGSVGElement>(null);
   const sh = loadShort(sid, k);
   const script = sh && sh.scenes ? sh.script : null;
+  const skin = skinFor(sid);
   useEffect(() => {
     const svg = ref.current;
     if (!svg || !script) return;
@@ -26,7 +27,7 @@ export default function Still({ sid, k }: { sid: string; k: number }) {
     // createDirector가 svg를 비우고 시작하므로 두 번 불려도 그림은 하나만 남는다
     const dir = createDirector(svg, { fancy: false });
     dir
-      .load(script, STILL_OPTS)
+      .load(script, { ...STILL_OPTS, skin })
       .then((info) => {
         if (live) dir.seek(posterTime(info));
       })
@@ -34,6 +35,6 @@ export default function Still({ sid, k }: { sid: string; k: number }) {
     return () => {
       live = false;
     };
-  }, [script]);
+  }, [script, skin]);
   return <svg ref={ref} className="st" aria-hidden="true" />;
 }

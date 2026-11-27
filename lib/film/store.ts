@@ -4,6 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { BUILT_SERIES, SAMPLES, type BuiltShort } from "./library";
 import { briefOf, checkScript, parsePlan, usablePlan, type Checked, type SeriesPlan } from "./plan";
+import { BUILT_DESIGN, type DesignPick } from "./design";
 import { SKINS } from "./skins";
 
 export const BRAND = "StudyTok";
@@ -15,6 +16,8 @@ export interface Prefs {
   speed: number;
   /** 소리. 기본은 꺼짐 */
   sound: boolean;
+  /** 보는 사람이 시리즈마다 바꾼 디자인 (시리즈 id → 디자인 id) */
+  skins: Record<string, string>;
 }
 
 /** 한 편을 본 기록 */
@@ -38,6 +41,8 @@ export interface MadeSeries {
   /** 계획에 든 AI 비용(달러). 예시 모드에서는 0 */
   usd: number;
   at: number;
+  /** 만들 때 고른 디자인과 그 까닭 */
+  design?: DesignPick;
 }
 
 /** 내가 만든 한 편 */
@@ -128,6 +133,7 @@ function cleanPrefs(v: unknown): Prefs {
     skin: typeof o.skin === "string" && SKINS[o.skin] ? o.skin : "paper",
     speed: typeof o.speed === "number" && SPEEDS.includes(o.speed) ? o.speed : 1.1,
     sound: o.sound === true,
+    skins: isObj(o.skins) ? Object.fromEntries(Object.entries(o.skins).filter(([k, v]) => SERIES_ID.test(k) && typeof v === "string" && !!SKINS[v]) as [string, string][]) : {},
   };
 }
 
@@ -152,6 +158,11 @@ interface Made {
   shorts: Record<string, MadeShort>;
 }
 
+function cleanDesign(v: unknown): DesignPick | undefined {
+  if (!isObj(v) || typeof v.skin !== "string" || !SKINS[v.skin]) return undefined;
+  return { skin: v.skin, why: typeof v.why === "string" ? v.why.slice(0, 300) : "", how: v.how === "picked" ? "picked" : "auto", hits: Array.isArray(v.hits) ? v.hits.filter((h): h is string => typeof h === "string").slice(0, 8) : [] };
+}
+
 function cleanMade(v: unknown): Made {
   const out: Made = { series: [], shorts: {} };
   if (!isObj(v)) return out;
@@ -159,7 +170,7 @@ function cleanMade(v: unknown): Made {
   for (const d of Array.isArray(v.series) ? (v.series as unknown[]) : []) {
     if (!isObj(d) || typeof d.id !== "string" || !SERIES_ID.test(d.id) || ids.has(d.id) || typeof d.planText !== "string") continue;
     ids.add(d.id);
-    out.series.push({ id: d.id, kicker: typeof d.kicker === "string" ? d.kicker.slice(0, 80) : "내 자료", planText: d.planText, secs: num(d.secs), cut: d.cut === true, usd: num(d.usd), at: num(d.at) });
+    out.series.push({ id: d.id, kicker: typeof d.kicker === "string" ? d.kicker.slice(0, 80) : "내 자료", planText: d.planText, secs: num(d.secs), cut: d.cut === true, usd: num(d.usd), at: num(d.at), design: cleanDesign(d.design) });
   }
   if (isObj(v.shorts))
     for (const [key, m] of Object.entries(v.shorts)) {
@@ -292,6 +303,18 @@ export function setPrefs(patch: Partial<Prefs>): void {
   s.prefs = cleanPrefs({ ...s.prefs, ...patch });
   write("prefs", s.prefs);
   emit();
+}
+/** 시리즈가 처음 입는 디자인과 그 까닭: 만들 때 고른 것, 내장 시리즈는 정해 둔 것 */
+export function designOf(sid: string): DesignPick {
+  const mine = init().made.series.find((d) => d.id === sid)?.design;
+  return mine ?? BUILT_DESIGN[sid] ?? { skin: "paper", why: "기본 디자인 F(페이퍼)예요.", how: "auto", hits: [] };
+}
+/** 지금 이 시리즈에 입힐 디자인: 보는 사람이 바꿨으면 그것, 아니면 시리즈의 디자인 */
+export const skinFor = (sid: string): string => init().prefs.skins[sid] ?? designOf(sid).skin;
+/** 보는 중에 이 시리즈의 디자인을 바꾼다 */
+export function setSeriesSkin(sid: string, skin: string): void {
+  if (!SKINS[skin] || !SERIES_ID.test(sid)) return;
+  setPrefs({ skins: { ...init().prefs.skins, [sid]: skin } });
 }
 export const seenOf = (sid: string, k: number): Seen | undefined => init().seen[keyOf(sid, k)];
 export function markSeen(sid: string, k: number, patch: Seen): void {
