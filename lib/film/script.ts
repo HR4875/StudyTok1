@@ -613,7 +613,8 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       if ((["arrow", "line", "brace"].includes(type) || type === "") && s.includes(">") && link(a, s)) continue;
       if (type === "sign" && /[>~|]/.test(s) && !POS.test(s)) { a.between = s.split(/[>~|]/).filter(Boolean); continue; }
       if (type === "dot" && /^[A-Za-z_]\w*\.[A-Za-z_]\w*$/.test(s)) { [a.plot, a.line] = s.split("."); continue; }
-      if (type === "note" && a.to == null && !SIDES.has(s) && /^@?[A-Za-z_]\w*$/.test(s)) { a.to = s.replace(/^@/, ""); continue; }
+      // the thing a tag hangs on comes first. A thing may be named like a side ("left" for what is left): then that word is the thing, and the side follows it
+      if (type === "note" && a.to == null && (!SIDES.has(s) || !!life[s]) && /^@?[A-Za-z_]\w*$/.test(s)) { a.to = s.replace(/^@/, ""); continue; }
       if (COLORS.has(s)) { a.color = s === "gray" ? "grey" : s; continue; }
       if (SIDES.has(s) && (type === "note" || type === "brace" || isSet)) { a.side = s; continue; }
       if (TONES.has(s)) { a.tone = s; continue; }
