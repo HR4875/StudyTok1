@@ -29,6 +29,8 @@ interface Props {
   clockDays?: number;
   onReview?: () => void;
   onShiftDay?: () => void;
+  /** 고른 복습 간격 문구 (예: "1·3·7일") */
+  reviewSteps?: string;
 }
 
 const MODES = [
@@ -59,6 +61,7 @@ export default function Home({
   clockDays = 0,
   onReview,
   onShiftDay,
+  reviewSteps,
 }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
@@ -106,7 +109,7 @@ export default function Home({
       </header>
 
       <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-6">
-        {/* 이어보기 · 오늘 복습 (11/26 기획: 나갔다 들어와도 보던 곳부터, 1·3·7일 간격 복습) */}
+        {/* 이어보기 · 오늘 복습 (11/26 기획: 나갔다 들어와도 보던 곳부터, 간격 복습) */}
         {resume && onResume ? (
           <button
             type="button"
@@ -130,7 +133,7 @@ export default function Home({
           <div className="mb-3 flex w-full shrink-0 items-center gap-3 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-[var(--blue-soft)] px-4 py-3">
             <span className="min-w-0 flex-1">
               <span className="block text-[12px] font-extrabold text-[var(--ocean)]">
-                간격 복습 1·3·7일{clockDays ? ` · 가상 날짜 +${clockDays}일` : ""}
+                간격 복습 {reviewSteps ?? "1·3·7일"}{clockDays ? ` · 가상 날짜 +${clockDays}일` : ""}
               </span>
               <span className="block text-[16px] font-extrabold text-[var(--ink)]">
                 {reviewDue > 0 ? `오늘 복습 ${reviewDue}개` : `복습 대기 ${reviewPending}개 · 오늘은 없어요`}
