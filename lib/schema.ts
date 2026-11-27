@@ -237,6 +237,12 @@ export interface Deck {
   problems?: ExamProblem[];
   /** 시험문제 풀이 기록 (문제 id → 맞음/틀림) */
   exam?: Record<string, "ok" | "no">;
+  /** PDF 전체 쪽 수 ('다음 범위 이어서 만들기'에 쓴다) */
+  pages?: number;
+  /** 저장하지 않는 연습용 덱: 틀린 문제만(wrong) 또는 오늘의 복습(review). 퀴즈만 나온다 */
+  drill?: "wrong" | "review";
+  /** drill 덱이 나온 원래 덱 */
+  parentId?: string;
 }
 
 /** Request bodies */

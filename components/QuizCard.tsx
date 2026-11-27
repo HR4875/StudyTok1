@@ -10,6 +10,10 @@ interface Props {
   term: string;
   palette: Palette;
   retry: boolean;
+  /** 왼쪽 위 라벨 (QUIZ · 다시 도전 · 복습) */
+  label?: string;
+  /** 라벨 아래 한 줄 안내 */
+  note?: string;
   selected: number | null;
   streak: number;
   onAnswer: (i: number) => void;
@@ -21,19 +25,20 @@ interface Props {
 
 /* 확정 UI(C안) 퀴즈: 종이 바탕, 잉크 QUIZ 라벨 + 빨간 COMBO, 흰 칸 + 잉크 테두리 선택지.
    정답 = 연파랑 칸 + 블루 테두리 + 오션 블루 글씨 ✓, 오답 = 레드 테두리 + 취소선. */
-export default function QuizCard({ quiz, term, retry, selected, streak, onAnswer, onNext, examCount = 0, onExam }: Props) {
+export default function QuizCard({ quiz, term, retry, label, note, selected, streak, onAnswer, onNext, examCount = 0, onExam }: Props) {
   const answered = selected !== null;
   const correct = answered && selected === quiz.answer;
   return (
     <div className="relative flex h-full w-full flex-col bg-[var(--paper)] px-6">
       <div className="h-[100px] shrink-0" />
       <div className="flex items-center gap-2">
-        <span className="rounded-[8px] bg-[var(--ink)] px-2.5 py-1 text-[13px] font-bold text-white">{retry ? "다시 도전" : "QUIZ"}</span>
+        <span className={`rounded-[8px] px-2.5 py-1 text-[13px] font-bold text-white ${label === "복습" ? "bg-[var(--ocean)]" : "bg-[var(--ink)]"}`}>{label ?? (retry ? "다시 도전" : "QUIZ")}</span>
         <span className="min-w-0 truncate text-[13px] font-bold text-[var(--muted)]">{term}</span>
         {streak >= 2 ? (
           <span className="font-display ml-auto shrink-0 -rotate-3 rounded-[8px] bg-[var(--red)] px-3 py-1 text-[18px] text-white">COMBO ×{streak}</span>
         ) : null}
       </div>
+      {note ? <p className="mt-2 text-[12.5px] font-bold text-[var(--ocean)]">{note}</p> : null}
       <h2 className="font-display mt-5 text-[28px] leading-[1.25] text-[var(--ink)]" style={{ wordBreak: "keep-all" }}>
         {quiz.question}
       </h2>

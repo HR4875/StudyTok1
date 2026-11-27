@@ -18,6 +18,17 @@ interface Props {
   onSample: () => void;
   /** AI로 실제 생성 가능한지 (null = 확인 중이거나 확인 못 함) */
   apiReady: boolean | null;
+  /** 이어보기: 마지막으로 보다 만 덱 */
+  resume?: { title: string; n: number; total: number } | null;
+  onResume?: () => void;
+  /** 간격 복습: 오늘 풀 퀴즈 수 (null = 간격 복습 꺼짐) */
+  reviewDue?: number | null;
+  /** 아직 졸업하지 않은 복습 퀴즈 수 */
+  reviewPending?: number;
+  /** 시연용 가상 날짜 (+N일) */
+  clockDays?: number;
+  onReview?: () => void;
+  onShiftDay?: () => void;
 }
 
 const MODES = [
@@ -31,7 +42,24 @@ const pill = (on: boolean) =>
     on ? "bg-[var(--ink)] text-white" : "bg-white text-[var(--ink)]"
   }`;
 
-export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, onFiles, onLibrary, onSample, apiReady }: Props) {
+export default function Home({
+  deckCount,
+  cardCount,
+  onCardCount,
+  mode,
+  onMode,
+  onFiles,
+  onLibrary,
+  onSample,
+  apiReady,
+  resume,
+  onResume,
+  reviewDue,
+  reviewPending = 0,
+  clockDays = 0,
+  onReview,
+  onShiftDay,
+}: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -78,6 +106,49 @@ export default function Home({ deckCount, cardCount, onCardCount, mode, onMode, 
       </header>
 
       <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-6">
+        {/* 이어보기 · 오늘 복습 (11/26 기획: 나갔다 들어와도 보던 곳부터, 1·3·7일 간격 복습) */}
+        {resume && onResume ? (
+          <button
+            type="button"
+            onClick={onResume}
+            className="press press-ink mb-3 flex w-full shrink-0 items-center gap-3 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-white px-4 py-3 text-left"
+            aria-label={`${resume.title} ${resume.n}/${resume.total} 이어보기`}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] font-extrabold text-[var(--muted)]">보던 곳부터</span>
+              <span className="block truncate text-[16px] font-extrabold text-[var(--ink)]">{resume.title}</span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="block text-[13px] font-bold tabular-nums text-[var(--muted)]">
+                {resume.n}/{resume.total}
+              </span>
+              <span className="font-display block text-[17px] text-[var(--ocean)]">이어보기 →</span>
+            </span>
+          </button>
+        ) : null}
+        {reviewDue != null && (reviewDue > 0 || reviewPending > 0) ? (
+          <div className="mb-3 flex w-full shrink-0 items-center gap-3 rounded-[18px] border-[2.5px] border-[var(--ink)] bg-[var(--blue-soft)] px-4 py-3">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] font-extrabold text-[var(--ocean)]">
+                간격 복습 1·3·7일{clockDays ? ` · 가상 날짜 +${clockDays}일` : ""}
+              </span>
+              <span className="block text-[16px] font-extrabold text-[var(--ink)]">
+                {reviewDue > 0 ? `오늘 복습 ${reviewDue}개` : `복습 대기 ${reviewPending}개 · 오늘은 없어요`}
+              </span>
+              {reviewDue === 0 && onShiftDay ? (
+                <button type="button" onClick={onShiftDay} className="mt-0.5 text-[12px] font-bold text-[var(--muted)] underline">
+                  시연용: 하루 뒤로 보내기 (가상)
+                </button>
+              ) : null}
+            </span>
+            {reviewDue > 0 && onReview ? (
+              <button type="button" onClick={onReview} className="press font-display shrink-0 rounded-[14px] bg-[var(--ocean)] px-4 py-2.5 text-[17px] text-white">
+                풀기 →
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* Track #1 : 업로드 */}
         <button
           type="button"
