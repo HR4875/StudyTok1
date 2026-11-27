@@ -16,13 +16,17 @@ const UP = 105, DOWN = 145, TOP = 535;
 const BAR_TOP = 300;
 /** Pixels per unit of value for the bars of one short. */
 const barUnit = (values: number[]) => { const top = Math.max(0, ...values.map((v) => Math.abs(v) || 0)); return top > 0 ? BAR_TOP / top : 1; };
+/** A place written as "x,y" before the value (the parser reads a bare "880,1430" as a position; toText writes one for a thing it has seated) is not the value. */
+/** "1,000" is a thousand written with its comma, not the place x 1, y 0: a place that would sit off the left edge or up in the sentence is read as a number */
+const groupedNum = (s: string): boolean => { const m = /^(\d{1,3}),(\d{3})$/.exec(s.trim()); return !!m && (+m[1] < 36 || +m[2] < 300); };
+const noPos = (rest: string) => rest.replace(/^\s*(-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?)(?=\s|$)/, (all, xy, at: number, whole: string) => (groupedNum(xy) || (/^\d{1,3},\d{3}$/.test(xy) && !/\d/.test(whole.slice(at + all.length).replace(/"[^"]*"|[A-Za-z_]\w*=\S*/g, ""))) ? all : ""));
 /** The largest value each bar ever takes (the line that adds it and every "set" after). */
 export function barValues(text: string): Record<string, number> {
   const out: Record<string, number> = dict();
   for (const raw of String(text || "").split("\n")) {
     const m = /^\s*(bar|set)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
     if (!m || (m[1] === "set" && out[m[2]] == null)) continue;
-    const v = /^\s*[^\d\s"=-]*(-?\d[\d,]*(?:\.\d+)?)/.exec(m[3]);
+    const v = /^\s*[^\d\s"=-]*(-?\d[\d,]*(?:\.\d+)?)/.exec(noPos(m[3]));
     out[m[2]] = Math.max(out[m[2]] || 0, v ? Math.abs(parseFloat(v[1].replace(/,/g, ""))) : 0);
   }
   return out;
@@ -39,8 +43,8 @@ export function reachOf(text: string): Reach {
     else if (type === "plot") { const h = num("h") || 560; out[id] = { up: 155, down: h + 15 }; }
     else if (type === "table") { const q = /rows\s*=\s*"([^"]*)"/.exec(rest), n = q ? q[1].split("/").length : 2, head = /cols\s*=/.test(rest) ? 1 : 0, rh = num("rowH") || 112; out[id] = { up: UP, down: rh * (n + head) - 55 }; }
     else if (type === "bar" || (type === "set" && bars[id])) {
-      const v = /^\s*[^\d\s"=-]*(-?\d+(?:\.\d+)?)/.exec(rest), b = bars[id] || (bars[id] = { v: 0, scale: 1 });
-      if (v) b.v = Math.max(b.v, Math.abs(parseFloat(v[1])));
+      const v = /^\s*[^\d\s"=-]*(-?\d[\d,]*(?:\.\d+)?)/.exec(noPos(rest)), b = bars[id] || (bars[id] = { v: 0, scale: 1 });
+      if (v) b.v = Math.max(b.v, Math.abs(parseFloat(v[1].replace(/,/g, ""))));
       out[id] = { up: UP, down: DOWN };
     }
   }
@@ -56,6 +60,27 @@ export function reachOf(text: string): Reach {
     if (done.has(m[1] + side)) continue;
     done.add(m[1] + side); out[m[1]][side] += 95;
   }
+  return out;
+}
+/**
+ * Room a circle needs above and below its centre (r up, r plus its caption down; a caption set later counts too),
+ * so that two of them one row apart in the same column of a time axis do not touch. Used by the row reading under TIME only: films drawn
+ * before it keep their seats.
+ */
+export function circleReach(text: string, reach: Reach): Reach {
+  const out: Reach = dict(), rad: Record<string, number> = dict(), cap = new Set<string>();
+  Object.keys(reach).forEach((k) => { out[k] = { ...reach[k] }; });
+  for (const raw of String(text || "").split("\n")) {
+    const m = /^\s*(node|set)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
+    if (!m || (m[1] === "set" && rad[m[2]] == null)) continue;
+    const r = /(?:^|\s)r=(\d+(?:\.\d+)?)/.exec(m[3].replace(/"[^"]*"/g, ""));
+    if (m[1] === "node") rad[m[2]] = r ? +r[1] : 80;
+    if (/(?:^|\s)cap=/.test(m[3])) cap.add(m[2]);
+  }
+  Object.keys(rad).forEach((id) => {
+    const o = out[id] || (out[id] = { up: UP, down: DOWN });
+    o.up = Math.max(o.up, rad[id] + 6); o.down = Math.max(o.down, rad[id] + (cap.has(id) ? 66 : 0) + 10);
+  });
   return out;
 }
 const PLACED_T = ["node", "box", "icon", "num", "bar", "text", "table", "plot", "scale", "dots"];
@@ -124,16 +149,99 @@ export function timeRowSeats(line: string, stages: number, reach: Reach = dict()
   const out: Record<string, [number, number]> = dict(), xs = TIME_XS[stages] || TIME_XS[4];
   let y = 0, prevDown = 0, r = 0;
   for (const row of String(line || "").split("/")) {
-    const ids = row.trim().split(/[\s,]+/).filter(Boolean).slice(0, xs.length), real = ids.filter((id) => id !== "-");
+    const all = row.trim().split(/[\s,]+/).filter(Boolean), ids = all.slice(0, all.length > xs.length ? 3 : xs.length), real = ids.filter((id) => id !== "-");
     if (!ids.length) continue;
     if (r >= 6) break;
     if (r > 0 && prevDown > DOWN && !real.length) continue; // an empty row left under a tall thing: the tall row already took that room
     const up = Math.max(UP, ...real.map((id) => (reach[id] ? reach[id].up : UP))), down = Math.max(DOWN, ...real.map((id) => (reach[id] ? reach[id].down : DOWN)));
     y = r === 0 ? TOP + up : y + prevDown + up;
-    ids.forEach((id, k) => { if (/^[A-Za-z_]\w*$/.test(id)) out[id] = [xs[k], y]; });
+    // a row with more seats than stages holds no stage (results side by side above the axis): it spreads across the screen as a plain row does
+    const across = ids.length > xs.length ? ["A", "B", "C"].map((c) => COLS[c]) : null;
+    ids.forEach((id, k) => { if (/^[A-Za-z_]\w*$/.test(id)) out[id] = [across ? across[k] : xs[k], y]; });
     prevDown = down; r++;
   }
   return out;
+}
+/** The pairs an arrow or line of the script joins ("arrow a s>u"), read once before any seat is given out. */
+export function linksOf(text: string): [string, string][] {
+  const out: [string, string][] = [];
+  for (const raw of String(text || "").split("\n")) {
+    const m = /^\s*(?:arrow|line)\s+[A-Za-z_]\w*\s+@?([A-Za-z_]\w*)-*>@?([A-Za-z_]\w*)(?:\s|$)/.exec(raw);
+    if (m) out.push([m[1], m[2]]);
+  }
+  return out;
+}
+/** The stage a thing names in its own words: a caption or a pillar's name that holds exactly one stage label ("1일에 산 노트" over TIME 1일 | 10일 | 월말).
+ *  Read from the line that adds the thing; a caption that names two stages says nothing. */
+export function stageHints(text: string, stages: string[]): Record<string, number> {
+  const out: Record<string, number> = dict(), done = new Set<string>(), flat = (s: string) => s.replace(/\s/g, "");
+  const labels = stages.map(flat), order = labels.map((_, k) => k).sort((a, b) => labels[b].length - labels[a].length); // the longest first: "11년 뒤" is not "1년 뒤"
+  for (const raw of String(text || "").split("\n")) {
+    const m = /^\s*(node|box|icon|num|text|bar)\s+([A-Za-z_]\w*)\b(.*)$/.exec(raw);
+    if (!m || done.has(m[2])) continue;
+    done.add(m[2]);
+    let words = flat((m[3].match(/"[^"]*"|“[^”]*”/g) || []).join(" "));
+    const found: number[] = [];
+    for (const k of order) if (labels[k] && words.includes(labels[k])) { found.push(k); words = words.split(labels[k]).join(" "); }
+    if (found.length === 1) out[m[2]] = found[0];
+  }
+  return out;
+}
+/**
+ * How a GRID line is meant over a time axis. The notation writes rows, each with one seat per stage from left to right; films written before
+ * that (bino-1) give one group per stage, stacked from the top; and a tree is often written path by path ("s / u gu / d gd"). The script's
+ * own arrows tell: they run from one stage to the next. Of the readings that seat every id, the one with the most arrows going exactly one
+ * stage to the right wins, then the one that leaves fewer stages empty; on a tie the rows of the notation win, then the groups.
+ * "depth" (a tree read along its arrows) is a candidate only when every id of GRID is joined by an arrow, the depths fill the stages exactly,
+ * and no reading of the line as written already sends every arrow forward in time. Before the arrows are asked, the things' own words are:
+ * see stageHints.
+ * Returns the reading and the GRID line to seat it with (column form for timeSeats; rows keep their own line for timeRowSeats).
+ */
+export function timeReading(line: string, stages: number, links: [string, string][], bars: Set<string> = new Set(), hints: Record<string, number> = dict()): { kind: "stage" | "rows" | "depth"; line: string } | null {
+  const parts = String(line || "").split("/").map((g) => g.trim().split(/[\s,]+/).filter(Boolean)).filter((g) => g.length);
+  const ids = parts.flat().filter((id) => /^[A-Za-z_]\w*$/.test(id)), inGrid = new Set(ids);
+  const cand: { kind: "stage" | "rows" | "depth"; col: Record<string, number>; line: string }[] = [];
+  const colOf = (groups: string[][]) => { const c: Record<string, number> = dict(); groups.forEach((g, k) => g.forEach((id) => { if (inGrid.has(id) && c[id] == null) c[id] = k; })); return c; };
+  // a row longer than the stages is read across the screen (see timeRowSeats), but never a row of pillars: those stand on their stage
+  if (parts.every((g) => g.length <= stages || (g.length <= 3 && !g.some((id) => bars.has(id))))) {
+    const c: Record<string, number> = dict();
+    parts.forEach((g) => { if (g.length <= stages) g.forEach((id, k) => { if (inGrid.has(id) && c[id] == null) c[id] = k; }); });
+    cand.push({ kind: "rows", col: c, line });
+  }
+  if (parts.length === stages) cand.push({ kind: "stage", col: colOf(parts), line });
+  const tree = links.filter(([a, b]) => inGrid.has(a) && inGrid.has(b) && a !== b);
+  const joined = new Set(tree.flat());
+  // a reading that seats every id and sends every arrow on in time is what was written ("one thing pays out at two times" skips a stage): the depths are not asked then
+  const forward = cand.some((c) => ids.every((id) => c.col[id] != null) && tree.every(([a, b]) => c.col[b] > c.col[a]));
+  if (!forward && tree.length && ids.every((id) => joined.has(id))) {
+    // depth along the arrows: a root has no arrow coming in; a thing is one deeper than the deepest thing pointing at it
+    const depth: Record<string, number> = dict();
+    let ok = true;
+    const walk = (id: string, seen: Set<string>): number => {
+      if (depth[id] != null) return depth[id];
+      if (seen.has(id)) { ok = false; return 0; }
+      seen.add(id);
+      const ins = tree.filter(([, b]) => b === id).map(([a]) => walk(a, seen) + 1);
+      seen.delete(id);
+      return (depth[id] = ins.length ? Math.max(...ins) : 0);
+    };
+    ids.forEach((id) => walk(id, new Set()));
+    const deep = Math.max(...ids.map((id) => depth[id]));
+    if (ok && deep + 1 === stages) {
+      const groups: string[][] = Array.from({ length: stages }, () => []);
+      ids.forEach((id) => { if (!groups[depth[id]].includes(id)) groups[depth[id]].push(id); });
+      if (groups.every((g) => g.length && g.length <= 3)) cand.push({ kind: "depth", col: colOf(groups), line: groups.map((g) => g.join(" ")).join(" / ") });
+    }
+  }
+  if (!cand.length) return null;
+  // the things' own words come before the arrows: when one reading contradicts no caption that names a stage and every other reading contradicts two or more, that reading is meant
+  const told = Object.keys(hints).filter((id) => inGrid.has(id)), against = (c: { col: Record<string, number> }) => told.filter((id) => c.col[id] != null && c.col[id] !== hints[id]).length;
+  const clean = cand.filter((c) => against(c) === 0);
+  if (told.length && clean.length === 1 && cand.every((c) => c === clean[0] || against(c) >= 2)) return { kind: clean[0].kind, line: clean[0].line };
+  const score = (c: { col: Record<string, number> }) => [tree.filter(([a, b]) => c.col[b] - c.col[a] === 1).length, new Set(Object.keys(c.col).map((k) => c.col[k])).size];
+  let best = cand[0], bs = score(best);
+  for (const c of cand.slice(1)) { const s = score(c); if (s[0] > bs[0] || (s[0] === bs[0] && s[1] > bs[1])) { best = c; bs = s; } }
+  return { kind: best.kind, line: best.line };
 }
 /** How far under its row line a thing reaches with its caption: the line of the time axis goes 40 under the lowest of these.
  *  A bar with no name under it stands on its row line, so the axis goes right there and the bar stands on the axis. */
@@ -202,7 +310,9 @@ function setValue(p: Props, s: string): boolean {
   const m = VAL.exec(s);
   if (!m) return false;
   p.value = num(m[2]);
-  if (m[1]) p.pre = m[1];
+  // a value that brings its own minus drops the plus it replaces ("set g -10,000원" on "+10,000원" is not "+-10,000원"); what the value
+  // it replaces showed before its number is settled where that value is known (see "the sign of the value a set replaces")
+  if (m[1] || (p.value as number) < 0) p.pre = m[1];
   if (m[3]) p.suf = m[3];
   const d = (m[2].split(".")[1] || "").length;
   if (d > 4) p.dec = d;
@@ -310,6 +420,10 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
   const units: Record<string, UnitOf> = dict(ctx.units); // the unit each object's number carries, so a term that flies out of it keeps it
   const grid: Record<string, [number, number]> = dict(ctx.grid);
   const unseated: string[] = [], seenIds = new Set<string>(), live = new Map<string, number>(); // live: the row of each placed thing now on screen
+  // the bars written without a name: over TIME they stand on the axis (the stage label names them)
+  const axisBar: Record<string, boolean> = dict();
+  for (const l of String(text || "").split("\n")) { const m = /^\s*bar\s+([A-Za-z_]\w*)\b(.*)$/.exec(l); if (m) axisBar[m[1]] = !/(^|\s)["“]/.test(m[2]); }
+  let reachT: Reach | null = null; // circleReach, made when a thing under TIME needs a seat
   const reach = reachOf(String(text || "")), life = lifeOf(String(text || "")), barV = barValues(String(text || "")), barPx = barUnit(Object.keys(barV).map((k) => barV[k]));
   let beat: Beat | null = null, n = 0;
   const raw = String(text || "").replace(/\r/g, "").split("\n");
@@ -361,13 +475,12 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       if (W === "PICTURE") { plan.picture = rest; has.picture = true; continue; }
       if (W === "GRID") {
         plan.grid = rest; has.grid = true;
-        const parts = rest.split("/").map((g) => g.trim().split(/[\s,]+/).filter(Boolean)).filter((g) => g.length), groups = parts.length;
-        // more groups than stages cannot be stages: they are rows, and a row may hold one seat per stage. Fewer groups than stages stays an error: which stage is missing cannot be known.
-        const byRow = !!stages && groups > stages.length && parts.every((g) => g.length <= stages!.length);
-        if (stages && groups !== stages.length && !byRow) errT(`TIME names ${stages.length} stages but GRID has ${groups} group${groups === 1 ? "" : "s"}. With TIME every group of GRID (the part between "/") is one stage, from left to right: give one group per label.`);
-        if (byRow) warnH(`TIME names ${stages!.length} stages but GRID has ${groups} groups, so GRID was read row by row: the k-th seat of each row stands in the k-th stage.`, "time");
-        timeOn = !!stages && (groups === stages.length || byRow);
-        Object.assign(grid, timeOn ? (byRow ? timeRowSeats(rest, stages!.length, reach) : timeSeats(rest, reach)) : gridSeats(rest, reach));
+        // with TIME the rows of GRID hold one seat per stage; older films give one group per stage. timeReading says which reading the arrows agree with.
+        const how = stages ? timeReading(rest, stages.length, linksOf(String(text || "")), new Set(Object.keys(axisBar)), stageHints(String(text || ""), stages)) : null;
+        if (stages && !how) errT(`TIME names ${stages.length} stages but a row of GRID with pillars (or with more than three seats) has more seats than that. With TIME every row of GRID (the part between "/") holds one seat per stage from left to right, "-" for an empty one: at most ${stages.length} seats in a row of pillars.`);
+        if (how && how.kind === "depth") warnH(`GRID was read along its arrows as a tree growing to the right: ${how.line}.`, "time");
+        timeOn = !!how;
+        Object.assign(grid, how ? (how.kind === "rows" ? timeRowSeats(rest, stages!.length, circleReach(String(text || ""), reach)) : timeSeats(how.line, reach)) : gridSeats(rest, reach));
         continue;
       }
       if (W === "TIME") { has.time = true; continue; } // read before the scenes
@@ -417,6 +530,8 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     if (op === "send") {
       const a: Action = { op: "send" };
       for (const t of toks) { if (t.k) a[ALIAS[t.k] || t.k] = kvValue(ALIAS[t.k] || t.k, t); else if (t.q) a.str = t.s; else if (!link(a, t.s)) { if (COLORS.has(t.s)) a.color = t.s; else if (ASCII.test(t.s) && a.icon == null) a.icon = t.s; else a.str = a.str ? a.str + " " + t.s : t.s; } }
+      // a token named by the id of an icon on screen ("send sell>inv cpn" after "icon cpn ticket") travels as that icon's picture
+      if (typeof a.icon === "string" && !ICONS[a.icon]) { const ic = ICON_ALIAS[a.icon.toLowerCase()] || (/^[A-Za-z_]\w*$/.test(a.icon) ? (new RegExp("^\\s*icon\\s+" + a.icon + "\\s+([A-Za-z_]\\w*)", "m").exec(String(text || "")) || [])[1] : ""); if (ic) a.icon = ICON_ALIAS[ic.toLowerCase()] || ic.toLowerCase(); }
       if (a.from == null || a.to == null) err(n, `Line ${ln + 1}: send needs "from>to".`);
       acts.push(a);
       continue;
@@ -447,7 +562,9 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     const type = isSet ? "" : op, strs: string[] = [], loose: string[] = [];
     if (type === "calc") {
       const k = toks.findIndex((t, i) => i > 0 && !!t.k), body = k < 0 ? toks : toks.slice(0, k), tail = k < 0 ? [] : toks.slice(k);
-      const p0 = body.length && !body[0].q ? POS.exec(body[0].s) : null;
+      // a place is followed by the first term, a number by an operator: "45,500 − 5,500 = 40,000원" starts with forty-five thousand five hundred
+      const opNext = body.length > 1 && !body[1].q && /^[+\-−–×*÷/=≈]$/.test(body[1].s);
+      const p0 = body.length && !body[0].q && !groupedNum(body[0].s) && !opNext ? POS.exec(body[0].s) : null;
       if (p0) { a.x = +p0[1]; a.y = +p0[2]; body.shift(); }
       else if (body.length && !body[0].q && slotXY(body[0].s)) body.shift(); // a calculation finds its own place
       a.terms = calcTerms(body);
@@ -459,18 +576,22 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       ts.forEach((x, k) => {
         if (!x || typeof x !== "object") return;
         const tm = x as Props;
-        if (typeof tm.v !== "number" || tm.pre != null || tm.suf != null) return;
+        // the unit travels with the number, the sign does not: a number is drawn and counted as it is written, so "15@gr − 5@gs" out of a circle
+        // that shows −5만원 reads 15만원 − 5만원, and a term written with its own minus ("−5@gs") keeps that minus and still takes the unit
+        const signed = typeof tm.pre === "string" && /^[−–+-]$/.test(tm.pre.trim()) && tm.suf == null;
+        if (typeof tm.v !== "number" || ((tm.pre != null || tm.suf != null) && !signed)) return;
         const u = tm.from != null ? units[String(tm.from)] : undefined;
         const own = !u ? undefined : (u.pre || u.suf) && (u.v == null || sameNum(u.v, tm.v)) ? u : unitIn(u.texts, tm.v);
-        if (own && (own.pre || own.suf)) { if (own.pre) tm.pre = own.pre; if (own.suf) tm.suf = own.suf; }
-        else if (!u && ((eq >= 0 && k > eq) || tm.from == null)) { if (a.pre != null) tm.pre = a.pre; if (a.suf != null) tm.suf = a.suf; }
+        if (own && (own.pre || own.suf)) { const pre = String(own.pre || "").replace(/^\s*[−–+-]\s*/, ""); if (pre) tm.pre = (signed ? tm.pre : "") + pre; if (own.suf) tm.suf = own.suf; }
+        else if (!signed && !u && ((eq >= 0 && k > eq) || tm.from == null)) { if (a.pre != null) tm.pre = a.pre; if (a.suf != null) tm.suf = a.suf; }
       });
       delete a.pre; delete a.suf;
       // a sum or a difference is of like things: when the units that are written all agree, the bare numbers carry the same unit
       const numsT = ts.filter((x) => !!x && typeof x === "object" && typeof (x as Props).v === "number") as Props[];
       if (numsT.length > 1 && !ts.some((x) => typeof x === "string" && ["×", "÷"].includes(CALC_OP[x] || ""))) {
-        const written = numsT.filter((t) => t.pre != null || t.suf != null), key = (t: Props) => `${t.pre || ""}|${t.suf || ""}`;
-        if (written.length && written.every((t) => key(t) === key(written[0]))) numsT.forEach((t) => { if (t.pre == null && t.suf == null) { if (written[0].pre) t.pre = written[0].pre; if (written[0].suf) t.suf = written[0].suf; } });
+        // the sign of one number is not a unit: "1000 − 10000 = −9000원" gives the bare numbers 원, not "−"
+        const unsign = (x: unknown) => String(x || "").replace(/[−–+-]/g, ""), written = numsT.filter((t) => t.pre != null || t.suf != null), key = (t: Props) => `${unsign(t.pre)}|${t.suf || ""}`;
+        if (written.length && written.every((t) => key(t) === key(written[0]))) numsT.forEach((t) => { if (t.pre == null && t.suf == null) { if (unsign(written[0].pre)) t.pre = unsign(written[0].pre); if (written[0].suf) t.suf = written[0].suf; } });
       }
       const res = eq >= 0 ? (ts.slice(eq + 1).find((x) => x && typeof x === "object") as Props | undefined) : undefined;
       if (res) units[id] = { pre: res.pre, suf: res.suf, v: typeof res.v === "number" ? res.v : undefined };
@@ -478,10 +599,13 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       continue;
     }
     let gotPos = false;
+    // a pillar always has an amount: when its line holds one number only, that number is the amount, even if it could be a place ("bar b 45,500")
+    const digits = type === "bar" || (isSet && barV[id] != null) ? toks.filter((t) => !t.k && !t.q && /\d/.test(t.s) && !slotXY(t.s)) : [];
+    const amount = digits.length === 1 && /^\d{1,3},\d{3}$/.test(digits[0].s) ? digits[0] : null;
     for (const t of toks) {
       if (t.k) { const k = ALIAS[t.k] || t.k; a[k] = kvValue(k, t); continue; }
       if (t.q) { strs.push(t.s); continue; }
-      const s = t.s, m = POS.exec(s);
+      const s = t.s, m = groupedNum(s) || t === amount ? null : POS.exec(s);
       if (m && !gotPos) { a.x = +m[1]; a.y = +m[2]; gotPos = true; continue; }
       const sl = gotPos ? null : slotXY(s);
       if (sl) { a.x = sl[0]; a.y = sl[1]; gotPos = true; continue; }
@@ -507,9 +631,18 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     }
     if (type === "plot") plots[id] = { lines: [], marks: [] };
     if ((timeOn || ctx.time) && (type === "arrow" || type === "line") && a.from != null) a.across = true; // see lineEnds
+    // four stages leave 250 px between columns: a big circle (r=96, copied from the examples) leaves no room for the label of the arrow between two
+    if ((timeOn || ctx.time) && (stages || []).length >= 4 && Number(a.r) > 80 && (type === "node" || (isSet && units[id] && !barV[id]))) a.r = 80;
     if (type === "bar") a.scale = barPx; else if (isSet && barV[id] != null) delete a.scale; // the engine sets the measure of the bars
     {
       const words = [a.str, a.cap, a.sub, a.badge, a.left, a.right].filter((x): x is string => typeof x === "string" && x !== ""), was = units[id];
+      // the sign of the value a set replaces: a new value with no sign drops an old minus ("set g 0원" on "−1,000원" is "0원", not "−0원"),
+      // and a negative one keeps the money sign that stood there ("set b -50" on "$100")
+      if (isSet && a.value != null && was) {
+        const old = String(was.pre || "");
+        if (a.pre == null && /^[−–-]$/.test(old.trim())) a.pre = "";
+        else if (a.pre === "" && (a.value as number) < 0 && /[^\s−–+-]/.test(old)) a.pre = old.replace(/[−–+-]/g, "").trim();
+      }
       if (a.value != null) units[id] = { pre: a.pre, suf: a.suf, v: typeof a.value === "number" ? a.value : undefined, texts: words.concat((was && was.texts) || []) };
       else if (words.length) units[id] = Object.assign({}, was, { texts: words.concat((was && was.texts) || []) });
     }
@@ -518,15 +651,25 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
     // It takes the nearest place under that thing that stays free for as long as it is on screen, else the nearest above, else the foot of the column.
     if (!isSet && !gotPos && !grid[id] && PLACED_T.includes(type) && timeOn) {
       const me = life[id] || { a: n, b: Infinity, ord: 0 };
-      const upOf = (k: string) => Math.max(UP, reach[k] ? reach[k].up : UP), downOf = (k: string) => Math.max(DOWN, reach[k] ? reach[k].down : DOWN);
+      const rT = reachT || (reachT = circleReach(String(text || ""), reach)), upOf = (k: string) => Math.max(UP, rT[k] ? rT[k].up : UP), downOf = (k: string) => Math.max(DOWN, rT[k] ? rT[k].down : DOWN);
       const worked = acts.flatMap((x) => [x.id, x.from, x.to]).filter((k): k is string => typeof k === "string" && !!grid[k]);
       const near = worked.length ? worked[worked.length - 1] : Array.from(live.keys()).filter((k) => grid[k]).pop();
-      const x = near ? grid[near][0] : (TIME_XS[(stages || []).length] || TIME_XS[4])[0], yNear = near ? grid[near][1] : 0;
-      const inCol = Object.keys(grid).filter((k) => grid[k][0] === x && life[k] && life[k].a <= me.b && me.a <= life[k].b);
-      const free = (y: number) => inCol.every((k) => y + downOf(id) <= grid[k][1] - upOf(k) || y - upOf(id) >= grid[k][1] + downOf(k));
-      const cand = Array.from(new Set(Object.keys(grid).map((k) => grid[k][1]).concat(inCol.map((k) => grid[k][1] + downOf(k) + upOf(id))))).filter((y) => y >= TOP + upOf(id) && free(y));
-      const under = cand.filter((y) => y > yNear).sort((p, q) => p - q), over = cand.filter((y) => y < yNear).sort((p, q) => q - p);
-      grid[id] = [x, under.length ? under[0] : over.length ? over[0] : Math.max(TOP, ...inCol.map((k) => grid[k][1] + downOf(k))) + upOf(id)];
+      const xs = TIME_XS[(stages || []).length] || TIME_XS[4], x0 = near ? grid[near][0] : xs[0], yNear = near ? grid[near][1] : 0;
+      // pillars with no name in the bottom row stand on the axis: nothing may sit under them, or the axis drops away and they float.
+      // Then a thing that finds no place above them in its column takes the nearest column that has one.
+      const ys0 = Object.keys(grid).map((k) => grid[k][1]), feet = Object.keys(grid).filter((k) => axisBar[k] && grid[k][1] === Math.max(...ys0));
+      const floor = type !== "bar" && feet.length ? grid[feet[0]][1] : Infinity;
+      const placeIn = (x: number): number | null => {
+        const inCol = Object.keys(grid).filter((k) => grid[k][0] === x && life[k] && life[k].a <= me.b && me.a <= life[k].b);
+        const free = (y: number) => inCol.every((k) => y + downOf(id) <= grid[k][1] - upOf(k) || y - upOf(id) >= grid[k][1] + downOf(k));
+        const cand = Array.from(new Set(ys0.concat(inCol.map((k) => grid[k][1] + downOf(k) + upOf(id))))).filter((y) => y >= TOP + upOf(id) && y < floor && free(y));
+        // a free height level with the thing worked with (its own row, in another column) is a place under it too
+        const under = cand.filter((y) => y >= yNear).sort((p, q) => p - q), over = cand.filter((y) => y < yNear).sort((p, q) => q - p);
+        return under.length ? under[0] : over.length ? over[0] : floor < Infinity ? null : Math.max(TOP, ...inCol.map((k) => grid[k][1] + downOf(k))) + upOf(id);
+      };
+      let seat: [number, number] | null = null;
+      for (const x of [x0].concat(xs.filter((v) => v !== x0).sort((p, q) => Math.abs(p - x0) - Math.abs(q - x0)))) { const y = placeIn(x); if (y != null) { seat = [x, y]; break; } }
+      grid[id] = seat || [x0, Math.max(TOP, ...Object.keys(grid).filter((k) => grid[k][0] === x0).map((k) => grid[k][1] + downOf(k))) + upOf(id)];
       unseated.push(id);
     }
     // not in the GRID line and no place given: the engine seats it. The whole short is known, so nothing lands on a seat that is taken later,
