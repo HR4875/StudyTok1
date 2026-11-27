@@ -2,7 +2,7 @@
 // 재생기의 움직이는 부분. 매 프레임 하는 일(그리기, 진행 막대, 시각)은 React를 거치지 않고 DOM에 바로 쓰고,
 // 드물게 바뀌는 것(시작했는지, 멈췄는지, 끝났는지, 열린 메뉴)만 onView로 알린다.
 import { createDirector, W, H, type AskRect, type FilmInfo, type Script } from "@/lib/film";
-import { BRAND, getPrefs, markSeen, setPrefs, setSeriesSkin, skinFor, type Prefs } from "@/lib/film/store";
+import { BRAND, getPrefs, markSeen, setPrefs, setShortSkin, skinFor, type Prefs } from "@/lib/film/store";
 import { fmtT } from "./format";
 import type { IconName } from "./icons";
 import { blip, bufferOf, createVoice, forgetBuffer, openAudio, prepareBuffer } from "./PlayerAudio";
@@ -73,9 +73,9 @@ export const posterTime = (info: FilmInfo): number => {
   return clamp(a ? info.beats[a.beat].t0 - 0.6 : info.dur * 0.62, 0, Math.max(0, info.dur - 0.5));
 };
 
-const loadOpts = (sid: string) => {
+const loadOpts = (sid: string, k: number) => {
   const p = getPrefs();
-  return { skin: skinFor(sid), speed: p.speed, interactive: true, fancy: true, brand: BRAND };
+  return { skin: skinFor(sid, k), speed: p.speed, interactive: true, fancy: true, brand: BRAND };
 };
 
 export function createPlayer(o: { sid: string; k: number; script: Script; els: PlayerEls; onView: (v: PlayerView) => void; onClose: () => void }): PlayerApi {
@@ -159,7 +159,7 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
   // ---------- 소리 ----------
   const audioKey = () => {
     const p = getPrefs();
-    return `${sid}-${k}|${skinFor(sid)}|${p.speed}`;
+    return `${sid}-${k}|${skinFor(sid, k)}|${p.speed}`;
   };
   function ensureAudio() {
     if (!getPrefs().sound || !info) return;
@@ -431,12 +431,12 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
     halt();
     voice.stop();
     const { skin, ...rest } = change;
-    if (skin) setSeriesSkin(sid, skin);
+    if (skin) setShortSkin(sid, k, skin);
     if (Object.keys(rest).length) setPrefs(rest);
     emit();
     let ni: FilmInfo;
     try {
-      ni = await dir.load(script, loadOpts(sid));
+      ni = await dir.load(script, loadOpts(sid, k));
     } catch {
       if (alive && seq === loadSeq) loading = false;
       return false;
@@ -468,7 +468,7 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
   document.addEventListener("visibilitychange", onVis);
   const first = ++loadSeq;
   dir
-    .load(script, loadOpts(sid))
+    .load(script, loadOpts(sid, k))
     .then((ni) => {
       if (!alive || first !== loadSeq) return;
       loading = false;

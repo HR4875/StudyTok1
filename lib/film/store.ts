@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { BUILT_SERIES, SAMPLES, type BuiltShort } from "./library";
 import { briefOf, checkScript, parsePlan, usablePlan, type Checked, type SeriesPlan } from "./plan";
-import { BUILT_DESIGN, type DesignPick } from "./design";
+import { BUILT_DESIGN, designForShort, type DesignPick } from "./design";
 import { SKINS } from "./skins";
 
 export const BRAND = "StudyTok";
@@ -16,7 +16,7 @@ export interface Prefs {
   speed: number;
   /** 소리. 기본은 꺼짐 */
   sound: boolean;
-  /** 보는 사람이 시리즈마다 바꾼 디자인 (시리즈 id → 디자인 id) */
+  /** 보는 사람이 편마다 바꾼 디자인 ("시리즈id-편" → 디자인 id) */
   skins: Record<string, string>;
 }
 
@@ -133,7 +133,7 @@ function cleanPrefs(v: unknown): Prefs {
     skin: typeof o.skin === "string" && SKINS[o.skin] ? o.skin : "paper",
     speed: typeof o.speed === "number" && SPEEDS.includes(o.speed) ? o.speed : 1.1,
     sound: o.sound === true,
-    skins: isObj(o.skins) ? Object.fromEntries(Object.entries(o.skins).filter(([k, v]) => SERIES_ID.test(k) && typeof v === "string" && !!SKINS[v]) as [string, string][]) : {},
+    skins: isObj(o.skins) ? Object.fromEntries(Object.entries(o.skins).filter(([k, v]) => SHORT_KEY.test(k) && typeof v === "string" && !!SKINS[v]) as [string, string][]) : {},
   };
 }
 
@@ -304,17 +304,30 @@ export function setPrefs(patch: Partial<Prefs>): void {
   write("prefs", s.prefs);
   emit();
 }
-/** 시리즈가 처음 입는 디자인과 그 까닭: 만들 때 고른 것, 내장 시리즈는 정해 둔 것 */
-export function designOf(sid: string): DesignPick {
-  const mine = init().made.series.find((d) => d.id === sid)?.design;
-  return mine ?? BUILT_DESIGN[sid] ?? { skin: "paper", why: "기본 디자인 F(페이퍼)예요.", how: "auto", hits: [] };
+const shortDesigns = new Map<string, DesignPick>();
+/**
+ * 한 편이 입는 디자인과 그 까닭. 만들 때 디자인을 직접 골랐으면 모든 편이 그것을 입고,
+ * 아니면 편마다 그 개념(제목, 생각, 그림, 단계)에 맞는 디자인을 고른다. k가 없으면 시리즈의 대표 디자인.
+ */
+export function designOf(sid: string, k?: number): DesignPick {
+  const series = init().made.series.find((d) => d.id === sid)?.design ?? BUILT_DESIGN[sid];
+  if (series && series.how === "picked") return series;
+  const ps = k ? getSeries(sid)?.plan?.shorts[k - 1] : undefined;
+  if (ps) {
+    const key = keyOf(sid, k!);
+    let d = shortDesigns.get(key);
+    if (!d) shortDesigns.set(key, (d = designForShort(ps)));
+    return d;
+  }
+  return series ?? { skin: "paper", why: "기본 디자인 F(페이퍼)예요.", how: "auto", hits: [] };
 }
-/** 지금 이 시리즈에 입힐 디자인: 보는 사람이 바꿨으면 그것, 아니면 시리즈의 디자인 */
-export const skinFor = (sid: string): string => init().prefs.skins[sid] ?? designOf(sid).skin;
-/** 보는 중에 이 시리즈의 디자인을 바꾼다 */
-export function setSeriesSkin(sid: string, skin: string): void {
-  if (!SKINS[skin] || !SERIES_ID.test(sid)) return;
-  setPrefs({ skins: { ...init().prefs.skins, [sid]: skin } });
+/** 지금 이 편에 입힐 디자인: 보는 사람이 바꿨으면 그것, 아니면 편의 디자인 */
+export const skinFor = (sid: string, k?: number): string => (k ? init().prefs.skins[keyOf(sid, k)] : undefined) ?? designOf(sid, k).skin;
+/** 보는 중에 이 편의 디자인을 바꾼다 */
+export function setShortSkin(sid: string, k: number, skin: string): void {
+  const key = keyOf(sid, k);
+  if (!SKINS[skin] || !SHORT_KEY.test(key)) return;
+  setPrefs({ skins: { ...init().prefs.skins, [key]: skin } });
 }
 export const seenOf = (sid: string, k: number): Seen | undefined => init().seen[keyOf(sid, k)];
 export function markSeen(sid: string, k: number, patch: Seen): void {

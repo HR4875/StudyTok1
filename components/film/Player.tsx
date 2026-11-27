@@ -356,7 +356,7 @@ export function Ahead({ sid, k, due }: PlayerProps & { due: boolean }) {
 }
 
 /** 보기 설정 바텀 시트: 속도, 영상 디자인, 소리를 칩으로 고른다 (확정안의 설정 시트) */
-export function Settings({ api, onClose, sid }: { api: RefObject<PlayerApi | null>; onClose: () => void; sid?: string }) {
+export function Settings({ api, onClose, sid, k }: { api: RefObject<PlayerApi | null>; onClose: () => void; sid?: string; k?: number }) {
   useFilmStore();
   const prefs = getPrefs();
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -408,7 +408,7 @@ export function Settings({ api, onClose, sid }: { api: RefObject<PlayerApi | nul
           </p>
           <div className="chips" role="group" aria-labelledby="set-skin">
             {SKIN_LIST.map((s) => (
-              <button key={s.id} type="button" className="chipbtn" aria-pressed={(sid ? skinFor(sid) : prefs.skin) === s.id} onClick={() => api.current?.pick({ skin: s.id })}>
+              <button key={s.id} type="button" className="chipbtn" aria-pressed={(sid ? skinFor(sid, k) : prefs.skin) === s.id} onClick={() => api.current?.pick({ skin: s.id })}>
                 <span className="sw" style={{ background: SKINS[s.id].bg }}>
                   <i style={{ background: SKINS[s.id].primary }} />
                 </span>

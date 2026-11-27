@@ -191,3 +191,9 @@
 .film .fend .sub { margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .film .fend .cta { margin-top: auto; }
 @media (prefers-reduced-motion: reduce) { .film .fswipe .bob { animation: none; } }
+/* 피드의 재생바: 영상 바로 아래, 화면 폭 가득. 누르거나 끌면 그 자리로 간다 */
+.film .fprog { flex: none; display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin-top: 6px; }
+.film .fprog .fsegs { flex: 1; width: auto; margin: 0; height: 28px; }
+.film .fprog .seg { height: 5px; transition: height .15s; }
+.film .fprog .fsegs:hover .seg, .film .fprog .fsegs:active .seg { height: 9px; }
+.film .ftime { flex: none; font: 700 12px/1 var(--f-body); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }

@@ -166,11 +166,11 @@ function DesignPicker({ d }: { d: MakeDraft }) {
   return (
     <div className="pick design">
       <h2>디자인 템플릿</h2>
-      <p className="sub">{d.skin ? "직접 고른 디자인으로 만들어요." : `자동 추천: ${SKINS[auto.skin].name}. ${auto.why}`}</p>
+      <p className="sub">{d.skin ? `모든 편을 ${SKINS[d.skin].name}로 만들어요.` : `자동: 편마다 그 개념에 맞는 디자인을 골라요. 이 자료는 주로 ${SKINS[auto.skin].name}이 어울려요.`}</p>
       <div className="dchips" role="group" aria-label="디자인 템플릿 고르기">
         <button type="button" className="chipbtn dchip" aria-pressed={!d.skin} onClick={() => setDraft({ skin: "" })}>
           {swatch(auto.skin)}
-          <span>자동 추천</span>
+          <span>개념마다 자동</span>
         </button>
         {SKIN_LIST.map((s) => (
           <button key={s.id} type="button" className="chipbtn dchip" aria-pressed={!!d.skin && sel === s.id} onClick={() => setDraft({ skin: s.id })}>

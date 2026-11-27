@@ -10,7 +10,7 @@ import { burstFrom } from "./fx";
 import { Icon } from "./icons";
 import { blip } from "./PlayerAudio";
 import { Ahead, Settings } from "./Player";
-import { EMPTY_VIEW, createPlayer, type PlayerApi, type PlayerView } from "./PlayerEngine";
+import { EMPTY_VIEW, createPlayer, spanOf, type PlayerApi, type PlayerView } from "./PlayerEngine";
 import Still from "./Still";
 
 type Item = { kind: "short"; k: number; key: string } | { kind: "quiz"; k: number; key: string } | { kind: "end"; key: string };
@@ -105,14 +105,23 @@ function LiveShort({ sid, k, script, apiRef, onView, onEnded }: { sid: string; k
         )}
       </div>
       </div>
-      <div className="fsegs" ref={segsRef} onPointerDown={(e) => apiRef.current?.scrubStart(e.nativeEvent)} role="slider" aria-label="재생 위치" tabIndex={0}>
-        {view.info?.beats.map((_, i) => (
-          <div key={i} className="seg">
-            <i />
-          </div>
-        ))}
+      {/* 재생바: 누르거나 끌면 그 자리로 돌아가 다시 본다 (장면마다 한 칸, 질문이 있는 장면은 노랑) */}
+      <div className="fprog">
+        <div className="fsegs" ref={segsRef} onPointerDown={(e) => apiRef.current?.scrubStart(e.nativeEvent)} role="slider" aria-label="재생 위치" tabIndex={0}>
+          {view.info
+            ? view.info.beats.map((_, i) => {
+                const [s0, s1] = spanOf(view.info!, i);
+                const ask = view.info!.asks.some((a) => a.beat === i);
+                return (
+                  <div key={i} className={ask ? "seg ask" : "seg"} style={{ flex: `${Math.max(0.4, s1 - s0).toFixed(2)} 1 0` }}>
+                    <i />
+                  </div>
+                );
+              })
+            : null}
+        </div>
+        <span className="ftime" ref={timeRef} />
       </div>
-      <span className="sr" ref={timeRef} />
     </div>
   );
 }
@@ -326,7 +335,7 @@ export default function FeedView({ sid, k }: { sid: string; k: number }) {
                       <div className="fbox">
                         <div className="stagebox still">{Math.abs(i - index) <= 2 ? <Still sid={sid} k={it.k} /> : null}</div>
                       </div>
-                      <div className="fsegs" />
+                      <div className="fprog"><div className="fsegs" /></div>
                     </div>
                   )
                 ) : it.kind === "quiz" ? (
@@ -382,7 +391,7 @@ export default function FeedView({ sid, k }: { sid: string; k: number }) {
           </p>
         ) : null}
         {cur?.kind === "short" ? <Ahead sid={sid} k={cur.k} due={due} /> : null}
-        {sets && <Settings api={api} sid={sid} onClose={() => setSets(false)} />}
+        {sets && <Settings api={api} sid={sid} k={curK} onClose={() => setSets(false)} />}
       </div>
     </div>
   );

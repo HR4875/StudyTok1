@@ -15,22 +15,22 @@ export interface DesignPick {
 const RULES: { skin: string; words: string[]; why: string }[] = [
   {
     skin: "paper",
-    words: ["가격", "가치", "주가", "옵션", "이자", "할인", "현금흐름", "재무", "회계", "감가상각", "원가", "수익", "비용", "자산", "부채", "그래프", "추이", "모형", "위험", "채권", "환율", "만기", "시간"],
+    words: ["가격", "가치", "주가", "옵션", "이자", "할인", "현금흐름", "재무", "회계", "감가상각", "원가", "수익", "비용", "자산", "부채", "그래프", "추이", "모형", "위험", "채권", "환율", "만기", "시간", "나무", "갈라", "막대", "시간축", "해마다", "그래프"],
     why: "숫자가 시간에 따라 바뀌는 내용이라, 그래프와 왼쪽에서 오른쪽으로 자라는 나무가 가장 또렷한 디자인 F(페이퍼)를 골랐어요.",
   },
   {
     skin: "blueprint",
-    words: ["절차", "과정", "단계", "흐름", "서류", "신용장", "무역", "선적", "통관", "구조", "설계", "회로", "시스템", "공정", "프로세스", "계약"],
+    words: ["절차", "과정", "단계", "흐름", "서류", "신용장", "무역", "선적", "통관", "구조", "설계", "회로", "시스템", "공정", "프로세스", "계약", "아이콘", "건네", "보내", "옮겨", "이동", "누가 누구"],
     why: "여러 주체와 서류가 순서대로 오가는 내용이라, 선과 화살표가 잘 보이는 블루프린트를 골랐어요.",
   },
   {
     skin: "ink",
-    words: ["공식", "정리", "증명", "확률", "통계", "분포", "기댓값", "방정식", "함수", "미분", "적분", "행렬", "정의"],
+    words: ["공식", "정리", "증명", "확률", "통계", "분포", "기댓값", "방정식", "함수", "미분", "적분", "행렬", "등식", "수식"],
     why: "식과 기호가 중심인 내용이라, 색을 하나만 써서 핵심만 남기는 디자인 B(잉크)를 골랐어요.",
   },
   {
     skin: "note",
-    words: ["법", "조항", "판례", "암기", "용어", "개념", "분류", "종류", "특징", "비교", "차이", "요건"],
+    words: ["법률", "법적", "조항", "판례", "암기", "용어", "개념", "분류", "종류", "특징", "비교", "차이", "요건", "목록", "나눠", "짝지"],
     why: "용어를 나누고 비교하는 내용이라, 필기 노트처럼 정리해 보이는 노트를 골랐어요.",
   },
   {
@@ -65,6 +65,34 @@ export function recommendDesign(text: string): DesignPick {
   }
   if (!best) return { skin: "paper", why: FALLBACK, how: "auto", hits: [] };
   return { skin: best.skin, why: best.why, how: "auto", hits: best.hits.slice(0, 6) };
+}
+
+/** 편마다 그리는 그림의 모양으로 디자인을 고른다: 그림이 같으면 같은 디자인, 그림이 다르면 그 그림이 가장 또렷한 디자인 */
+const PICTURES: { skin: string; words: string[]; why: string }[] = [
+  { skin: "ink", words: ["저울", "접시", "같은 값", "기울"], why: "두 묶음의 값을 저울에 다는 그림이라, 색을 하나만 써서 양쪽 비교가 또렷한 디자인 B(잉크)를 골랐어요." },
+  { skin: "blueprint", words: ["아이콘", "오간다", "오가", "건네", "보낸", "옮겨", "구매자", "판매자", "은행", "항구", "배가"], why: "누가 누구에게 무엇을 건네는 그림이라, 선과 화살표가 잘 보이는 블루프린트를 골랐어요." },
+  { skin: "paper", words: ["시간축", "갈래", "갈라", "나무", "기둥", "해마다", "달마다", "오늘", "만기"], why: "시간에 따라 갈라지거나 쌓이는 그래프 그림이라, 디자인 F(페이퍼)를 골랐어요." },
+  { skin: "note", words: ["점", "칸", "개 중", "명 중", "표", "목록", "분류"], why: "몇 개 중 몇 개인지 세거나 나누는 그림이라, 필기 노트처럼 정리되는 노트를 골랐어요." },
+  { skin: "pop", words: ["막대", "나란히", "크기", "키 재기"], why: "크기를 나란히 견주는 막대 그림이라, 밝고 대비가 큰 팝을 골랐어요." },
+  { skin: "night", words: ["곡선", "그래프", "좌표", "흐름도", "데이터"], why: "선과 점이 이어지는 그림이라, 어두운 바탕에서 선이 빛나는 나이트를 골랐어요." },
+];
+
+/** 한 편(개념)에 맞는 디자인: 그 편의 그림(route)을 먼저 보고, 모르는 그림이면 그 편의 낱말로 고른다 */
+export function designForShort(s: { title: string; idea: string; route: string; steps: { q: string; idea: string }[] }): DesignPick {
+  const pic = s.route || "";
+  let best: { skin: string; why: string; hits: string[]; score: number; at: number } | null = null;
+  PICTURES.forEach((r, at) => {
+    const hits = r.words.filter((w) => pic.includes(w));
+    // 그림 이름이 route 앞쪽에 나올수록 그 편의 주된 그림이다
+    const first = Math.min(...hits.map((w) => pic.indexOf(w)), 1e9);
+    const score = hits.length * 10 - first / 50;
+    if (hits.length && (!best || score > best.score)) best = { skin: r.skin, why: r.why, hits, score, at };
+  });
+  if (best) {
+    const b = best as { skin: string; why: string; hits: string[] };
+    return { skin: b.skin, why: b.why, how: "auto", hits: b.hits.slice(0, 4) };
+  }
+  return recommendDesign([s.title, s.idea, s.route, ...s.steps.map((x) => x.q + " " + x.idea)].join("\n"));
 }
 
 /** 사람이 직접 고른 디자인 */

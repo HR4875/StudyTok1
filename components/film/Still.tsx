@@ -19,7 +19,7 @@ export default function Still({ sid, k }: { sid: string; k: number }) {
   const ref = useRef<SVGSVGElement>(null);
   const sh = loadShort(sid, k);
   const script = sh && sh.scenes ? sh.script : null;
-  const skin = skinFor(sid);
+  const skin = skinFor(sid, k);
   useEffect(() => {
     const svg = ref.current;
     if (!svg || !script) return;
