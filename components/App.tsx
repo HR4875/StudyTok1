@@ -22,6 +22,7 @@ import {
   saveProgress,
   saveSettings,
   setClockOffsetDays,
+  stepsLabel,
   type Settings,
 } from "@/lib/storage";
 import Feed from "./Feed";
@@ -279,6 +280,7 @@ export default function App() {
           }}
           reviewDue={settings.spacedReview ? dueCount : null}
           reviewPending={reviewPending}
+          reviewSteps={stepsLabel(settings.reviewCount)}
           clockDays={clockOffsetDays()}
           onReview={openReview}
           onShiftDay={() => {
@@ -346,6 +348,7 @@ export default function App() {
           }}
           reviewDue={settings.spacedReview ? dueCount : null}
           reviewPending={reviewPending}
+          reviewSteps={stepsLabel(settings.reviewCount)}
           clockDays={clockOffsetDays()}
           onReview={openReview}
           onShiftDay={() => {

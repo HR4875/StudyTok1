@@ -1,10 +1,13 @@
 "use client";
-// 공부 기록: 이어보기(보던 편), 간격 복습(1·3·7일), 시연용 가상 날짜. 기존 앱(PR 9)의 규칙을 그대로 옮겼다.
+// 공부 기록: 이어보기(보던 편), 간격 복습(기본 1·3·7일, 횟수는 사용자가 고른다), 시연용 가상 날짜. 기존 앱(PR 9)의 규칙을 그대로 옮겼다.
 // 이 기기의 localStorage에만 둔다. 저장이 막힌 브라우저에서도 이번에 연 동안은 그대로 동작한다.
 import { useSyncExternalStore } from "react";
 
-/** 복습 간격(일): 처음 풀고 1일 뒤, 맞히면 3일 뒤, 또 맞히면 7일 뒤. 7일 뒤에도 맞히면 졸업 */
-export const REVIEW_STEPS = [1, 3, 7] as const;
+/** 복습 간격(일): 처음 풀고 1일 뒤, 맞히면 3일 뒤, 또 맞히면 7일 뒤, 14일 뒤. 고른 횟수만큼 맞히면 졸업 */
+export const REVIEW_STEPS = [1, 3, 7, 14] as const;
+/** 복습 횟수 고르기 (11/27 기획): 1회(1일) · 2회(1·3일) · 3회(1·3·7일, 기본) · 4회(1·3·7·14일) */
+export const REVIEW_COUNTS = [1, 2, 3, 4] as const;
+export const DEFAULT_REVIEW_COUNT = 3;
 
 export interface Progress {
   k: number;
@@ -29,6 +32,8 @@ interface Study {
   intro: boolean;
   /** 시연용 가상 날짜: 오늘에서 며칠 뒤로 보냈는지 */
   clock: number;
+  /** 복습 횟수 (1~4, 기본 3 = 1·3·7일) */
+  count: number;
 }
 
 const KEY = "film.study";
@@ -38,7 +43,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
 function clean(v: unknown): Study {
-  const out: Study = { progress: {}, review: {}, spaced: true, intro: false, clock: 0 };
+  const out: Study = { progress: {}, review: {}, spaced: true, intro: false, clock: 0, count: DEFAULT_REVIEW_COUNT };
   if (!isObj(v)) return out;
   if (isObj(v.progress))
     for (const [sid, p] of Object.entries(v.progress)) if (SID.test(sid) && isObj(p) && n(p.k) >= 1) out.progress[sid] = { k: Math.floor(n(p.k)), at: n(p.at), done: p.done === true || undefined };
@@ -48,6 +53,8 @@ function clean(v: unknown): Study {
   out.spaced = v.spaced !== false;
   out.intro = v.intro === true;
   out.clock = Math.min(60, Math.max(0, Math.floor(n(v.clock))));
+  const c = Math.floor(n(v.count));
+  out.count = c >= 1 && c <= REVIEW_STEPS.length ? c : DEFAULT_REVIEW_COUNT;
   return out;
 }
 
@@ -137,6 +144,24 @@ export function lastProgress(ok: (sid: string, k: number) => boolean): { sid: st
 // ---------- 간격 복습 ----------
 export const spacedOn = (): boolean => load().spaced;
 export const setSpaced = (on: boolean): void => save({ spaced: on });
+/** 복습 횟수 (1~4) */
+export const reviewCount = (): number => load().count;
+/** 고른 횟수의 간격들 (예: [1, 3, 7]) */
+export const reviewSteps = (): number[] => REVIEW_STEPS.slice(0, reviewCount());
+/** "1·3·7일" 같은 표시 문구 */
+export const stepsLabel = (count = reviewCount()): string => REVIEW_STEPS.slice(0, count).join("·") + "일";
+/** 퀴즈를 푼 뒤 안내 문구: 맞힌 문제가 언제 다시 나오는지 */
+export const reviewNote = (): string => {
+  const rest = reviewSteps().slice(1);
+  return rest.length ? `맞힌 문제는 ${rest.map((d) => `${d}일`).join("·")} 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.` : "맞힌 문제는 내일 한 번 더, 틀린 문제는 내일 다시 나와요.";
+};
+/** 복습 횟수 바꾸기. 줄이면 이미 그만큼 맞힌 퀴즈는 졸업 */
+export function setReviewCount(c: number): void {
+  const count = Math.min(REVIEW_STEPS.length, Math.max(1, Math.floor(c)));
+  const review = { ...load().review };
+  for (const [key, r] of Object.entries(review)) if (!r.graduated && r.step >= count) review[key] = { ...r, graduated: true };
+  save({ count, review });
+}
 export const introSeen = (): boolean => load().intro;
 export const seeIntro = (): void => {
   if (!load().intro) save({ intro: true });
@@ -144,7 +169,7 @@ export const seeIntro = (): void => {
 
 /**
  * 퀴즈 하나를 푼 결과를 복습 일정에 넣는다 (PR 9 규칙).
- * 틀리면 1일 간격부터 다시. 처음 풀면 1일 뒤. 복습할 날에 맞히면 다음 간격, 7일 간격까지 맞히면 졸업. 그 밖에는 그대로.
+ * 틀리면 1일 간격부터 다시. 처음 풀면 1일 뒤. 복습할 날에 맞히면 다음 간격, 고른 횟수만큼 맞히면 졸업. 그 밖에는 그대로.
  */
 export function recordReview(sid: string, k: number, correct: boolean, isReview: boolean): void {
   if (!spacedOn()) return;
@@ -156,7 +181,7 @@ export function recordReview(sid: string, k: number, correct: boolean, isReview:
   else if (!r) next = { sid, k, step: 0, due: dayAfter(t, REVIEW_STEPS[0]) };
   else if (isReview && !r.graduated && r.due <= t) {
     const step = r.step + 1;
-    next = step >= REVIEW_STEPS.length ? { ...r, graduated: true } : { sid, k, step, due: dayAfter(t, REVIEW_STEPS[step]) };
+    next = step >= reviewCount() ? { ...r, graduated: true } : { sid, k, step, due: dayAfter(t, REVIEW_STEPS[step]) };
   }
   if (next) save({ review: { ...load().review, [key]: next } });
 }

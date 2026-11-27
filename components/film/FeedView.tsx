@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { H, W, type Script } from "@/lib/film";
 import { HOST } from "@/lib/film/host";
 import { getPrefs, getSeries, loadShort, madeKs, markSeen, nextRangeOf, pagesOf, seenOf, titleOf, totalOf, useFilmStore } from "@/lib/film/store";
-import { dueReviews, finishProgress, introSeen, recordReview, saveProgress, seeIntro, spacedOn, useStudy } from "@/lib/film/study";
+import { dueReviews, finishProgress, introSeen, recordReview, reviewNote, saveProgress, seeIntro, spacedOn, stepsLabel, useStudy } from "@/lib/film/study";
 import { continueRange } from "./makeDraft";
 import { burstFrom } from "./fx";
 import { Icon } from "./icons";
@@ -238,7 +238,7 @@ function QuizItem({ sid, k, tag, streak, onAnswer, onNext }: { sid: string; k: n
         <span className="fterm">{titleOf(sid, k)}</span>
         {streak >= 2 ? <span className="combo">{`COMBO ×${streak}`}</span> : null}
       </div>
-      {intro ? <p className="rintro">1·3·7일 간격 복습이에요 · 설정에서 끌 수 있어요</p> : null}
+      {intro ? <p className="rintro">{`${stepsLabel()} 간격 복습이에요 · 설정에서 끌 수 있어요`}</p> : null}
       <div className={"q" + (q.q.length > 34 ? " long" : "")}>{q.q}</div>
       <div className="opts">
         {q.choices.map((c, m) => {
@@ -306,7 +306,7 @@ function EndCard({ sid, drill, label, more, total, have, quizN, onTop }: { sid: 
         <span className="label">{drill === "review" ? "REVIEW" : "RETRY"}</span>
         <h2>{quizN ? "다 풀었어요!" : drill === "review" ? "오늘 복습할 문제가 없어요" : "틀린 문제가 없어요"}</h2>
         <p className="sub">{label + (quizN ? ` · ${quizN}문제` : "")}</p>
-        {spacedOn() ? <p className="rnote">맞힌 문제는 3일·7일 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.</p> : null}
+        {spacedOn() ? <p className="rnote">{reviewNote()}</p> : null}
         <div className="cta">
           {left && quizN ? (
             <button type="button" className="btn red" onClick={() => window.dispatchEvent(new Event("film:again"))}>
@@ -325,7 +325,7 @@ function EndCard({ sid, drill, label, more, total, have, quizN, onTop }: { sid: 
       <span className="label">FINISH</span>
       <h2>{more ? "여기까지 만든 편을 다 봤어요" : "완주했어요!"}</h2>
       <p className="sub">{label + (sid !== "ex" && total ? ` · ${have}/${total}편` : "")}</p>
-      {spacedOn() && quizN ? <p className="rnote">맞힌 문제는 3일·7일 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.</p> : null}
+      {spacedOn() && quizN ? <p className="rnote">{reviewNote()}</p> : null}
       <div className="cta">
         {wrong ? (
           <a className="btn red" href={"#x-" + sid}>

@@ -18,8 +18,10 @@ export interface Settings {
   cardCount: number; // concepts per upload
   mode: RenderMode; // text = 기본(싼 버전), motion = 모션그래픽
   voice: boolean; // 무료 기기 음성으로 읽어 주기 (스타일A 카드)
-  /** 간격 복습 1·3·7일 (11/26 기획 제안, 기본 켜짐) */
+  /** 간격 복습 (11/26 기획 제안, 기본 켜짐) */
   spacedReview: boolean;
+  /** 복습 횟수 1~4 (기본 3 = 1·3·7일, 11/27 기획: 사용자가 고른다) */
+  reviewCount: number;
   /** 간격 복습 첫 안내를 본 적 있는지 */
   reviewIntroSeen?: boolean;
 }
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: "text",
   voice: false,
   spacedReview: true,
+  reviewCount: 3,
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -82,6 +85,7 @@ export function loadSettings(): Settings {
   if (s.mode !== "text" && s.mode !== "motion") s.mode = DEFAULT_SETTINGS.mode;
   // 예전 기본값(켜짐)이 저장돼 있던 사람도, 직접 고른 적이 없으면 무음으로 시작
   if (!s.soundSet) s.sound = false;
+  if (!(s.reviewCount >= 1 && s.reviewCount <= REVIEW_STEPS.length)) s.reviewCount = DEFAULT_SETTINGS.reviewCount;
   return s;
 }
 
@@ -133,18 +137,27 @@ export function clearProgress(deckId: string) {
   write(PROGRESS_KEY, all);
 }
 
-/* ---------- 간격 복습 1·3·7일 ---------- */
+/* ---------- 간격 복습 (기본 1·3·7일, 횟수는 사용자가 고른다) ---------- */
 
 const REVIEW_KEY = "studytok.review.v1";
 const CLOCK_KEY = "studytok.clock.v1";
 const DAY = 86_400_000;
-/** 맞힐 때마다 다음 간격: 1일 → 3일 → 7일 → 졸업 */
-export const REVIEW_STEPS = [1, 3, 7] as const;
+/** 맞힐 때마다 다음 간격: 1일 → 3일 → 7일 → 14일. 고른 횟수만큼 맞히면 졸업 */
+export const REVIEW_STEPS = [1, 3, 7, 14] as const;
+/** 복습 횟수 고르기: 1회(1일) · 2회(1·3일) · 3회(1·3·7일, 기본) · 4회(1·3·7·14일) */
+export const REVIEW_COUNTS = [1, 2, 3, 4] as const;
+/** "1·3·7일" 같은 표시 문구 */
+export const stepsLabel = (count: number): string => REVIEW_STEPS.slice(0, count).join("·") + "일";
+/** 퀴즈를 푼 뒤 안내 문구: 맞힌 문제가 언제 다시 나오는지 */
+export const reviewNote = (count: number): string => {
+  const rest = REVIEW_STEPS.slice(1, count);
+  return rest.length ? `맞힌 문제는 ${rest.map((d) => `${d}일`).join("·")} 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.` : "맞힌 문제는 내일 한 번 더, 틀린 문제는 내일 다시 나와요.";
+};
 
 export interface ReviewEntry {
   deckId: string;
   cardId: string;
-  /** 지금 기다리는 간격 단계 (1 = 1일, 2 = 3일, 3 = 7일). 3단계를 맞히면 졸업 */
+  /** 지금 기다리는 간격 단계 (1 = 1일, 2 = 3일, 3 = 7일, 4 = 14일). 고른 횟수 단계를 맞히면 졸업 */
   step: number;
   /** 이 시각(그날 0시)부터 복습 대상 */
   due: number;
@@ -190,10 +203,10 @@ export function reviewCount(): number {
 /**
  * 퀴즈 하나를 푼 결과를 복습 일정에 반영한다.
  * - 처음 푼 퀴즈: 맞든 틀리든 1일 뒤
- * - 복습 퀴즈를 맞힘: 1일 → 3일 → 7일 → 졸업
+ * - 복습 퀴즈를 맞힘: 다음 간격 (1일 → 3일 → 7일 → 14일), 고른 횟수만큼 맞히면 졸업
  * - 틀림: 언제든 1일부터 다시
  */
-export function recordReview(deckId: string, cardId: string, correct: boolean, isReview: boolean): ReviewEntry {
+export function recordReview(deckId: string, cardId: string, correct: boolean, isReview: boolean, count = 3): ReviewEntry {
   const all = loadReviews();
   const now = reviewNow();
   const prev = all[cardId];
@@ -201,11 +214,23 @@ export function recordReview(deckId: string, cardId: string, correct: boolean, i
   if (!correct) next = { deckId: prev?.deckId ?? deckId, cardId, step: 1, due: dayAfter(now, REVIEW_STEPS[0]) };
   else if (!prev) next = { deckId, cardId, step: 1, due: dayAfter(now, REVIEW_STEPS[0]) };
   else if (isReview && prev.due <= now) {
-    next = prev.step >= REVIEW_STEPS.length ? { ...prev, graduated: true } : { ...prev, step: prev.step + 1, due: dayAfter(now, REVIEW_STEPS[prev.step]) };
+    next = prev.step >= Math.min(count, REVIEW_STEPS.length) ? { ...prev, graduated: true } : { ...prev, step: prev.step + 1, due: dayAfter(now, REVIEW_STEPS[prev.step]) };
   } else next = prev; // 아직 복습일이 아닌데 다시 맞힘 → 일정 그대로
   all[cardId] = next;
   write(REVIEW_KEY, all);
   return next;
+}
+
+/** 복습 횟수를 줄였을 때: 이미 그만큼 맞힌 퀴즈(다음 단계를 기다리는 중)는 졸업 */
+export function graduateBeyond(count: number) {
+  const all = loadReviews();
+  let changed = false;
+  for (const r of Object.values(all))
+    if (!r.graduated && r.step > count) {
+      r.graduated = true;
+      changed = true;
+    }
+  if (changed) write(REVIEW_KEY, all);
 }
 
 /** 덱을 지우면 그 덱의 복습·이어보기도 지운다 */

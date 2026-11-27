@@ -7,7 +7,7 @@ import { H, SKINS, SKIN_LIST, W } from "@/lib/film";
 import { makeShort, useGen } from "@/lib/film/gen";
 import { HOST } from "@/lib/film/host";
 import { SPEEDS, getPrefs, getSeries, loadShort, titleOf, totalOf, skinFor, useFilmStore, type LoadedShort } from "@/lib/film/store";
-import { clockDays, setClockDays, setSpaced, spacedOn, useStudy } from "@/lib/film/study";
+import { REVIEW_COUNTS, clockDays, reviewCount, setClockDays, setReviewCount, setSpaced, spacedOn, stepsLabel, useStudy } from "@/lib/film/study";
 import EndSheet from "./EndSheet";
 import { secs } from "./format";
 import { Icon } from "./icons";
@@ -433,12 +433,32 @@ export function Settings({ api, onClose, sid, k }: { api: RefObject<PlayerApi | 
         </div>
         <div className="sgroup">
           <p className="glabel" id="set-review">
-            간격 복습 (1·3·7일)
+            {`간격 복습 (${stepsLabel()})`}
           </p>
           <div className="chips" role="group" aria-labelledby="set-review">
             {[true, false].map((on) => (
               <button key={String(on)} type="button" className="chipbtn" aria-pressed={spacedOn() === on} onClick={() => setSpaced(on)}>
                 {on ? "켬" : "끔"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sgroup">
+          <p className="glabel" id="set-count">
+            복습 횟수
+          </p>
+          <div className="chips" role="group" aria-labelledby="set-count" style={spacedOn() ? undefined : { opacity: 0.4 }}>
+            {REVIEW_COUNTS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className="chipbtn"
+                aria-pressed={reviewCount() === c}
+                disabled={!spacedOn()}
+                title={`${stepsLabel(c)} 뒤에 다시`}
+                onClick={() => setReviewCount(c)}
+              >
+                {`${c}회 (${stepsLabel(c)})`}
               </button>
             ))}
           </div>

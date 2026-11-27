@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { conceptNameOf, expandParts, isShowable, paletteOf, problemsOf, quizOf } from "@/lib/cards";
 import type { Card, Deck } from "@/lib/schema";
-import { clockOffsetDays, recordReview, setClockOffsetDays, type Settings } from "@/lib/storage";
+import { REVIEW_COUNTS, clockOffsetDays, graduateBeyond, recordReview, reviewNote, setClockOffsetDays, stepsLabel, type Settings } from "@/lib/storage";
 import { canSpeak, playSfx, primeVoice, setSoundEnabled, unlockAudio } from "@/lib/sfx";
 import { fallbackScene } from "@/lib/fallback";
 import { burstFrom } from "@/lib/fx";
@@ -372,7 +372,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
       return n;
     });
     // 간격 복습 일정: 처음 푼 퀴즈는 1일 뒤, 복습을 맞히면 1→3→7일→졸업, 틀리면 1일부터
-    if (settings.spacedReview) recordReview(deck.parentId ?? deck.id, item.card.id, ok, !!item.review);
+    if (settings.spacedReview) recordReview(deck.parentId ?? deck.id, item.card.id, ok, !!item.review, settings.reviewCount);
     if (item.review && !settings.reviewIntroSeen) onSettings({ ...settings, reviewIntroSeen: true });
     const wrong = new Set(deck.wrong ?? []);
     if (ok) {
@@ -511,7 +511,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   palette={paletteOf(it.card) ?? "blue"}
                   retry={it.retry}
                   label={it.retry ? "다시 도전" : it.review ? "복습" : "QUIZ"}
-                  note={it.review && !settings.reviewIntroSeen ? "1·3·7일 간격 복습이에요 · 설정에서 끌 수 있어요" : undefined}
+                  note={it.review && !settings.reviewIntroSeen ? `${stepsLabel(settings.reviewCount)} 간격 복습이에요 · 설정에서 끌 수 있어요` : undefined}
                   selected={answers[it.key] ?? null}
                   streak={streak}
                   onAnswer={(sel) => answer(it, sel, i)}
@@ -541,7 +541,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
                   </div>
                   {deck.drill === "review" ? (
                     <p className="mt-4 rounded-[16px] bg-[var(--blue-soft)] px-4 py-3 text-[14px] font-bold leading-relaxed text-[var(--ink)]">
-                      맞힌 문제는 3일·7일 뒤에 한 번 더, 틀린 문제는 내일 다시 나와요.
+                      {reviewNote(settings.reviewCount)}
                     </p>
                   ) : null}
                   {wrongCards.length ? (
@@ -840,7 +840,7 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               ["다 보면 다음 카드로", "autoNext"],
               ["순서 섞기", "shuffle"],
               ["틀린 문제 3장 뒤 다시", "retryWrong"],
-              ["간격 복습 (1·3·7일)", "spacedReview"],
+              [`간격 복습 (${stepsLabel(settings.reviewCount)})`, "spacedReview"],
             ] as const
           )
             // 목소리는 스타일A 카드에서만, 기기에 음성이 있을 때만 (무료 기기 음성)
@@ -877,6 +877,30 @@ export default function Feed({ deck, generating, settings, onSettings, onBack, o
               )}
             </div>
           ))}
+          {/* 복습 횟수 (11/27 기획): 고른 횟수만큼 맞히면 졸업. 간격 복습이 꺼져 있으면 흐리게 */}
+          <div className={`border-t-[1.5px] border-[var(--ink)]/10 py-3 ${settings.spacedReview ? "" : "opacity-40"}`}>
+            <span className="text-[15px] font-bold text-[var(--ink)]">복습 횟수</span>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="복습 횟수">
+              {REVIEW_COUNTS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={settings.reviewCount === c}
+                  disabled={!settings.spacedReview}
+                  onClick={() => {
+                    if (c < settings.reviewCount) graduateBeyond(c);
+                    set({ reviewCount: c }, `복습 ${c}회 · ${stepsLabel(c)} 뒤에 다시`);
+                  }}
+                  className={`rounded-full border-2 border-[var(--ink)] px-2.5 py-1 text-[12.5px] font-bold ${
+                    settings.reviewCount === c ? "bg-[var(--ink)] text-white" : "bg-white text-[var(--ink)]"
+                  }`}
+                >
+                  {c}회 ({stepsLabel(c)})
+                </button>
+              ))}
+            </div>
+          </div>
           {settings.spacedReview ? (
             <div className="flex items-center justify-between gap-2 border-t-[1.5px] border-[var(--ink)]/10 py-3">
               <span className="min-w-0 text-[15px] font-bold text-[var(--ink)]">
