@@ -104,7 +104,7 @@ function noteOf(gen: GenState, id: string): string {
   // 미리 만들던 편은 사람이 누른 만들기에 자리를 내준다: 누르기 전에 그렇게 된다는 것을 알린다
   if (gen.busy && gen.busy.ahead) return "보시는 동안 다음 편을 미리 만드는 중이에요. 다른 편의 만들기를 누르면 미리 만들던 편은 멈추고, 그 편은 나중에 다시 만들 수 있어요.";
   if (gen.avail === "ok")
-    return HOST.seriesReady + (gen.mock ? " 지금은 예시 모드라 AI를 부르지 않고 준비된 대본으로 답해요." : "");
+    return HOST.seriesReady;
   if (gen.avail === "wait") return "새 편을 만들 수 있는지 확인하는 중이에요.";
   if (gen.avail === "down") return HOST.seriesDown;
   return HOST.seriesNone;
@@ -197,7 +197,7 @@ export default function SeriesView({ id }: { id: string }) {
           <ShortRow key={k} s={s} k={k} first={k === next} gen={gen} now={now} />
         ))}
       </div>
-      {have.length < n ? <p className="note">{noteOf(gen, id)}</p> : null}
+      {have.length < n && noteOf(gen, id) ? <p className="note">{noteOf(gen, id)}</p> : null}
       {s.kind === "mine" ? (
         <>
           {s.cut ? <p className="fine ex">계획이 길어서 끝까지 받지 못한 편은 뺐어요.</p> : null}

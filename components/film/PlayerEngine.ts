@@ -52,6 +52,10 @@ export interface PlayerApi {
   /** 재생 단추: 시작 전이면 시작, 아니면 멈춤과 재생을 오간다 */
   playPause(): void;
   onStage(clientX: number, clientY: number): void;
+  /** 화면을 길게 누르는 동안 멈추고, 떼면 이어서 튼다 */
+  pressHold(on: boolean): void;
+  /** 몇 초 앞(-)이나 뒤(+)로 옮긴다 (왼쪽 두 번 탭: 5초 전) */
+  skip(sec: number): void;
   /** 기다리는 질문 n에 choice(0부터)로 답한다 */
   answer(n: number, choice: number): void;
   scrubStart(e: PointerEvent): void;
@@ -290,6 +294,23 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
     showFlash(d < 0 ? "prev" : "next");
     seekTo(d < 0 ? (t - B[i].t0 > 1 ? B[i].t0 : B[Math.max(0, i - 1)].t0) : i >= B.length - 1 ? info.dur : B[i + 1].t0);
   }
+  let heldPause = false;
+  function pressHold(on: boolean) {
+    if (!info || loading || ended) return;
+    if (on) {
+      if (!playing) return;
+      heldPause = true;
+      pause(false);
+    } else if (heldPause) {
+      heldPause = false;
+      if (!userPaused && !(hold && waiting())) play();
+    }
+  }
+  function skip(sec: number) {
+    if (!info || loading) return;
+    showFlash(sec < 0 ? "prev" : "next");
+    seekTo(t + sec);
+  }
   function answerAsk(hit: { n: number; choice: number }) {
     const r = dir.answer(hit.n, hit.choice);
     if (!r) return;
@@ -487,6 +508,8 @@ export function createPlayer(o: { sid: string; k: number; script: Script; els: P
       else toggle();
     },
     onStage,
+    pressHold,
+    skip,
     answer(n, choice) {
       if (!info || loading || ended) return;
       const p = dir.pendingAsk(t);

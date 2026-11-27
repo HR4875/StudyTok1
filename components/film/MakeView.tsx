@@ -84,7 +84,7 @@ function Planning({ message, titles, t0, file }: { message: string; titles: stri
         <button className="btn onblue" type="button" disabled>
           1편이 준비되면 바로 볼 수 있어요
         </button>
-        <p className="fine">{HOST.planQuiet}</p>
+        {HOST.planQuiet ? <p className="fine">{HOST.planQuiet}</p> : null}
       </div>
     </div>
   );
@@ -317,12 +317,14 @@ export default function MakeView() {
           </button>
         </div>
       </form>
-      <ol className="steps">
-        {HOST.steps.map((line) => (
-          <li key={line}>{line}</li>
-        ))}
-      </ol>
-      <p className="fine mt16">{HOST.privacy(FILM_LIMITS.planDefault)}</p>
+      {HOST.steps.length ? (
+        <ol className="steps">
+          {HOST.steps.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ol>
+      ) : null}
+      {HOST.privacy(FILM_LIMITS.planDefault) ? <p className="fine mt16">{HOST.privacy(FILM_LIMITS.planDefault)}</p> : null}
     </>
   );
 }

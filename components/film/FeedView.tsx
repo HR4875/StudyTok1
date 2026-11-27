@@ -36,6 +36,68 @@ const reduced = () => {
 };
 const closeHref = (sid: string) => (sid !== "ex" ? "#s-" + sid : "#home");
 
+/**
+ * 영상 위의 손짓: 길게 누르면 누르는 동안 멈추고 떼면 이어서 튼다. 왼쪽을 두 번 탭하면 5초 전으로.
+ * 왼쪽 한 번 탭(앞 장면)은 두 번 탭인지 알 수 있게 잠깐 기다렸다가 한다. 나머지 탭은 엔진이 그대로 받는다.
+ */
+function useStageGestures(apiRef: { current: PlayerApi | null }, boxRef: { current: HTMLDivElement | null }) {
+  const st = useRef({ timer: 0, held: false, down: 0, lastLeft: 0, single: 0 });
+  useEffect(() => () => {
+    clearTimeout(st.current.timer);
+    clearTimeout(st.current.single);
+  }, []);
+  const isLeft = (x: number) => {
+    const r = boxRef.current?.getBoundingClientRect();
+    return !!r && (x - r.left) / r.width < 0.26;
+  };
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest(".askbtn")) return;
+      const s = st.current;
+      s.held = false;
+      s.down = Date.now();
+      clearTimeout(s.timer);
+      s.timer = window.setTimeout(() => {
+        s.held = true;
+        apiRef.current?.pressHold(true);
+      }, 350);
+    },
+    onPointerUp: () => {
+      const s = st.current;
+      clearTimeout(s.timer);
+      if (s.held) apiRef.current?.pressHold(false);
+    },
+    onPointerCancel: () => {
+      const s = st.current;
+      clearTimeout(s.timer);
+      if (s.held) apiRef.current?.pressHold(false);
+      s.held = false;
+    },
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    onClick: (e: React.MouseEvent) => {
+      const s = st.current;
+      if (s.held) {
+        s.held = false;
+        return;
+      }
+      const { clientX: x, clientY: y } = e;
+      if (isLeft(x)) {
+        const nowT = Date.now();
+        if (nowT - s.lastLeft < 300) {
+          clearTimeout(s.single);
+          s.lastLeft = 0;
+          apiRef.current?.skip(-5);
+          return;
+        }
+        s.lastLeft = nowT;
+        s.single = window.setTimeout(() => apiRef.current?.onStage(x, y), 300);
+        return;
+      }
+      apiRef.current?.onStage(x, y);
+    },
+  };
+}
+
 /** 지금 화면에 있는 편: 재생 엔진을 띄워 바로 틀고, 끝나면 onEnded */
 function LiveShort({ sid, k, script, apiRef, onView, onEnded }: { sid: string; k: number; script: Script; apiRef: { current: PlayerApi | null }; onView: (v: PlayerView) => void; onEnded: () => void }) {
   const [view, setView] = useState<PlayerView>(EMPTY_VIEW);
@@ -84,10 +146,11 @@ function LiveShort({ sid, k, script, apiRef, onView, onEnded }: { sid: string; k
     apiRef.current?.refreshFills();
   }, [view.info, apiRef]);
   const ask = view.ask;
+  const gestures = useStageGestures(apiRef, boxRef);
   return (
     <div className="fstage">
       <div className="fbox" ref={wrapRef}>
-      <div className="stagebox" ref={boxRef} onClick={(e) => apiRef.current?.onStage(e.clientX, e.clientY)}>
+      <div className="stagebox" ref={boxRef} {...gestures}>
         <svg className="st" aria-hidden="true" ref={svgRef} />
         <div key={view.flash ? view.flash.n : 0} className={view.flash ? "flash on" : "flash"}>
           {view.flash && <Icon name={view.flash.name} />}
