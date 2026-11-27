@@ -420,6 +420,7 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
   const units: Record<string, UnitOf> = dict(ctx.units); // the unit each object's number carries, so a term that flies out of it keeps it
   const grid: Record<string, [number, number]> = dict(ctx.grid);
   const unseated: string[] = [], seenIds = new Set<string>(), live = new Map<string, number>(); // live: the row of each placed thing now on screen
+  let hintsMemo: Record<string, number> | null = null, linksMemo: [string, string][] | null = null; // the stage each thing names in its own caption (see stageHints) and the script's arrows, read once when a thing has no seat
   // the bars written without a name: over TIME they stand on the axis (the stage label names them)
   const axisBar: Record<string, boolean> = dict();
   for (const l of String(text || "").split("\n")) { const m = /^\s*bar\s+([A-Za-z_]\w*)\b(.*)$/.exec(l); if (m) axisBar[m[1]] = !/(^|\s)["“]/.test(m[2]); }
@@ -653,8 +654,26 @@ export function parseScript(text: string, ctx: Ctx = {}): Parsed {
       const me = life[id] || { a: n, b: Infinity, ord: 0 };
       const rT = reachT || (reachT = circleReach(String(text || ""), reach)), upOf = (k: string) => Math.max(UP, rT[k] ? rT[k].up : UP), downOf = (k: string) => Math.max(DOWN, rT[k] ? rT[k].down : DOWN);
       const worked = acts.flatMap((x) => [x.id, x.from, x.to]).filter((k): k is string => typeof k === "string" && !!grid[k]);
-      const near = worked.length ? worked[worked.length - 1] : Array.from(live.keys()).filter((k) => grid[k]).pop();
-      const xs = TIME_XS[(stages || []).length] || TIME_XS[4], x0 = near ? grid[near][0] : xs[0], yNear = near ? grid[near][1] : 0;
+      let near = worked.length ? worked[worked.length - 1] : Array.from(live.keys()).filter((k) => grid[k]).pop();
+      const xs = TIME_XS[(stages || []).length] || TIME_XS[4];
+      // Its own words and its own number come before "whatever came last": a caption that names a stage puts the thing in that stage, and a pillar is
+      // numbered with the pillar or the stage it belongs to ("c1" beside "e1", "c5" at "5년차"). A pillar then goes by the pillar of its column.
+      const hintsT = hintsMemo || (hintsMemo = stageHints(String(text || ""), stages || []));
+      let xOwn: number | null = hintsT[id] != null && xs[hintsT[id]] != null ? xs[hintsT[id]] : null;
+      const tail = (k: string) => (/(\d+)$/.exec(k) || [])[1];
+      if (xOwn == null && type === "bar" && tail(id) != null) {
+        const sib = Array.from(new Set(Object.keys(grid).filter((k) => k !== id && axisBar[k] != null && tail(k) === tail(id)).map((k) => grid[k][0])));
+        const lab = (stages || []).map((l, j) => (new RegExp(`(^|\\D)${tail(id)}(\\D|$)`).test(String(l)) ? j : -1)).filter((j) => j >= 0);
+        if (sib.length === 1) xOwn = sib[0]; else if (!sib.length && lab.length === 1) xOwn = xs[lab[0]] ?? null;
+      }
+      if (xOwn != null && type === "bar") { const own = Object.keys(grid).filter((k) => grid[k][0] === xOwn && axisBar[k] != null).sort((p, q) => grid[p][1] - grid[q][1]).pop(); if (own) near = own; }
+      // An arrow runs on in time: what a seated thing points at stands one stage later (what points at it, one stage earlier), level with it when that place is free.
+      if (xOwn == null) {
+        const links = linksMemo || (linksMemo = linksOf(String(text || ""))), at = (k: string) => xs.indexOf(grid[k][0]), cols = new Map<number, string>();
+        links.forEach(([p, q]) => { if (q === id && grid[p] && at(p) >= 0 && at(p) + 1 < xs.length) cols.set(xs[at(p) + 1], p); if (p === id && grid[q] && at(q) > 0) cols.set(xs[at(q) - 1], q); });
+        if (cols.size === 1) { xOwn = Array.from(cols.keys())[0]; near = cols.get(xOwn); }
+      }
+      const x0 = xOwn != null ? xOwn : near ? grid[near][0] : xs[0], yNear = near ? grid[near][1] : 0;
       // pillars with no name in the bottom row stand on the axis: nothing may sit under them, or the axis drops away and they float.
       // Then a thing that finds no place above them in its column takes the nearest column that has one.
       const ys0 = Object.keys(grid).map((k) => grid[k][1]), feet = Object.keys(grid).filter((k) => axisBar[k] && grid[k][1] === Math.max(...ys0));
