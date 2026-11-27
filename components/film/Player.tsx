@@ -341,7 +341,7 @@ function Watch({ sid, k, sh }: PlayerProps & { sh: LoadedShort }) {
  * 한 편을 보는 동안 한 번만 시작한다. 다른 것을 만드는 중이면 그것이 끝난 뒤에 시작하고, 사람이 다른 만들기를 누르면 자리를 내준다 (gen.ts).
  * 그리는 것은 없다. 만들기 상태가 바뀔 때 재생기 전체가 다시 그려지지 않게 따로 둔 것이다.
  */
-function Ahead({ sid, k, due }: PlayerProps & { due: boolean }) {
+export function Ahead({ sid, k, due }: PlayerProps & { due: boolean }) {
   const gen = useGen();
   const tried = useRef(false);
   const can = gen.avail === "ok" && !gen.busy;
@@ -356,7 +356,7 @@ function Ahead({ sid, k, due }: PlayerProps & { due: boolean }) {
 }
 
 /** 보기 설정 바텀 시트: 속도, 영상 디자인, 소리를 칩으로 고른다 (확정안의 설정 시트) */
-function Settings({ api, onClose }: { api: RefObject<PlayerApi | null>; onClose: () => void }) {
+export function Settings({ api, onClose }: { api: RefObject<PlayerApi | null>; onClose: () => void }) {
   useFilmStore();
   const prefs = getPrefs();
   const sheetRef = useRef<HTMLDivElement>(null);

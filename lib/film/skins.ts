@@ -19,6 +19,12 @@ export const SKINS: Record<string, Skin> = Object.assign(Object.create(null) as 
     primary: "#0A5FC2", soft: "#C9E2FF", accent: "#FFD43B", good: "#1286F0", bad: "#F2241B", white: "#FFFFFF", // only the seven colours of Design F: "good" is its bright blue, "bad" its red
     font: FONT, radius: 28, stroke: 8, deco: "none", audio: { bpm: 100, root: 62, mode: "major", lead: "mallet", drums: "soft" },
   },
+  // Design B: ink and paper, one colour (green, meaning "what counts"); no marker yellow, no red, cool light paper
+  ink: {
+    id: "ink", name: "잉크", dark: false, bg: "#EEF0F3", card: "#FFFFFF", ink: "#111318", sub: "#4A4F5A", grey: "#B8BDC6", line: "#DADDE3",
+    primary: "#1DB86F", soft: "#D3F3E2", accent: "#BDEFD4", good: "#1DB86F", bad: "#111318", white: "#FFFFFF",
+    font: FONT, radius: 14, stroke: 7, deco: "none", audio: { bpm: 120, root: 62, mode: "major", lead: "sine", drums: "soft" },
+  },
   // Design D: white paper with a dot grid
   note: {
     id: "note", name: "노트", dark: false, bg: "#FFFFFF", card: "#F5F7FA", ink: "#16171A", sub: "#5A5F69", grey: "#C3C7CF", line: "#E4E7EC",

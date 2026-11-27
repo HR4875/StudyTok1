@@ -7,7 +7,7 @@ import { entryOf, getSeries, unsavedMade, useFilmStore } from "@/lib/film/store"
 import { installPressFx } from "./fx";
 import HomeView from "./HomeView";
 import MakeView from "./MakeView";
-import Player from "./Player";
+import FeedView from "./FeedView";
 import PriceView from "./PriceView";
 import SeriesView from "./SeriesView";
 
@@ -126,7 +126,7 @@ export default function FilmApp() {
           <HomeView paused={!!watch} />
         )}
       </div>
-      {watch ? <Player key={watch.sid + "-" + watch.k} sid={watch.sid} k={watch.k} /> : null}
+      {watch ? <FeedView key={watch.sid} sid={watch.sid} k={watch.k} /> : null}
     </div>
   );
 }

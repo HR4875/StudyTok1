@@ -270,3 +270,10 @@ html:has(.film), body:has(.film) { background: #F4F3EF; color-scheme: light; }
   .film .phone .tag .long { display: none; }
   .film .heroplay { gap: 14px; }
 }
+
+/* ---------- 홈 (11/27): 기존 시작 화면처럼 한 화면. 띠 · 업로드 트랙 · 미리보기 · 주 버튼 둘 ---------- */
+.film .home { display: flex; flex-direction: column; min-height: calc(100dvh - 56px); }
+.film .sec.hero { margin-top: 28px; }
+.film .sec.hero > h2 { font-size: 22px; }
+.film .phone.big { width: 62%; max-width: 260px; margin: 14px auto 0; }
+.film .home .home-cta { margin-top: auto; padding-top: 28px; }

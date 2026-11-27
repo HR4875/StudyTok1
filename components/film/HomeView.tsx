@@ -1,9 +1,8 @@
 "use client";
-// 홈: 제목 띠, 업로드 트랙, 움직이는 미리보기, 시리즈 트랙, 맛보기, 지금 되는 것
-import { useEffect, useRef, useState, type ReactNode } from "react";
+// 홈 (기존 시작 화면처럼 한 화면): 제목 띠, 업로드 트랙, 디자인 F 미리보기, 주 버튼 둘. 내가 만든 시리즈가 있으면 그 사이에
+import { useEffect, useRef, useState } from "react";
 import { createDirector, type Director, type FilmInfo } from "@/lib/film";
-import { HOST } from "@/lib/film/host";
-import { listSeries, loadShort, madeKs, sampleList, seenOf, totalOf, useFilmStore, type Series } from "@/lib/film/store";
+import { BRAND, listSeries, loadShort, madeKs, seenOf, totalOf, useFilmStore, type Series } from "@/lib/film/store";
 import { Section, trackLabel } from "./parts";
 import Still, { STILL_OPTS, posterTime } from "./Still";
 
@@ -28,9 +27,9 @@ function HeroStage({ sid, k, paused }: { sid: string; k: number; paused: boolean
     const svg = ref.current;
     if (!svg || !script) return;
     let live = true;
-    const dir = createDirector(svg, { fancy: false });
+    const dir = createDirector(svg, { fancy: true });
     dir
-      .load(script, STILL_OPTS)
+      .load(script, { ...STILL_OPTS, fancy: true, brand: BRAND })
       .then((info) => {
         if (!live) return;
         if (reducedMotion()) dir.seek(posterTime(info));
@@ -46,7 +45,7 @@ function HeroStage({ sid, k, paused }: { sid: string; k: number; paused: boolean
     if (!stage) return;
     const { dir, info } = stage;
     // 첫 바퀴는 둘째 장면에서 시작한다: 거기서부터 이미 볼 그림이 있다
-    const from = at.current ?? (info.beats[1] ? info.beats[1].t0 - 0.2 : 0);
+    const from = at.current ?? 0;
     dir.seek(Math.min(from, info.dur - 0.01));
     if (paused) return;
     let raf = 0;
@@ -91,23 +90,15 @@ function SeriesCard({ s }: { s: Series }) {
   );
 }
 
-const Fact = ({ b, children }: { b: string; children: ReactNode }) => (
-  <li>
-    <b>{b}</b>
-    {children}
-  </li>
-);
-
 export default function HomeView({ paused }: { paused: boolean }) {
   useFilmStore();
   const mine = listSeries("mine");
   const built = listSeries("built");
-  // 사람이 다듬은 편이 있으면 "그대로"라고 말하지 않는다
+  // 사람이 다듬은 편이면 "그대로"라고 말하지 않는다
   const touched = (e: unknown) => !!e && (e as { from?: string; edited?: boolean }).from === "built" && !!(e as { edited?: boolean }).edited;
   const heroEdited = touched(built.find((s) => s.id === "bino")?.shorts[1]);
-  const anyEdited = built.some((s) => Object.values(s.shorts).some(touched));
   return (
-    <>
+    <div className="home">
       {/* 제목 띠: 오션 블루 + 흰 글씨 STUDY T@K (확정안 시작 화면) */}
       <header className="band">
         <h1>
@@ -128,11 +119,27 @@ export default function HomeView({ paused }: { paused: boolean }) {
         <b>PDF 올리기</b>
         <span>전공책 PDF · 강의자료 · 주제 한 줄도 돼요</span>
       </a>
-      <div className="tags">
-        <span className="tagchip">60초 모션 쇼츠</span>
-        <span className="tagchip">보다가 직접 답해요</span>
-        <span className="label red">NEW</span>
-      </div>
+      <section className="sec hero">
+        <h2>이렇게 보여요</h2>
+        <a className="phone big" href="#w-bino-1" aria-label="예시 쇼츠 보기: 이항모형 1편">
+          <span className="in">
+            <HeroStage sid="bino" k={1} paused={paused} />
+          </span>
+          <span className="tag">
+            <b />
+            <span>{heroEdited ? "AI가 쓰고 사람이 다듬음" : "AI가 쓴 그대로"}</span>
+          </span>
+        </a>
+      </section>
+      {mine.length ? (
+        <Section title="내가 만든 시리즈">
+          <div className="cards">
+            {mine.map((s) => (
+              <SeriesCard key={s.id} s={s} />
+            ))}
+          </div>
+        </Section>
+      ) : null}
       <div className="home-cta">
         <a className="btn primary" href="#make">
           자료 올리기 →
@@ -141,83 +148,6 @@ export default function HomeView({ paused }: { paused: boolean }) {
           예시로 둘러보기
         </a>
       </div>
-      <Section title="이렇게 보여요" hint="전공책이나 자격증 교재를 올리면 한 편에 한 가지씩, 그림이 움직이며 설명해요.">
-        <div className="heroplay">
-          <a className="phone" href="#w-bino-1" aria-label="이항모형 1편 보기">
-            <span className="in">
-              <HeroStage sid="bino" k={1} paused={paused} />
-            </span>
-            <span className="tag">
-              <b />
-              <span>
-                {heroEdited ? "AI가 쓰고 사람이 다듬음" : "AI가 쓴 그대로"}
-                <span className="long"> 재생 중</span>
-              </span>
-            </span>
-          </a>
-          <ul className="facts">
-            <Fact b="60초">한 편에 딱 한 가지</Fact>
-            <Fact b="3문제">보는 중 한 번, 끝나고 두 번</Fact>
-            <Fact b="내 자료">전공 PDF도 자격증 교재도</Fact>
-          </ul>
-        </div>
-      </Section>
-      {mine.length ? (
-        <Section title="내가 만든 시리즈" hint="이 기기에만 저장돼요.">
-          <div className="cards">
-            {mine.map((s) => (
-              <SeriesCard key={s.id} s={s} />
-            ))}
-          </div>
-        </Section>
-      ) : null}
-      <Section title="바로 볼 수 있는 시리즈" hint={anyEdited ? "AI가 계획하고 쓴 대본이에요. 사람이 다듬은 편은 끝 화면에 적어 두었어요." : "AI가 계획하고 쓴 대본을 손대지 않고 그대로 실었어요."}>
-        <div className="cards">
-          {built.map((s) => (
-            <SeriesCard key={s.id} s={s} />
-          ))}
-        </div>
-      </Section>
-      <Section
-        title="한 편짜리 맛보기"
-        hint={
-          sampleList().some((x) => x.note)
-            ? "그릴 수 있는 그림의 종류를 보여 주는 본보기예요. 사람이 직접 썼거나, AI가 쓴 대본의 연출을 사람이 다듬었어요."
-            : "그릴 수 있는 그림의 종류를 보여 주려고 사람이 직접 쓴 본보기예요."
-        }
-      >
-        <div className="strip">
-          {sampleList().map((x) => (
-            <a key={x.k} className="tcard" href={"#w-ex-" + x.k}>
-              <div className="poster">
-                <Still sid="ex" k={x.k} />
-              </div>
-              <b>{x.label}</b>
-              <span>{x.kind}</span>
-            </a>
-          ))}
-        </div>
-      </Section>
-      <Section title="지금 되는 것">
-        <ul className="about">
-          <li>
-            <b>실제로 동작해요</b>
-            재생, 영상 속 질문에 답하기, 끝나고 푸는 문제, 속도와 디자인 바꾸기, 소리, 내 자료로 새 시리즈와 새 편 만들기.
-          </li>
-          <li>
-            <b>만들 때 쓰는 것</b>
-            {HOST.howMade}
-          </li>
-          <li>
-            <b>아직 없는 것</b>
-            로그인, 결제, 서버 저장. 본 기록과 만든 시리즈는 이 기기에만 남아요.
-          </li>
-        </ul>
-      </Section>
-      <footer className="foot">
-        <a href="#price">요금제 계획 보기</a>
-        <p className="fine">전공 PDF에서 만든 시리즈의 원본 자료는 싣지 않았고, 계획과 대본만 실었습니다.</p>
-      </footer>
-    </>
+    </div>
   );
 }
